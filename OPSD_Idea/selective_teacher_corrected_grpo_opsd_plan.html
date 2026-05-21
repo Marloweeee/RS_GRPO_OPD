@@ -1,0 +1,1621 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>BBox-SRPO：Sample-Routed OPSD 遥感定位实验计划</title>
+  <style>
+    :root {
+      --ink: #18202a;
+      --muted: #5f6975;
+      --line: #d9dee5;
+      --bg: #f7f8fa;
+      --panel: #ffffff;
+      --blue: #245f9f;
+      --green: #1d7452;
+      --red: #9a3b32;
+      --amber: #8a6218;
+      --code: #f0f3f6;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: var(--bg);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans SC", "Microsoft YaHei", Arial, sans-serif;
+      line-height: 1.62;
+    }
+
+    main {
+      max-width: 1160px;
+      margin: 0 auto;
+      padding: 40px 28px 64px;
+    }
+
+    header {
+      padding: 34px 0 22px;
+      border-bottom: 2px solid var(--line);
+    }
+
+    h1 {
+      margin: 0 0 12px;
+      font-size: 34px;
+      line-height: 1.18;
+      letter-spacing: 0;
+    }
+
+    h2 {
+      margin: 34px 0 14px;
+      font-size: 23px;
+      line-height: 1.28;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    h3 {
+      margin: 24px 0 10px;
+      font-size: 18px;
+      line-height: 1.35;
+    }
+
+    p { margin: 10px 0; }
+
+    ul, ol {
+      margin: 10px 0 10px 24px;
+      padding: 0;
+    }
+
+    li { margin: 5px 0; }
+
+    code {
+      padding: 1px 5px;
+      border-radius: 4px;
+      background: var(--code);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+      font-size: 0.94em;
+    }
+
+    pre {
+      overflow: auto;
+      margin: 12px 0;
+      padding: 14px 16px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--code);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 14px 0;
+      background: var(--panel);
+      border: 1px solid var(--line);
+    }
+
+    th, td {
+      padding: 10px 12px;
+      border: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background: #eef2f6;
+      font-weight: 700;
+    }
+
+    .lead {
+      max-width: 960px;
+      font-size: 17px;
+      color: #2c3540;
+    }
+
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 18px;
+    }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      min-height: 30px;
+      padding: 4px 10px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: var(--panel);
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .panel {
+      margin: 16px 0;
+      padding: 16px 18px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+    }
+
+    .note { border-left: 4px solid var(--blue); }
+    .success { border-left: 4px solid var(--green); }
+    .warning { border-left: 4px solid var(--amber); }
+    .risk { border-left: 4px solid var(--red); }
+    .formula { white-space: pre-wrap; }
+    .small { color: var(--muted); font-size: 14px; }
+
+    @media (max-width: 720px) {
+      main { padding: 24px 16px 48px; }
+      h1 { font-size: 27px; }
+      table { display: block; overflow-x: auto; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>BBox-SRPO：Sample-Routed OPSD 遥感定位实验计划</h1>
+      <p class="lead">
+        基于 SRPO 的 sample routing 思想，重新设计遥感 bbox grounding 的 OPSD 强化训练：
+        student 对同一图文 prompt 采样 8 个 bbox，几何 reward 判断轨迹质量；
+        高质量轨迹走 GRPO，低质量轨迹走 entropy-weighted OPSD / teacher correction；
+        teacher 不再无差别蒸馏所有样本，而只服务需要纠偏的样本。
+      </p>
+      <div class="meta">
+        <span class="tag">任务：遥感 referring bbox grounding</span>
+        <span class="tag">方法：BBox-SRPO / Sample-Routed OPSD</span>
+        <span class="tag">基础：OPSD + GRPO + SRPO routing</span>
+        <span class="tag">候选数：K=8</span>
+        <span class="tag">核心指标：greedy IoU@0.5</span>
+        <span class="tag">更新日期：2026-05-21</span>
+      </div>
+    </header>
+
+    <section>
+      <h2>1. 背景与关键观察</h2>
+      <p>
+        当前 student checkpoint 已经能在 8 次采样中产生明显优于 greedy 的 bbox。
+        这说明模型的候选空间中存在高质量定位结果，但单次策略没有稳定选择它们。
+      </p>
+      <table>
+        <thead>
+          <tr>
+            <th>设置</th>
+            <th>模型</th>
+            <th>是否使用 teacher</th>
+            <th>是否使用 GT 选择候选</th>
+            <th>IoU@0.5</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>greedy student</td>
+            <td>student checkpoint-80</td>
+            <td>否</td>
+            <td>否</td>
+            <td>0.6562</td>
+          </tr>
+          <tr>
+            <td>best-of-8 oracle</td>
+            <td>student checkpoint-80</td>
+            <td>否</td>
+            <td>是</td>
+            <td>0.7335</td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="panel success">
+        <strong>核心目标：</strong>
+        不是继续证明 best-of-8 上限高，而是让训练后的 <code>greedy student</code>
+        吸收高质量候选的偏好，使单次输出靠近 best-of-8 上限，并缩小 oracle gap。
+      </div>
+      <div class="panel warning">
+        <strong>主线纠正：</strong>
+        本实验的主方法是 <code>K=8 rollout + GRPO 组内优化 + SDPO/OPSD failed 轨迹教师纠偏</code>。
+        SFT/DPO 只作为离线诊断或历史误入分支，不作为主实验。
+      </div>
+    </section>
+
+    <section>
+      <h2>2. SRPO 给本工作的启发</h2>
+      <p>
+        SRPO 的核心是把 group-relative optimization 和 self-distillation 通过 sample routing 统一起来：
+        正确样本走 GRPO，错误样本借助 teacher/self-distillation 做 dense correction。
+        它强调不应把 GRPO 和蒸馏简单混在所有样本上，而应按样本质量选择监督信号。
+      </p>
+      <table>
+        <thead>
+          <tr>
+            <th>SRPO 论文思想</th>
+            <th>遥感 bbox grounding 中的对应设计</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>同一个 prompt 采样一组 rollout</td>
+            <td>每张遥感图和 referring expression 采样 8 个 bbox response</td>
+          </tr>
+          <tr>
+            <td>用 reward 判断正确 / 错误 rollout</td>
+            <td>用 IoU、中心偏移、面积比例、长宽比等几何 reward 评价 bbox</td>
+          </tr>
+          <tr>
+            <td>correct rollout route 到 GRPO</td>
+            <td>高 IoU 且高于组内均值的 bbox 用 GRPO 强化</td>
+          </tr>
+          <tr>
+            <td>incorrect rollout route 到 SDPO / teacher correction</td>
+            <td>低质量 bbox 用 hint teacher / OPSD 纠正坐标分布</td>
+          </tr>
+          <tr>
+            <td>teacher signal 做 entropy-aware dynamic weighting</td>
+            <td>坐标 digit 权重乘 teacher confidence，低熵 token 高权重，高熵 token 降权</td>
+          </tr>
+          <tr>
+            <td>避免所有样本同时混合 GRPO 和蒸馏</td>
+            <td>采用 sample routing：good 走 GRPO，failed 走 OPSD，ambiguous 弱更新或跳过</td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="panel warning">
+        <strong>不能照搬的地方：</strong>
+        SRPO 多用于文本 reasoning / tool use，正确性常接近二值；
+        遥感 bbox 的质量是连续值，不能只按 correct / incorrect 路由，必须引入 IoU 阈值和 reward margin。
+      </div>
+    </section>
+
+    <section>
+      <h2>3. 与原 OPSD / GRPO 的区别</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>方法</th>
+            <th>优点</th>
+            <th>问题</th>
+            <th>本实验中的处理</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>纯 OPSD</td>
+            <td>teacher hint 提供 dense token supervision，对坐标数字友好</td>
+            <td>可能干扰已经正确的 student rollout；teacher hint 过强会引入分布差异</td>
+            <td>只对 failed / low-quality 路由样本使用 teacher correction</td>
+          </tr>
+          <tr>
+            <td>纯 GRPO</td>
+            <td>直接优化几何 reward，保留 on-policy 性质</td>
+            <td>sequence-level reward 对坐标 token 纠错较粗；早期失败样本难学</td>
+            <td>高质量 rollout 走 GRPO，失败样本交给 teacher dense correction</td>
+          </tr>
+          <tr>
+            <td>简单混合 GRPO + OPSD</td>
+            <td>实现简单</td>
+            <td>所有 rollout 同时吃两种信号，可能优化目标冲突</td>
+            <td>作为消融对照，而不是主方法</td>
+          </tr>
+          <tr>
+            <td>BBox-SRPO</td>
+            <td>根据 rollout 质量路由监督信号，兼顾 reward alignment 与 teacher correction</td>
+            <td>需要稳定 routing、teacher entropy 估计和 correction rate 控制</td>
+            <td>本计划主实验</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>4. 核心算法：BBox-SRPO Routing</h2>
+      <p>对同一 prompt 采样 8 个 student bbox response：</p>
+      <pre>y1, y2, ..., y8</pre>
+      <p>计算每条轨迹的 geometry reward 和 IoU：</p>
+      <pre>r1, r2, ..., r8
+iou1, iou2, ..., iou8</pre>
+      <p>组内 baseline 和 advantage：</p>
+      <pre class="formula">mean_r = mean(r1...r8)
+std_r  = std(r1...r8)
+adv_i  = clip((r_i - mean_r) / (std_r + eps), -adv_clip, adv_clip)</pre>
+      <h3>路由规则</h3>
+      <pre class="formula">is_good_i =
+    valid_box_i
+    and iou_i >= tau_good
+    and reward_i >= mean_r
+
+is_failed_i =
+    (not valid_box_i)
+    or iou_i < tau_fail
+    or adv_i < -delta
+
+is_ambiguous_i =
+    not is_good_i and not is_failed_i</pre>
+      <table>
+        <thead>
+          <tr>
+            <th>路由类别</th>
+            <th>条件</th>
+            <th>训练信号</th>
+            <th>意图</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Good</td>
+            <td><code>IoU >= tau_good</code> 且 <code>reward >= group mean</code></td>
+            <td>GRPO 正向强化</td>
+            <td>保留 student 自己探索到的好 bbox</td>
+          </tr>
+          <tr>
+            <td>Failed</td>
+            <td><code>invalid</code>、<code>IoU < tau_fail</code> 或明显低于组内均值</td>
+            <td>GRPO 负向抑制 + entropy-weighted OPSD correction</td>
+            <td>压低错误轨迹，同时用 teacher dense signal 纠偏</td>
+          </tr>
+          <tr>
+            <td>Ambiguous</td>
+            <td>介于 good 和 failed 之间</td>
+            <td>弱 GRPO、低权重更新，或第一版跳过 teacher</td>
+            <td>避免强化“烂中较好”的不可靠 bbox</td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="panel note">
+        相比“高于组内均值即正样本”，BBox-SRPO 必须同时使用组内相对优势和绝对质量阈值。
+        这样能避免 8 个 rollout 全部很差时仍然强行强化其中相对较好的错误 bbox。
+      </div>
+    </section>
+
+    <section>
+      <h2>5. Teacher Correction 设计</h2>
+      <h3>5.1 teacher 信息来源优先级</h3>
+      <p>借鉴 SRPO 中 successful sibling 可作为 teacher information 的思想，teacher/correction target 的优先级如下：</p>
+      <pre class="formula">if group_best_iou >= tau_good:
+    correction_target = best sibling student rollout
+elif hint_teacher_available:
+    correction_target = hint teacher answer
+else:
+    correction_target = GT bbox JSON answer</pre>
+      <p>
+        这样可以优先保持 on-policy：student 自己探索出好 bbox 时，不直接用 GT 或 hint teacher 覆盖；
+        只有整组探索失败时才引入更强的 teacher/GT correction。
+      </p>
+
+      <h3>5.2 failed rollout 是否直接做 bad-prefix KD</h3>
+      <p>
+        对 bbox 来说，bad rollout 的错误通常集中在坐标数字 token。
+        如果直接在错误坐标前缀上做无权重 KD，teacher 可能在偏离真实 bbox 的前缀下给出噪声分布。
+        但 SRPO 的启发是：可以让 teacher 在 enriched context 下重评 failed trajectory，只要使用 entropy-aware weighting 控制噪声。
+      </p>
+      <div class="panel warning">
+        <strong>第一版建议：</strong>
+        failed rollout 进入 OPSD correction 时，必须使用 teacher entropy weighting；
+        不做未加权的 bad-prefix KD。
+      </div>
+
+      <h3>5.3 entropy-weighted OPSD</h3>
+      <pre class="formula">raw_w_t =
+    digit_position_weight_t
+    * exp(-beta_entropy * H_teacher_t)
+
+w_t = raw_w_t / mean(raw_w over valid correction tokens)</pre>
+      <table>
+        <thead>
+          <tr>
+            <th>组成</th>
+            <th>含义</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>digit_position_weight</code></td>
+            <td>坐标数字 token 权重，例如 norm-1000 下最多按 3 位数字加权。</td>
+          </tr>
+          <tr>
+            <td><code>exp(-beta_entropy * H_teacher)</code></td>
+            <td>teacher 越确定，权重越高；teacher 高熵位置自动降权。</td>
+          </tr>
+          <tr>
+            <td>batch/token normalization</td>
+            <td>保持 correction loss 的尺度稳定，避免动态权重改变整体学习率。</td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="panel success">
+        这与本地 OPSD 已有的 <code>uniform-entropy</code> / <code>linear-entropy</code> 思路一致，
+        但需要升级为 routing 后只在 failed/correction branch 使用，并对权重做归一化。
+      </div>
+    </section>
+
+    <section>
+      <h2>6. Reward 设计</h2>
+      <p>第一版沿用已在 best-of-8 eval 中验证过的几何 reward：</p>
+      <pre class="formula">reward =
+  0.10 * parse_ok
++ 0.10 * valid_box
++ 0.50 * IoU
++ 0.15 * center_score
++ 0.10 * area_ratio_score
++ 0.05 * aspect_ratio_score</pre>
+      <p>第二轮可加入阈值奖励作为消融：</p>
+      <pre class="formula">reward_v2 =
+  reward
++ 0.10 * 1[IoU > 0.5]
++ 0.05 * 1[IoU > 0.7]</pre>
+      <div class="panel note">
+        第一版仍建议使用连续 reward，避免训练早期过度依赖硬阈值。
+        阈值奖励主要用于加强 IoU@0.5 / IoU@0.7 指标对齐。
+      </div>
+    </section>
+
+    <section>
+      <h2>7. 训练目标</h2>
+      <h3>7.1 GRPO branch</h3>
+      <pre class="formula">L_grpo =
+  - mean_i [
+      min(
+        ratio_i * adv_i,
+        clip(ratio_i, 1 - eps, 1 + eps) * adv_i
+      )
+    ]</pre>
+      <p>其中：</p>
+      <pre class="formula">ratio_i = exp(logprob_new(y_i | x) - logprob_old(y_i | x))</pre>
+      <p>如果第一版工程上暂时拿不到 old logprob，可先做简化版本：</p>
+      <pre class="formula">L_pg = - mean_i [ stopgrad(adv_i) * logprob_student(y_i | x) ]</pre>
+
+      <h3>7.2 OPSD / SDPO correction branch</h3>
+      <pre class="formula">L_correction =
+  weighted_jsd_or_kl(
+    student_logits_on_failed_or_target,
+    teacher_logits_with_hint,
+    token_weights = entropy_weighted_digit_weights
+  )</pre>
+
+      <h3>7.3 总损失</h3>
+      <pre class="formula">L =
+  L_grpo_or_pg
++ lambda_sdpo      * L_entropy_weighted_sdpo_failed
++ beta_kl          * KL(student || reference_student)
++ lambda_format    * L_format</pre>
+      <table>
+        <thead>
+          <tr>
+            <th>损失项</th>
+            <th>启用对象</th>
+            <th>作用</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>L_grpo_or_pg</code></td>
+            <td>所有 rollout 或 good/failed 参与，ambiguous 可低权重</td>
+            <td>组内相对强化，good 增强、failed 压低</td>
+          </tr>
+          <tr>
+            <td><code>L_entropy_weighted_sdpo_failed</code></td>
+            <td>failed / correction branch</td>
+            <td>teacher 对错误或失败样本提供 dense 坐标纠偏</td>
+          </tr>
+          <tr>
+            <td><code>KL(student || reference)</code></td>
+            <td>所有训练样本</td>
+            <td>防止 RL 引起格式和语义漂移</td>
+          </tr>
+          <tr>
+            <td><code>L_format</code></td>
+            <td>格式样本或所有 bbox answer</td>
+            <td>维持 <code>{"bbox_2d":[...]}</code> 可解析输出</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>8. 分阶段实验路线</h2>
+      <h3>Stage 0：已完成，上限评估</h3>
+      <p>best-of-8 oracle 已证明 student 候选空间中有高质量 bbox。</p>
+
+      <h3>Stage 1：离线 8-Rollout Pool 与 Routing 分析</h3>
+      <p>对 train/val 生成 offline rollout pool，不直接改 trainer。</p>
+      <pre class="formula">student 原图 prompt -> sample 8 bbox responses
+保存 text / bbox / reward / IoU / advantage / route label / group statistics</pre>
+      <p>建议保存字段：</p>
+      <pre>{
+  "sample_id": "...",
+  "image": "...",
+  "prompt": "...",
+  "gt_bbox_norm": [x1, y1, x2, y2],
+  "rollouts": [
+    {
+      "rollout_id": 0,
+      "text": "...",
+      "bbox": [..],
+      "iou": 0.62,
+      "reward": 0.78,
+      "advantage": 1.21,
+      "route": "good",
+      "parse_ok": 1,
+      "valid_box": 1,
+      "center_score": 0.91,
+      "area_ratio_score": 0.84,
+      "aspect_ratio_score": 0.77
+    }
+  ],
+  "group_mean_reward": 0.51,
+  "group_std_reward": 0.16,
+  "group_best_id": 3,
+  "group_best_iou": 0.72,
+  "correction_source": "best_sibling"
+}</pre>
+      <p>必须统计：</p>
+      <ul>
+        <li>greedy IoU@0.5 / mIoU</li>
+        <li>best-of-8 IoU@0.5 / mIoU</li>
+        <li>random-one-of-8 IoU@0.5</li>
+        <li>good / failed / ambiguous route ratio</li>
+        <li>best sibling correction ratio</li>
+        <li>hint teacher / GT correction ratio</li>
+        <li>group reward std 分布</li>
+        <li>类别和目标面积分桶上的 oracle gap</li>
+      </ul>
+      <div class="panel success">
+        <strong>进入 Stage 2 的门槛：</strong>
+        train/val 上 best-of-8 比 greedy 至少高 5 个点 IoU@0.5；
+        good+failed 两类占比足够高，ambiguous 不应长期占绝大多数；
+        parse_rate / valid_rate 接近 1。
+      </div>
+
+      <h3>Stage 1 实测结果：已完成</h3>
+      <p>
+        已在 <code>rs_sub_dir/rs_train.jsonl</code> 上使用 student checkpoint-80 生成离线 8-rollout pool。
+        每个样本保留 8 个候选 bbox，并记录 bbox、reward、IoU、advantage、route label 和 group statistics。
+      </p>
+      <table>
+        <thead>
+          <tr>
+            <th>项目</th>
+            <th>结果</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>模型</td>
+            <td><code>/mnt/jfs/copilot/lhb/checkpoint/rs/rs-sd/gui-sd-4b_student_rs_full_legacy/v0-20260517-230632/checkpoint-80</code></td>
+          </tr>
+          <tr>
+            <td>训练集</td>
+            <td><code>/data/codes/gui_grounding/data/rs_sub_dir/rs_train.jsonl</code></td>
+          </tr>
+          <tr>
+            <td>输出目录</td>
+            <td><code>/data/codes/gui_grounding/data/rs_sub_dir/stage1_rollout_pool_legacy_ckpt80_train</code></td>
+          </tr>
+          <tr>
+            <td>样本数 / 候选数</td>
+            <td>1219 samples / 9752 candidates，K=8</td>
+          </tr>
+          <tr>
+            <td>采样配置</td>
+            <td><code>temperature=0.7</code>, <code>top_p=0.95</code>, <code>tau_good=0.5</code>, <code>tau_fail=0.3</code>, <code>delta=0.5</code></td>
+          </tr>
+          <tr>
+            <td>运行耗时</td>
+            <td>257.9 s</td>
+          </tr>
+        </tbody>
+      </table>
+      <table>
+        <thead>
+          <tr>
+            <th>指标</th>
+            <th>rollout0</th>
+            <th>best-of-8 oracle</th>
+            <th>gap</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>mIoU</td>
+            <td>0.5596</td>
+            <td>0.6394</td>
+            <td>+0.0799</td>
+          </tr>
+          <tr>
+            <td>IoU@0.5</td>
+            <td>0.6120</td>
+            <td>0.7055</td>
+            <td>+0.0935</td>
+          </tr>
+          <tr>
+            <td>IoU@0.7</td>
+            <td>0.4643</td>
+            <td>0.5726</td>
+            <td>+0.1083</td>
+          </tr>
+          <tr>
+            <td>parse / valid rate</td>
+            <td colspan="3">parse_rate=1.0000，valid_rate=1.0000</td>
+          </tr>
+          <tr>
+            <td>group reward std</td>
+            <td colspan="3">mean=0.0344，p50=0.0198</td>
+          </tr>
+        </tbody>
+      </table>
+      <table>
+        <thead>
+          <tr>
+            <th>Route</th>
+            <th>数量</th>
+            <th>比例</th>
+            <th>含义</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>good</td>
+            <td>3397</td>
+            <td>34.83%</td>
+            <td>可作为 GRPO 正向强化候选。</td>
+          </tr>
+          <tr>
+            <td>failed</td>
+            <td>4750</td>
+            <td>48.71%</td>
+            <td>需要负向抑制，并引入 teacher/GT correction。</td>
+          </tr>
+          <tr>
+            <td>ambiguous</td>
+            <td>1605</td>
+            <td>16.46%</td>
+            <td>不应强行 teacher correction；第一版弱更新或跳过。</td>
+          </tr>
+        </tbody>
+      </table>
+      <table>
+        <thead>
+          <tr>
+            <th>面积分桶</th>
+            <th>样本数</th>
+            <th>rollout0 IoU@0.5</th>
+            <th>best-of-8 IoU@0.5</th>
+            <th>gap</th>
+            <th>teacher/GT needed</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>large</td>
+            <td>498</td>
+            <td>0.8112</td>
+            <td>0.8675</td>
+            <td>+0.0562</td>
+            <td>13.25%</td>
+          </tr>
+          <tr>
+            <td>medium</td>
+            <td>281</td>
+            <td>0.6619</td>
+            <td>0.7616</td>
+            <td>+0.0996</td>
+            <td>23.84%</td>
+          </tr>
+          <tr>
+            <td>small</td>
+            <td>440</td>
+            <td>0.3545</td>
+            <td>0.4864</td>
+            <td>+0.1318</td>
+            <td>51.36%</td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="panel success">
+        <strong>Stage 1 结论：</strong>
+        8 次采样显著提升候选覆盖率，IoU@0.5 oracle gap 达到 9.35 个点；
+        good+failed 占 83.54%，ambiguous 仅 16.46%，parse/valid 均为 1.0。
+        因此下一步应直接验证在线 GRPO+SDPO，而不是转向 SFT/DPO 主线。
+      </div>
+      <div class="panel warning">
+        <strong>解释边界：</strong>
+        这里的 best-of-8 是使用 GT 几何 reward 选择候选的 oracle 统计，不是部署时无 GT 推理结果；
+        <code>rollout0</code> 是 <code>temperature=0.7</code> 下的第一个采样，不等同于严格 greedy。
+      </div>
+
+      <h3>Stage 2：在线 GRPO+SDPO smoke</h3>
+      <p>第一阶段已经证明 K=8 group 中存在可优化差异。Stage 2 不做 SFT/DPO 主实验，而是在真实 GRPO 训练 step 内验证。</p>
+      <table>
+        <thead>
+          <tr>
+            <th>子实验</th>
+            <th>训练构造</th>
+            <th>目的</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Stage 2A：Pure GRPO smoke</td>
+            <td><code>rlhf_type=grpo</code>, <code>num_generations=8</code>, reward=<code>bbox-geometry</code></td>
+            <td>验证本地 GRPO 对遥感 bbox reward 的可运行性和基础稳定性。</td>
+          </tr>
+          <tr>
+            <td>Stage 2B：GRPO+SDPO smoke</td>
+            <td>同一 batch 内 K=8 rollout 后，failed route 额外加 entropy-weighted teacher top-k KL / SDPO。</td>
+            <td>验证 teacher correction 能和 GRPO loss 同步反传，日志中出现 route ratio 与有限稳定的 <code>sdpo/loss</code>。</td>
+          </tr>
+          <tr>
+            <td>Stage 2C：短训 + rs_test 快评</td>
+            <td>从 checkpoint-80 初始化，1-10 step smoke 后立即跑 greedy eval。</td>
+            <td>输出 IoU@0.5、mIoU、parse/valid，确保方法不是只停留在离线 oracle。</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>Stage 2 实测结果：GRPO+SDPO smoke 已跑通</h3>
+      <p>
+        已纠正此前误入 SFT/DPO 的分支。当前有效实验均通过 <code>swift rlhf --rlhf_type grpo --use_sdpo true</code>
+        启动，使用 <code>--num_generations 8</code> 进行同 prompt 八轨迹 rollout，reward 为 <code>bbox-geometry</code>。
+        大任务均通过新的 tmux 窗口和 <code>brainctl rjob</code> 提交。
+      </p>
+      <table>
+        <thead>
+          <tr>
+            <th>轮次</th>
+            <th>运行名 / job</th>
+            <th>关键配置</th>
+            <th>训练稳定性</th>
+            <th>rs_test IoU@0.5</th>
+            <th>结论</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>rjob6</td>
+            <td><code>gui-sd-4b_rs_grpo_sdpo_smoke</code><br><code>ws-9a4bf4f58f4f5570-jlaunch-dnhsh</code></td>
+            <td><code>GRPO+SDPO</code>, K=8, <code>sdpo_target=rollout</code></td>
+            <td><code>sdpo/loss=4.88e36</code>，数值异常</td>
+            <td>0.6447</td>
+            <td>训练链路跑通，但 loss 记录/实现不可信，不能作为最终结论。</td>
+          </tr>
+          <tr>
+            <td>rjob7</td>
+            <td><code>gui-sd-4b_rs_grpo_sdpo_smoke_fixsdpo</code><br><code>ws-9a4bf4f58f4f5570-jlaunch-85s8k</code></td>
+            <td>修正 full-vocab JSD 的部分数值稳定性</td>
+            <td><code>sdpo/loss=-1.44e32</code>，仍异常</td>
+            <td>未作为有效结果记录</td>
+            <td>确认 full-vocab JSD 分支仍不适合作为当前 smoke 的 SDPO 实现。</td>
+          </tr>
+          <tr>
+            <td>rjob8</td>
+            <td><code>gui-sd-4b_rs_grpo_sdpo_smoke_topkkl</code><br><code>ws-9a4bf4f58f4f5570-jlaunch-88w52</code></td>
+            <td>改为 failed-route teacher top-k KL</td>
+            <td><code>sdpo/loss=5.66e30</code>，定位为 rank 间 dtype/零分支记录问题</td>
+            <td>0.6504</td>
+            <td>训练路径可运行，指标记录仍需修复；不作为最终有效轮。</td>
+          </tr>
+          <tr>
+            <td>rjob9</td>
+            <td><code>gui-sd-4b_rs_grpo_sdpo_smoke_topkkl_fixmetric</code><br><code>ws-9a4bf4f58f4f5570-jlaunch-cbx7h</code></td>
+            <td><code>GRPO+SDPO</code>, K=8, failed-only, teacher top-k KL, dtype/weight clipping 修复</td>
+            <td><code>sdpo/loss=0.03498588</code>，有限稳定；<code>grad_norm=3.5094</code></td>
+            <td><strong>0.6533</strong></td>
+            <td>当前有效 smoke：GRPO+SDPO 训练、checkpoint 保存、rs_test 评估全链路通过。</td>
+          </tr>
+          <tr>
+            <td>rjob10</td>
+            <td><code>gui-sd-4b_rs_grpo_sdpo_full_topkkl_fixmetric_s20</code><br><code>ws-9a4bf4f58f4f5570-jlaunch-6r44z</code></td>
+            <td><code>rs_train.jsonl</code> 全量 1219 条，<code>MAX_STEPS=20</code>，K=8，failed-only teacher top-k KL</td>
+            <td><code>sdpo/loss</code> 始终为有限小数，训练完成并保存 <code>checkpoint-20</code></td>
+            <td><strong>0.6590</strong></td>
+            <td>全量训练数据多步验证通过；相对 checkpoint-80 greedy baseline 有小幅提升，但尚未证明方法已充分收敛。</td>
+          </tr>
+        </tbody>
+      </table>
+      <table>
+        <thead>
+          <tr>
+            <th>rjob9 指标</th>
+            <th>数值</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>checkpoint</td>
+            <td><code>/mnt/jfs/copilot/lhb/checkpoint/rs/rs-sd/gui-sd-4b_rs_grpo_sdpo_smoke_topkkl_fixmetric/v0-20260519-134601/checkpoint-1</code></td>
+          </tr>
+          <tr>
+            <td>summary</td>
+            <td><code>/data/codes/gui_grounding/data/rs_sub_dir/eval_gui-sd-4b_rs_grpo_sdpo_smoke_topkkl_fixmetric/checkpoint-1/summary.json</code></td>
+          </tr>
+          <tr>
+            <td>训练 reward / reward_std</td>
+            <td>0.7079 / 0.0630</td>
+          </tr>
+          <tr>
+            <td>routing ratio</td>
+            <td>good=0.0000，failed=0.2500，ambiguous=0.7500</td>
+          </tr>
+          <tr>
+            <td>SDPO loss</td>
+            <td>0.03498588</td>
+          </tr>
+          <tr>
+            <td>rs_test n</td>
+            <td>349</td>
+          </tr>
+          <tr>
+            <td>mIoU / IoU@0.5 / IoU@0.7</td>
+            <td>0.5790 / <strong>0.6533</strong> / 0.4728</td>
+          </tr>
+          <tr>
+            <td>parse_rate / valid_rate</td>
+            <td>1.0000 / 1.0000</td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="panel warning">
+        <strong>Stage 2 解释：</strong>
+        rjob9 是 1-step smoke，主要证明在线 K=8 GRPO+SDPO 实现可运行且 SDPO loss 稳定；
+        其 IoU@0.5=0.6533 与 checkpoint-80 greedy baseline 0.6562 基本持平，尚未证明性能提升。
+        rjob10 进一步证明在全量 <code>rs_train.jsonl</code> 上进行 20-step 在线训练时，数值稳定性和保存/评测链路均正常。
+        但 rjob10 的 IoU@0.5=0.6590 只比 baseline 0.6562 高 0.0028，仍需要 Pure GRPO / OPSD 同预算对照和更长训练判断 routing 是否能真正缩小 best-of-8 oracle gap。
+      </div>
+
+      <h3>Stage 2D 实测结果：全量训练数据 20-step GRPO+SDPO</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>项目</th>
+            <th>结果</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>提交方式</td>
+            <td>新 tmux window <code>grpo_sdpo_full_s20</code> 中通过 <code>brainctl rjob</code> 提交</td>
+          </tr>
+          <tr>
+            <td>job / 节点</td>
+            <td><code>ws-9a4bf4f58f4f5570-jlaunch-6r44z</code> / <code>gpu-a800-0026.host.platform.shaipower.com</code></td>
+          </tr>
+          <tr>
+            <td>训练数据</td>
+            <td><code>/data/codes/gui_grounding/data/rs_sub_dir/rs_train.jsonl</code>，1219 条</td>
+          </tr>
+          <tr>
+            <td>评测数据</td>
+            <td><code>/data/codes/gui_grounding/data/rs_sub_dir/rs_test.jsonl</code>，349 条</td>
+          </tr>
+          <tr>
+            <td>关键训练配置</td>
+            <td><code>rlhf_type=grpo</code>, <code>use_sdpo=true</code>, <code>num_generations=8</code>, <code>sdpo_only_failed=true</code>, <code>MAX_STEPS=20</code>, <code>reward_funcs=bbox-geometry</code></td>
+          </tr>
+          <tr>
+            <td>checkpoint</td>
+            <td><code>/mnt/jfs/copilot/lhb/checkpoint/rs/rs-sd/gui-sd-4b_rs_grpo_sdpo_full_topkkl_fixmetric_s20/v0-20260519-140332/checkpoint-20</code></td>
+          </tr>
+          <tr>
+            <td>summary</td>
+            <td><code>/data/codes/gui_grounding/data/rs_sub_dir/eval_gui-sd-4b_rs_grpo_sdpo_full_topkkl_fixmetric_s20/checkpoint-20/summary.json</code></td>
+          </tr>
+          <tr>
+            <td>训练稳定性</td>
+            <td><code>sdpo/loss</code> 从 0.0396 到 0.0568，20 step 内保持有限小数；<code>train_loss=0.02013237</code>，训练正常结束</td>
+          </tr>
+          <tr>
+            <td>路由覆盖</td>
+            <td>20 step 中 good / failed / ambiguous 均被触发；第 20 step routing 为 good=0.5000，failed=0.3750，ambiguous=0.1250</td>
+          </tr>
+          <tr>
+            <td>mIoU / IoU@0.5 / IoU@0.7</td>
+            <td>0.5844 / <strong>0.6590</strong> / 0.4928</td>
+          </tr>
+          <tr>
+            <td>parse_rate / valid_rate</td>
+            <td>1.0000 / 1.0000</td>
+          </tr>
+          <tr>
+            <td>相对 baseline</td>
+            <td>比 checkpoint-80 greedy baseline 0.6562 高 0.0028；比 rjob9 1-step smoke 0.6533 高 0.0057</td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="panel success">
+        <strong>阶段结论：</strong>
+        rjob10 已经完成从全量训练数据采样、在线 K=8 GRPO、failed-route SDPO 教师纠偏、checkpoint 保存到 greedy student 评测的闭环。
+        当前最重要的证据是训练稳定性成立；性能提升幅度仍小，下一步需要同预算 Pure GRPO 和更长 step 的 GRPO+SDPO 曲线验证。
+      </div>
+
+      <h3>Stage 2E 实测结果：Qwen3-VL-8B 全量 2 epoch 验证</h3>
+      <p>
+        2026-05-20 进一步在全量训练数据上跑了两个 2 epoch 实验：
+        一个从已有遥感 checkpoint-80 继续做 GRPO+SRPO/SDPO，
+        一个直接从 <code>Qwen3-VL-8B-Instruct</code> base model 出发做同样的 sample-routed self-distillation。
+        两个实验均在独立 tmux 窗口中通过 <code>brainctl launch</code> 挂载 8xA800 worker 运行，
+        使用 <code>zero3</code>、<code>teacher_deepspeed=zero3</code> 和 <code>offload_teacher_model=true</code> 保持训练稳定。
+      </p>
+      <table>
+        <thead>
+          <tr>
+            <th>实验</th>
+            <th>初始化模型</th>
+            <th>训练配置</th>
+            <th>checkpoint / summary</th>
+            <th>mIoU</th>
+            <th>IoU@0.5</th>
+            <th>IoU@0.7</th>
+            <th>parse / valid</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>ck80 继续 GRPO+SRPO/SDPO</td>
+            <td><code>gui-sd-4b_student_rs_full_legacy/.../checkpoint-80</code></td>
+            <td><code>num_train_epochs=2</code>, K=8, failed-only teacher top-k KL, entropy-weighted digit correction</td>
+            <td>
+              <code>/mnt/jfs/copilot/lhb/checkpoint/rs/rs-sd/gui-sd-qwen3-8b-ck80_rs_grpo_sdpo_full_topkkl_e2_zero3_offload_r1/v0-20260520-121830/checkpoint-348</code><br>
+              <code>/data/codes/gui_grounding/data/rs_sub_dir/eval_gui-sd-qwen3-8b-ck80_rs_grpo_sdpo_full_topkkl_e2_zero3_offload_r1/checkpoint-348/summary.json</code>
+            </td>
+            <td><strong>0.6216</strong></td>
+            <td><strong>0.7020</strong></td>
+            <td><strong>0.5473</strong></td>
+            <td>1.0000 / 1.0000</td>
+          </tr>
+          <tr>
+            <td>base 直接 GRPO+SRPO/SDPO</td>
+            <td><code>/mnt/jfs/copilot/lhb/checkpoint/opensource/Qwen3-VL-8B-Instruct</code></td>
+            <td><code>num_train_epochs=2</code>, K=8, failed-only teacher top-k KL, entropy-weighted digit correction</td>
+            <td>
+              <code>/mnt/jfs/copilot/lhb/checkpoint/rs/rs-sd/gui-sd-qwen3-8b-base_rs_grpo_srpo_full_topkkl_e2_zero3_offload_r1/v0-20260520-121830/checkpoint-348</code><br>
+              <code>/data/codes/gui_grounding/data/rs_sub_dir/eval_gui-sd-qwen3-8b-base_rs_grpo_srpo_full_topkkl_e2_zero3_offload_r1/checkpoint-348/summary.json</code>
+            </td>
+            <td>0.6114</td>
+            <td>0.6791</td>
+            <td>0.5444</td>
+            <td>1.0000 / 1.0000</td>
+          </tr>
+        </tbody>
+      </table>
+      <table>
+        <thead>
+          <tr>
+            <th>对照项</th>
+            <th>mIoU</th>
+            <th>IoU@0.5</th>
+            <th>IoU@0.7</th>
+            <th>解释</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>checkpoint-80 greedy baseline</td>
+            <td>0.5800</td>
+            <td>0.6562</td>
+            <td>0.4842</td>
+            <td>训练前下界。</td>
+          </tr>
+          <tr>
+            <td>20-step GRPO+SDPO</td>
+            <td>0.5844</td>
+            <td>0.6590</td>
+            <td>0.4928</td>
+            <td>证明全量在线训练链路稳定，但提升有限。</td>
+          </tr>
+          <tr>
+            <td>1 epoch ck80 继续训练</td>
+            <td>0.6155</td>
+            <td>0.6905</td>
+            <td>0.5215</td>
+            <td>首次出现清晰性能提升。</td>
+          </tr>
+          <tr>
+            <td>2 epoch ck80 继续训练</td>
+            <td><strong>0.6216</strong></td>
+            <td><strong>0.7020</strong></td>
+            <td><strong>0.5473</strong></td>
+            <td>当前最好正常训练结果；相比 1 epoch 仍继续提升。</td>
+          </tr>
+          <tr>
+            <td>2 epoch base 直接训练</td>
+            <td>0.6114</td>
+            <td>0.6791</td>
+            <td>0.5444</td>
+            <td>说明 base 直接走 GRPO+SRPO/SDPO 可行，但整体仍弱于先有 RS checkpoint 后继续自蒸馏。</td>
+          </tr>
+          <tr>
+            <td>checkpoint-80 best-of-8 oracle</td>
+            <td>0.6502</td>
+            <td>0.7335</td>
+            <td>0.5874</td>
+            <td>单次 greedy 仍有可压缩空间。</td>
+          </tr>
+          <tr>
+            <td>2 epoch ck80 继续训练后 best-of-8 oracle</td>
+            <td><strong>0.6919</strong></td>
+            <td><strong>0.7736</strong></td>
+            <td><strong>0.6705</strong></td>
+            <td>不仅 greedy 变强，K=8 候选空间上限也继续抬升。</td>
+          </tr>
+        </tbody>
+      </table>
+      <table>
+        <thead>
+          <tr>
+            <th>best-of-8 验证</th>
+            <th>路径 / 参数</th>
+            <th>结果</th>
+            <th>结论</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>checkpoint-348 K=8 oracle</td>
+            <td>
+              <code>/mnt/jfs/copilot/lhb/checkpoint/rs/rs-sd/gui-sd-qwen3-8b-ck80_rs_grpo_sdpo_full_topkkl_e2_zero3_offload_r1/v0-20260520-121830/checkpoint-348</code><br>
+              <code>/data/codes/gui_grounding/data/rs_sub_dir/eval_bestof8_qwen3_8b_ck80_grpo_sdpo_e2_checkpoint348_gpu075/summary.json</code><br>
+              <code>TP=2, K=8, temperature=0.7, top_p=0.95, GPU_MEM_UTIL=0.75</code>
+            </td>
+            <td>
+              mIoU=0.6919, IoU@0.5=0.7736, IoU@0.7=0.6705,
+              parse_rate=1.0000, valid_rate=1.0000
+            </td>
+            <td>
+              相比 checkpoint-80 best-of-8：
+              mIoU +0.0417，IoU@0.5 +0.0401，IoU@0.7 +0.0831。
+            </td>
+          </tr>
+          <tr>
+            <td>运行备注</td>
+            <td>
+              <code>rs_bestof8_ck80_e2_eval</code> tmux 窗口；
+              <code>rs-bestof8-ck80-e2-gpu075-20260520-155745</code> rjob。
+            </td>
+            <td>
+              第一次 <code>GPU_MEM_UTIL=0.85</code> 在 512/2792 prompts 处 CUDA OOM；
+              降到 <code>0.75</code> 后完整处理 2792/2792 candidates。
+            </td>
+            <td>
+              后续 best-of-N 评测建议默认沿用 <code>GPU_MEM_UTIL=0.75</code>，避免 vLLM 过度分配 KV cache。
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="panel success">
+        <strong>2 epoch 结论：</strong>
+        从 checkpoint-80 继续做 sample-routed GRPO+SDPO 后，
+        greedy mIoU 从 0.5800 提升到 0.6216，IoU@0.5 从 0.6562 提升到 0.7020，IoU@0.7 从 0.4842 提升到 0.5473。
+        这说明“按 rollout 对错分级路由监督信号”不仅能跑通，而且在充分训练后能稳定提升单次 greedy 定位质量。
+      </div>
+      <div class="panel note">
+        <strong>解释边界：</strong>
+        这组结果已经支持方法有效，但还不能单独证明 routing 一定优于所有替代方案。
+        仍需同等 2 epoch 预算下的 Pure GRPO、无 SDPO、无 entropy weighting、简单混合 GRPO+OPSD 等消融，
+        才能把提升明确归因到 sample routing 和 entropy-weighted teacher correction。
+      </div>
+
+      <h3>Stage 2F 实测结果：rs_full 全量 1 epoch 运行</h3>
+      <p>
+        2026-05-21 已拿到 <code>rs_full</code> 全量数据集运行结果。
+        这组结果使用 <code>n=3481</code> 的全量评测集做 student greedy eval：
+        <code>num_rollouts=1</code>、<code>rollout_temperature=0.0</code>，因此不是 teacher 结果，也不是 best-of-8 oracle。
+      </p>
+      <table>
+        <thead>
+          <tr>
+            <th>tmux / run</th>
+            <th>初始化</th>
+            <th>checkpoint / summary</th>
+            <th>mIoU</th>
+            <th>IoU@0.5</th>
+            <th>IoU@0.7</th>
+            <th>parse / valid</th>
+            <th>结论</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>
+              <code>rsfull_base_grpo_srpo_e1</code><br>
+              <code>gui-sd-qwen3-8b-base_rsfull_grpo_srpo_topkkl_e1_zero3_offload_r1</code>
+            </td>
+            <td><code>Qwen3-VL-8B-Instruct</code> base</td>
+            <td>
+              <code>/mnt/jfs/copilot/lhb/checkpoint/rs/rs-sd/gui-sd-qwen3-8b-base_rsfull_grpo_srpo_topkkl_e1_zero3_offload_r1/v0-20260520-165157/checkpoint-1740</code><br>
+              <code>/data/codes/gui_grounding/data/rs_full/eval_gui-sd-qwen3-8b-base_rsfull_grpo_srpo_topkkl_e1_zero3_offload_r1/checkpoint-1740/summary.json</code>
+            </td>
+            <td>0.6817</td>
+            <td><strong>0.7670</strong></td>
+            <td>0.6421</td>
+            <td>1.0000 / 1.0000</td>
+            <td>从 base 出发也能通过全量 GRPO+SRPO 训练获得较强 greedy 定位能力。</td>
+          </tr>
+          <tr>
+            <td>
+              <code>rsfull_ck80_grpo_sdpo_e1</code><br>
+              <code>gui-sd-qwen3-8b-ck80_rsfull_grpo_sdpo_topkkl_e1_zero3_offload_r1</code>
+            </td>
+            <td><code>checkpoint-80</code> RS 初始化</td>
+            <td>
+              <code>/mnt/jfs/copilot/lhb/checkpoint/rs/rs-sd/gui-sd-qwen3-8b-ck80_rsfull_grpo_sdpo_topkkl_e1_zero3_offload_r1/v0-20260520-164016/checkpoint-1740</code><br>
+              <code>/data/codes/gui_grounding/data/rs_full/eval_gui-sd-qwen3-8b-ck80_rsfull_grpo_sdpo_topkkl_e1_zero3_offload_r1/checkpoint-1740/summary.json</code>
+            </td>
+            <td><strong>0.6859</strong></td>
+            <td><strong>0.7759</strong></td>
+            <td><strong>0.6487</strong></td>
+            <td>1.0000 / 1.0000</td>
+            <td>当前 rs_full 全量 greedy 最好结果；ck80 初始化优于 base 初始化。</td>
+          </tr>
+        </tbody>
+      </table>
+      <table>
+        <thead>
+          <tr>
+            <th>对比项</th>
+            <th>mIoU 差值</th>
+            <th>IoU@0.5 差值</th>
+            <th>IoU@0.7 差值</th>
+            <th>解释</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>ck80 初始化 - base 初始化</td>
+            <td><strong>+0.0042</strong></td>
+            <td><strong>+0.0089</strong></td>
+            <td><strong>+0.0066</strong></td>
+            <td>
+              在相同 <code>rs_full</code> 全量评测条件下，已有 RS checkpoint 提供了更好的起点；
+              sample-routed GRPO+SDPO 继续训练后，单次 greedy 输出质量高于从 base 直接训练。
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="panel success">
+        <strong>全量结果结论：</strong>
+        <code>rs_full</code> 全量 1 epoch 后，best student greedy 结果达到
+        mIoU=0.6859、IoU@0.5=0.7759、IoU@0.7=0.6487。
+        这比前面小规模/短步数验证更有说服力，说明当前路线不仅是 smoke 可行，
+        在全量数据训练和全量评测上也能取得明确可用的定位性能。
+      </div>
+
+      <h3>Stage 2G 实测结果：base-rsfull-e1 checkpoint 的 rs_full best-of-8 oracle</h3>
+      <p>
+        为判断全量训练后候选空间上限是否继续上移，使用
+        <code>gui-sd-qwen3-8b-base_rsfull_grpo_srpo_topkkl_e1_zero3_offload_r1</code>
+        的 <code>checkpoint-1740</code> 在 <code>rs_full/rs_test.jsonl</code> 上做 K=8 oracle 评测。
+        评测参数为 <code>num_rollouts=8</code>、<code>temperature=0.7</code>、<code>top_p=0.95</code>，
+        每个 prompt 按 geometry reward 从 8 个候选中选择 best candidate。
+      </p>
+      <table>
+        <thead>
+          <tr>
+            <th>项目</th>
+            <th>结果</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>tmux / rjob</td>
+            <td><code>rsfull_base_e1_bestof8</code> / <code>ws-9a4bf4f58f4f5570-jlaunch-gmbmq</code></td>
+          </tr>
+          <tr>
+            <td>模型</td>
+            <td><code>/mnt/jfs/copilot/lhb/checkpoint/rs/rs-sd/gui-sd-qwen3-8b-base_rsfull_grpo_srpo_topkkl_e1_zero3_offload_r1/v0-20260520-165157/checkpoint-1740</code></td>
+          </tr>
+          <tr>
+            <td>评测集</td>
+            <td><code>/data/codes/gui_grounding/data/rs_full/rs_test.jsonl</code>，3481 条</td>
+          </tr>
+          <tr>
+            <td>summary</td>
+            <td><code>/data/codes/gui_grounding/data/rs_full/eval_bestof8_qwen3_8b_base_rsfull_grpo_srpo_e1_checkpoint1740_gpu075/summary.json</code></td>
+          </tr>
+          <tr>
+            <td>推理设置</td>
+            <td><code>TP=2</code>, <code>GPU_MEM_UTIL=0.75</code>, <code>EVAL_BATCH_SIZE=256</code>, <code>K=8</code></td>
+          </tr>
+          <tr>
+            <td>mIoU / IoU@0.5 / IoU@0.7</td>
+            <td><strong>0.7419 / 0.8285 / 0.7234</strong></td>
+          </tr>
+          <tr>
+            <td>parse_rate / valid_rate</td>
+            <td>1.0000 / 1.0000</td>
+          </tr>
+          <tr>
+            <td>相对同 checkpoint greedy</td>
+            <td>
+              greedy 为 mIoU=0.6817、IoU@0.5=0.7670、IoU@0.7=0.6421；
+              best-of-8 oracle 分别提升 +0.0602 / +0.0615 / +0.0813。
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="panel success">
+        <strong>oracle 结论：</strong>
+        全量 base-rsfull-e1 checkpoint 的 K=8 oracle 达到 IoU@0.5=0.8285，
+        明显高于同 checkpoint greedy 的 0.7670，也高于前面已记录的 ck80 全量 greedy 0.7759。
+        这说明全量训练后的候选空间上限继续上移，后续仍有把 best-of-8 能力压缩回单次 greedy 输出的空间。
+      </div>
+
+      <h3>Stage 3：正式在线 BBox-SRPO / Sample-Routed OPSD</h3>
+      <p>最终版本在训练过程中实时采样并路由：</p>
+      <pre class="formula">1. 对每个 prompt 采样 K=8 个 student bbox response
+2. 解析 bbox，计算 geometry reward 和 IoU
+3. 组内 advantage normalization
+4. 根据 good / failed / ambiguous 做 sample routing
+5. good route 到 GRPO
+6. failed route 到 entropy-weighted OPSD correction
+7. correction target 优先 best sibling，其次 hint teacher，最后 GT answer
+8. 加 KL/reference 和 format loss
+9. 监控 routing ratio、teacher entropy、greedy metric、oracle gap</pre>
+
+      <h3>Stage 4 设想：迭代式自蒸馏与 checkpoint bootstrapping</h3>
+      <p>
+        当前实验出现了一个重要模式：模型先通过已有 RS checkpoint 获得一个较强的候选分布，
+        再基于该 checkpoint 继续做 K=8 rollout、route、teacher correction，greedy 性能继续上升。
+        这可以被理解为一种 <strong>iterative self-distillation / self-improvement loop</strong>：
+        每一轮都把“上一代模型在多次采样中偶尔能做到的能力”压缩回下一代模型的单次 greedy 输出。
+      </p>
+      <div class="panel success">
+        <strong>新增证据：</strong>
+        checkpoint-348 的 best-of-8 oracle 已从 checkpoint-80 的
+        mIoU=0.6502 / IoU@0.5=0.7335 / IoU@0.7=0.5874 提升到
+        mIoU=0.6919 / IoU@0.5=0.7736 / IoU@0.7=0.6705。
+        这说明 2 epoch 继续 GRPO+SRPO/SDPO 不只是把原有 best-of-8 能力压缩到 greedy，
+        还扩大了模型在 K=8 采样下能到达的候选质量上限。
+        IoU@0.5 oracle gap 从 0.0773 变为 0.0716，说明 greedy 追上了一部分上限；
+        同时 oracle 本身上移，说明下一轮 checkpoint bootstrapping 仍有继续挖掘空间。
+      </div>
+      <pre class="formula">base model
+  -> RS supervised / weak self-distill
+  -> ckpt_0
+
+for round t in 0..T:
+    ckpt_t rollout K=8
+    route good / failed / ambiguous
+    good: reinforce self-discovered correct bbox
+    failed: use sibling / teacher / GT correction with entropy weighting
+    train greedy policy
+    evaluate greedy and oracle@8
+    ckpt_{t+1} = best checkpoint under validation metric</pre>
+      <table>
+        <thead>
+          <tr>
+            <th>为什么可能继续提升</th>
+            <th>在 bbox grounding 中的具体含义</th>
+            <th>需要监控的信号</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>候选空间质量随 checkpoint 改善</td>
+            <td>更强的 ckpt 能在 K=8 中产生更多 high-IoU sibling，teacher/GT 依赖减少。</td>
+            <td>best-of-8、good route ratio、best-sibling correction ratio。</td>
+          </tr>
+          <tr>
+            <td>greedy 压缩多采样能力</td>
+            <td>训练目标不是扩大采样上限，而是把 best-of-K 的定位偏好压回单次输出。</td>
+            <td>oracle gap、capture ratio、greedy IoU@0.5 / IoU@0.7。</td>
+          </tr>
+          <tr>
+            <td>failed route 提供局部坐标纠偏</td>
+            <td>坐标 digit token 的 dense correction 能修正 GRPO sequence reward 不够细的问题。</td>
+            <td>sdpo/loss、teacher entropy、failed route ratio、valid_rate。</td>
+          </tr>
+          <tr>
+            <td>teacher 可逐步退火</td>
+            <td>越到后期越应减少 GT/hint teacher 介入，转向 sibling-first 自蒸馏，避免 teacher overfit。</td>
+            <td>teacher correction ratio、validation gap、small/medium/large 分桶收益。</td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="panel warning">
+        <strong>深挖时的关键风险：</strong>
+        迭代自蒸馏不应无脑反复训练同一测试集指标。
+        每轮必须使用独立 validation 选 ckpt，并保留最终 test 只做一次或少数几次确认；
+        否则容易把“持续提升”误读为真实泛化提升。
+        同时需要监控 oracle gap：如果 greedy 提升但 oracle@8 不升，说明主要是压缩成功；
+        如果 oracle@8 提升但 greedy 不升，说明探索变强但单次策略没有学会选择。
+      </div>
+      <div class="panel success">
+        <strong>推荐下一步：</strong>
+        把迭代自蒸馏设计成 3 轮小预算曲线，而不是一次性无限训练：
+        <code>ckpt80 -> round1(e1/e2) -> round2(e1) -> round3(e1)</code>。
+        每轮都评估 greedy、sample-one、best-of-8、route ratio 和面积分桶。
+        如果 round2/round3 仍能缩小 oracle gap，说明这种 checkpoint bootstrapping 值得作为主线方法深挖；
+        如果提升停滞或 small-object 退化，则应转向更强的 small-object reward / hint teacher 策略。
+      </div>
+    </section>
+
+    <section>
+      <h2>9. 核心对照实验矩阵</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>实验</th>
+            <th>方法</th>
+            <th>目的</th>
+            <th>关键判断</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>E0</td>
+            <td>原始 greedy student</td>
+            <td>提供训练前下界</td>
+            <td>greedy baseline = 0.6562 IoU@0.5</td>
+          </tr>
+          <tr>
+            <td>E1</td>
+            <td>best-of-8 oracle</td>
+            <td>提供可压缩上限</td>
+            <td>oracle@8 = 0.7335 IoU@0.5</td>
+          </tr>
+          <tr>
+            <td>E2</td>
+            <td>继续 OPSD 同等 step</td>
+            <td>排除“只是多训练”的因素</td>
+            <td>必须与新方法同等训练预算</td>
+          </tr>
+          <tr>
+            <td>E3</td>
+            <td>Pure GRPO</td>
+            <td>验证 reward-only 的能力</td>
+            <td>如果已很强，teacher 可以弱化</td>
+          </tr>
+          <tr>
+            <td>E4</td>
+            <td>Advantage Mix：所有 rollout 同时 GRPO + OPSD</td>
+            <td>验证简单混合是否不稳</td>
+            <td>作为 SRPO routing 的反面对照</td>
+          </tr>
+          <tr>
+            <td>E5</td>
+            <td>Strict Routing：good -> GRPO，failed -> OPSD</td>
+            <td>验证 sample routing 主思想</td>
+            <td>应优于 E4 或更稳定</td>
+          </tr>
+          <tr>
+            <td>E6</td>
+            <td>Routing without entropy weighting</td>
+            <td>验证 teacher entropy weighting 的作用</td>
+            <td>如果低于 E7，说明动态权重有效</td>
+          </tr>
+          <tr>
+            <td>E7</td>
+            <td>Routing + entropy-weighted OPSD</td>
+            <td>主实验之一</td>
+            <td>期望 greedy 提升且 parse/valid 稳定</td>
+          </tr>
+          <tr>
+            <td>E8</td>
+            <td>Sibling-first Routing + entropy-weighted OPSD</td>
+            <td>减少 GT/hint teacher leakage</td>
+            <td>期望 teacher correction rate 合理，泛化更稳</td>
+          </tr>
+          <tr>
+            <td>E9</td>
+            <td>Bad-prefix KD without entropy</td>
+            <td>负面对照</td>
+            <td>验证无权重 bad-prefix KD 的风险</td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="panel note">
+        最关键比较：<code>E3 vs E7/E8</code> 判断 teacher correction 是否有价值；
+        <code>E4 vs E5</code> 判断 routing 是否优于简单混合；
+        <code>E6 vs E7</code> 判断 entropy-aware teacher weighting 是否必要。
+      </div>
+    </section>
+
+    <section>
+      <h2>10. 评测协议</h2>
+      <p>每个训练 checkpoint 都统一跑以下评测：</p>
+      <ol>
+        <li>greedy：<code>temperature=0</code></li>
+        <li>sample-one：<code>temperature=0.7, top_p=0.95</code></li>
+        <li>best-of-8 oracle：<code>temperature=0.7, top_p=0.95, K=8</code></li>
+        <li>category breakdown：按类别统计 IoU@0.5 / mIoU</li>
+        <li>area-bin breakdown：小目标、中目标、大目标分别统计</li>
+      </ol>
+      <h3>主指标</h3>
+      <ul>
+        <li>greedy IoU@0.5</li>
+        <li>greedy mIoU</li>
+        <li>greedy IoU@0.7</li>
+        <li>parse_rate</li>
+        <li>valid_rate</li>
+      </ul>
+      <h3>辅助指标</h3>
+      <pre class="formula">oracle_gap = oracle@8 - greedy
+capture_ratio = (greedy_after - greedy_before) / (oracle_before - greedy_before)
+route_good_ratio
+route_failed_ratio
+route_ambiguous_ratio
+teacher_correction_ratio
+best_sibling_correction_ratio
+mean_teacher_digit_entropy
+mean_teacher_p_at_gt_or_target</pre>
+      <div class="panel success">
+        <strong>真正成功：</strong>
+        greedy 上升、oracle gap 缩小、parse_rate / valid_rate 不下降。
+        如果只有 oracle@8 上升但 greedy 不升，说明只是扩大探索空间，没有学会单次选择。
+      </div>
+    </section>
+
+    <section>
+      <h2>11. 推荐超参与阈值</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>参数</th>
+            <th>第一版建议</th>
+            <th>说明</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>K</code></td>
+            <td>8</td>
+            <td>与 best-of-8 上限实验保持一致。</td>
+          </tr>
+          <tr>
+            <td><code>temperature</code></td>
+            <td>0.7</td>
+            <td>提供探索但不过度发散。</td>
+          </tr>
+          <tr>
+            <td><code>top_p</code></td>
+            <td>0.95</td>
+            <td>与现有 best-of-8 评测保持一致。</td>
+          </tr>
+          <tr>
+            <td><code>tau_good</code></td>
+            <td>0.5</td>
+            <td>good route 的 IoU 阈值，对齐 IoU@0.5 主指标。</td>
+          </tr>
+          <tr>
+            <td><code>tau_fail</code></td>
+            <td>0.3</td>
+            <td>低于该阈值视为明确失败，进入 correction branch。</td>
+          </tr>
+          <tr>
+            <td><code>delta</code></td>
+            <td>0.5</td>
+            <td>advantage 低于 <code>-delta</code> 时可视为明显低于组内水平。</td>
+          </tr>
+          <tr>
+            <td><code>adv_clip</code></td>
+            <td>2.0</td>
+            <td>避免极端 reward 主导训练。</td>
+          </tr>
+          <tr>
+            <td><code>clip_eps</code></td>
+            <td>0.2</td>
+            <td>GRPO/PPO-style ratio clipping。</td>
+          </tr>
+          <tr>
+            <td><code>beta_entropy</code></td>
+            <td>0.5 - 1.0</td>
+            <td>控制 teacher entropy 对 token 权重的影响。</td>
+          </tr>
+          <tr>
+            <td><code>lambda_correction</code></td>
+            <td>0.2 - 0.4</td>
+            <td>teacher correction 权重；过大容易退化成 teacher SFT。</td>
+          </tr>
+          <tr>
+            <td><code>beta_kl</code></td>
+            <td>0.01 - 0.03</td>
+            <td>防止 RL 和 correction 导致格式/语义漂移。</td>
+          </tr>
+          <tr>
+            <td><code>lambda_format</code></td>
+            <td>0.05</td>
+            <td>保持 bbox JSON 可解析性。</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>12. 执行顺序</h2>
+      <ol>
+        <li>先实现 offline rollout pool 生成脚本，复用当前 <code>eval_student.py --num_rollouts 8</code> 的采样与 reward 逻辑。</li>
+        <li>在 200-500 样本 smoke 上生成 route label，检查 good / failed / ambiguous 比例是否合理。</li>
+        <li>在 <code>rs_train</code> 上生成 offline pool，完成 Stage 1 分布分析。</li>
+        <li>实现在线 GRPO+SDPO trainer，先跑 <code>max_steps=1</code> smoke。</li>
+        <li>确认日志包含 <code>reward</code>、<code>sdpo/route_failed</code>、<code>sdpo/loss</code>、checkpoint 和 greedy eval。</li>
+        <li>优先跑 E3/E5/E7 三组核心实验。</li>
+        <li>最后跑 E8 sibling-first 和 E4/E6/E9 消融，支撑方法设计。</li>
+        <li>所有候选模型先用 <code>rs_sub_test</code> 快评，最终用 <code>rs_full_test</code> 正式评估。</li>
+      </ol>
+    </section>
+
+    <section>
+      <h2>13. 风险与控制</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>风险</th>
+            <th>表现</th>
+            <th>控制方案</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>组内相对好但绝对仍差</td>
+            <td>8 个 rollout 全差，仍强化了“烂中较好”的 bbox。</td>
+            <td>good route 同时要求 <code>IoU >= tau_good</code> 和 <code>reward >= mean</code>。</td>
+          </tr>
+          <tr>
+            <td>teacher correction 过强</td>
+            <td>训练退化成 GT/hint teacher SFT。</td>
+            <td>监控 correction ratio，目标区间 20%-50%；优先使用 best sibling correction。</td>
+          </tr>
+          <tr>
+            <td>bad-prefix KD 噪声</td>
+            <td>teacher 在错误坐标前缀下给出不可靠分布。</td>
+            <td>failed correction 必须使用 entropy weighting；无权重 bad-prefix KD 只作为负面对照。</td>
+          </tr>
+          <tr>
+            <td>RL 破坏输出格式</td>
+            <td>parse_rate / valid_rate 下降。</td>
+            <td>加入 format reward、format SFT、小 KL，监控无效 bbox 比例。</td>
+          </tr>
+          <tr>
+            <td>只扩大探索，不提升 greedy</td>
+            <td>oracle@8 上升，但 greedy 不升。</td>
+            <td>提高 good-route 的 GRPO 权重或延长在线训练，主看 oracle gap 是否缩小。</td>
+          </tr>
+          <tr>
+            <td>ambiguous 占比过高</td>
+            <td>大多数样本不进入明确 GRPO 或 correction。</td>
+            <td>调整 <code>tau_good</code> / <code>tau_fail</code> / <code>delta</code>，或引入 soft routing weight。</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>14. 成功标准</h2>
+      <p>最低成功标准：</p>
+      <pre class="formula">trained greedy IoU@0.5 > baseline greedy IoU@0.5</pre>
+      <p>理想目标：</p>
+      <pre class="formula">before:
+    greedy     = 0.6562
+    oracle@8   = 0.7335
+    gap        = 0.0773
+
+target:
+    greedy     >= 0.68
+    oracle@8   >= 0.73
+    gap        < 0.06
+    parse_rate >= 0.99
+    valid_rate >= 0.99</pre>
+      <div class="panel success">
+        如果 E7/E8 达成上述目标，并且优于 Pure GRPO、继续 OPSD、简单混合 GRPO+OPSD，
+        就能支持核心结论：sample-routed optimization 比无差别蒸馏或纯 reward optimization 更适合遥感 bbox OPSD。
+      </div>
+    </section>
+
+    <section>
+      <h2>15. 最终方法表述</h2>
+      <pre class="formula">BBox-SRPO for Remote Sensing Grounding:
+The student explores multiple bbox trajectories for each visual referring prompt.
+Geometry reward routes high-quality trajectories to GRPO and low-quality trajectories to entropy-weighted OPSD correction.
+Correction information is selected sibling-first, then hint-teacher, then GT, reducing unnecessary teacher interference and GT leakage.
+The objective compresses best-of-K localization ability back into single-pass greedy inference.</pre>
+    </section>
+
+    <footer class="small">
+      <p>保存路径：/data/codes/gui_grounding/GUI-SD-code-main/OPSD_Idea/selective_teacher_corrected_grpo_opsd_plan.html</p>
+      <p>本页记录实验计划、已完成结果与后续验证假设。</p>
+    </footer>
+  </main>
+</body>
+</html>

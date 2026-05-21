@@ -1,0 +1,700 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>动态 Teacher / Ref 刷新：Sample-Routed OPSD 后续方案</title>
+  <style>
+    :root {
+      --ink: #1a232d;
+      --muted: #5b6571;
+      --line: #d9dee5;
+      --bg: #f7f8fa;
+      --panel: #ffffff;
+      --blue: #245f9f;
+      --green: #1f7453;
+      --red: #9a3b32;
+      --amber: #8a6218;
+      --code: #f0f3f6;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: var(--bg);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans SC", "Microsoft YaHei", Arial, sans-serif;
+      line-height: 1.62;
+    }
+
+    main {
+      max-width: 1160px;
+      margin: 0 auto;
+      padding: 40px 28px 64px;
+    }
+
+    header {
+      padding: 34px 0 22px;
+      border-bottom: 2px solid var(--line);
+    }
+
+    h1 {
+      margin: 0 0 12px;
+      font-size: 34px;
+      line-height: 1.18;
+      letter-spacing: 0;
+    }
+
+    h2 {
+      margin: 34px 0 14px;
+      font-size: 23px;
+      line-height: 1.28;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    h3 {
+      margin: 24px 0 10px;
+      font-size: 18px;
+      line-height: 1.35;
+    }
+
+    p { margin: 10px 0; }
+
+    ul, ol {
+      margin: 10px 0 10px 24px;
+      padding: 0;
+    }
+
+    li { margin: 5px 0; }
+
+    code {
+      padding: 1px 5px;
+      border-radius: 4px;
+      background: var(--code);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+      font-size: 0.94em;
+    }
+
+    pre {
+      overflow: auto;
+      margin: 12px 0;
+      padding: 14px 16px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--code);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 14px 0;
+      background: var(--panel);
+      border: 1px solid var(--line);
+    }
+
+    th, td {
+      padding: 10px 12px;
+      border: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background: #eef2f6;
+      font-weight: 700;
+    }
+
+    .lead {
+      max-width: 980px;
+      font-size: 17px;
+      color: #2c3540;
+    }
+
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 18px;
+    }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      min-height: 30px;
+      padding: 4px 10px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: var(--panel);
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .panel {
+      margin: 16px 0;
+      padding: 16px 18px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+    }
+
+    .note { border-left: 4px solid var(--blue); }
+    .success { border-left: 4px solid var(--green); }
+    .warning { border-left: 4px solid var(--amber); }
+    .risk { border-left: 4px solid var(--red); }
+    .formula { white-space: pre-wrap; }
+    .small { color: var(--muted); font-size: 14px; }
+
+    @media (max-width: 720px) {
+      main { padding: 24px 16px 48px; }
+      h1 { font-size: 27px; }
+      table { display: block; overflow-x: auto; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>动态 Teacher / Ref 刷新：Sample-Routed OPSD 后续方案</h1>
+      <p class="lead">
+        本文档讨论在当前 <code>K=8 rollout + GRPO + SDPO/OPSD</code> 框架上增加
+        <strong>阶段式 teacher / ref 权重刷新</strong> 的可行性。
+        核心思想是：不要让 teacher 永远停留在旧 checkpoint，也不要让 ref 永远压制 student 的后续探索；
+        但 teacher 与 ref 的职责不同，刷新节奏必须分开设计。
+      </p>
+      <div class="meta">
+        <span class="tag">任务：遥感 bbox grounding</span>
+        <span class="tag">基础方法：Sample-Routed GRPO+SDPO</span>
+        <span class="tag">新增机制：teacher/ref stage refresh</span>
+        <span class="tag">状态：讨论方案，未改训练代码</span>
+        <span class="tag">更新日期：2026-05-21</span>
+      </div>
+    </header>
+
+    <section>
+      <h2>1. 当前实验证据</h2>
+      <p>
+        目前全量训练结果已经说明，student 的单次 greedy 能力有明显提升，
+        但同一个 checkpoint 的 best-of-8 oracle 仍显著高于 greedy。
+        这意味着模型的采样分布中仍包含更强 bbox，只是单次策略还没有稳定选择它们。
+      </p>
+      <table>
+        <thead>
+          <tr>
+            <th>模型 / 设置</th>
+            <th>评测集</th>
+            <th>rollout 设置</th>
+            <th>mIoU</th>
+            <th>IoU@0.5</th>
+            <th>IoU@0.7</th>
+            <th>解释</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>base_rsfull_grpo_srpo_e1 checkpoint-1740</code> greedy</td>
+            <td><code>rs_full/rs_test.jsonl</code>, n=3481</td>
+            <td><code>num_rollouts=1</code>, temperature=0.0</td>
+            <td>0.6817</td>
+            <td><strong>0.7670</strong></td>
+            <td>0.6421</td>
+            <td>全量训练后的单次 student 输出。</td>
+          </tr>
+          <tr>
+            <td><code>base_rsfull_grpo_srpo_e1 checkpoint-1740</code> best-of-8 oracle</td>
+            <td><code>rs_full/rs_test.jsonl</code>, n=3481</td>
+            <td><code>K=8</code>, temperature=0.7, top_p=0.95</td>
+            <td><strong>0.7419</strong></td>
+            <td><strong>0.8285</strong></td>
+            <td><strong>0.7234</strong></td>
+            <td>同一模型候选空间的可压缩上限。</td>
+          </tr>
+          <tr>
+            <td>oracle - greedy gap</td>
+            <td>同上</td>
+            <td>同上</td>
+            <td><strong>+0.0602</strong></td>
+            <td><strong>+0.0615</strong></td>
+            <td><strong>+0.0813</strong></td>
+            <td>说明后续训练仍有把多采样能力压回 greedy 的空间。</td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="panel success">
+        <strong>关键判断：</strong>
+        如果 teacher 仍停留在较旧 checkpoint，后期 failed / ambiguous 样本的纠偏信号可能不再足够强；
+        如果 ref 永远不更新，KL 锚点也可能限制 student 继续向更高 oracle 上限靠近。
+      </div>
+    </section>
+
+    <section>
+      <h2>2. 为什么 EMA Teacher 不一定足够</h2>
+      <p>
+        常规 self-distillation 中，teacher 通常用 EMA 缓慢跟随 student。
+        这种设计的优点是稳定：teacher 不会因 student 的短期波动而快速退化；
+        但在当前任务里，它也可能带来两个问题。
+      </p>
+      <table>
+        <thead>
+          <tr>
+            <th>问题</th>
+            <th>表现</th>
+            <th>对当前任务的影响</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>teacher 上限滞后</td>
+            <td>student 已经在指定遥感数据集上变强，但 teacher 仍接近旧分布。</td>
+            <td>failed route 的 teacher correction 可能只能给出保守答案，不能推动模型接近新 oracle 上限。</td>
+          </tr>
+          <tr>
+            <td>后期指导变弱</td>
+            <td>训练 reward / greedy 指标增长变慢，teacher loss 仍存在但不再提供新增信息。</td>
+            <td>SDPO/OPSD 变成稳定项，而不是提升项。</td>
+          </tr>
+          <tr>
+            <td>无法利用阶段性最佳 student</td>
+            <td>某个 checkpoint 的 best-of-8 oracle 已明显上升，但 teacher 未及时吸收这部分能力。</td>
+            <td>下一阶段仍在用旧老师纠偏，浪费已经出现的候选空间能力。</td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="panel note">
+        <strong>基本方向：</strong>
+        保留 EMA 或固定 teacher 的稳定性，但在阶段边界上允许 teacher 刷新成经过验证的强 student snapshot。
+        这更像 <code>checkpoint bootstrapping</code>，不是每 step 动态追随。
+      </div>
+    </section>
+
+    <section>
+      <h2>3. Teacher 与 Ref 不能同等对待</h2>
+      <p>
+        这个方案最重要的设计原则是：<strong>teacher 可以更积极刷新，ref 必须更保守刷新</strong>。
+        因为它们在训练里的职责完全不同。
+      </p>
+      <table>
+        <thead>
+          <tr>
+            <th>模型</th>
+            <th>职责</th>
+            <th>刷新收益</th>
+            <th>刷新风险</th>
+            <th>推荐策略</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Teacher model</td>
+            <td>为 failed / ambiguous 轨迹提供更强分布、top-k KL 或 hint correction。</td>
+            <td>teacher 变强后，低质量样本的纠偏信号更贴近当前数据集上限。</td>
+            <td>如果刷新到不稳定 student，可能把错误偏好也蒸馏回去。</td>
+            <td>阶段式刷新，要求验证集 greedy 不退化、parse/valid 稳定、oracle 上限不下降。</td>
+          </tr>
+          <tr>
+            <td>Ref model</td>
+            <td>GRPO 的 KL 锚点，限制 student 分布不要漂移过快。</td>
+            <td>当旧 ref 已经明显过时，刷新 ref 可以释放后续探索空间。</td>
+            <td>过于频繁刷新会周期性清空 KL 约束，可能导致 reward hacking、格式退化或分布漂移。</td>
+            <td>只在阶段边界或 KL 长期压制学习时刷新，并设置 cooldown。</td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="panel warning">
+        <strong>不建议：</strong>
+        不建议在训练增长变慢时无条件同时同步 teacher 和 ref。
+        teacher 同步主要是提高纠偏上限；ref 同步是重置 trust region。
+        两者同步过频，会让训练变成“自己给自己放行”。
+      </div>
+    </section>
+
+    <section>
+      <h2>4. 推荐机制：阶段式 Refresh</h2>
+      <h3>4.1 三档刷新策略</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>策略</th>
+            <th>动作</th>
+            <th>适用时机</th>
+            <th>预期效果</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Teacher-only refresh</td>
+            <td><code>teacher_model = student_snapshot</code>，ref 不变。</td>
+            <td>student greedy 或 oracle 明显高于旧 teacher，且训练稳定。</td>
+            <td>增强 failed route 的 teacher correction，同时保留原 ref 的 KL 稳定性。</td>
+          </tr>
+          <tr>
+            <td>Ref-only refresh</td>
+            <td><code>ref_model = student_snapshot</code>，teacher 不变或已刷新。</td>
+            <td>KL 长期偏高、clip/region ratio 表明旧 ref 正在压制学习。</td>
+            <td>释放下一阶段探索空间，但需要严格监控格式和 reward hacking。</td>
+          </tr>
+          <tr>
+            <td>Dual refresh</td>
+            <td><code>teacher_model = ref_model = student_snapshot</code>。</td>
+            <td>一个训练阶段结束后，验证指标明确提升，准备进入下一轮 bootstrapping。</td>
+            <td>把新 student 作为下一阶段的老师和锚点，适合 stage-to-stage 继续训练。</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>4.2 触发条件</h3>
+      <p>
+        触发 refresh 不应只看训练 loss 下降慢，而应组合看 greedy、oracle、route、KL 与格式稳定性。
+      </p>
+      <pre class="formula">teacher_refresh_candidate =
+    val_greedy_iou50 >= best_teacher_iou50 + delta_greedy
+    and val_parse_rate >= 0.995
+    and val_valid_rate >= 0.995
+    and recent_sdpo_loss is finite
+    and no severe reward regression
+
+ref_refresh_candidate =
+    teacher_refresh_candidate
+    and kl_mean has been high for patience windows
+    and greedy plateau persists
+    and oracle_gap remains positive
+    and cooldown since last ref refresh is satisfied</pre>
+      <table>
+        <thead>
+          <tr>
+            <th>信号</th>
+            <th>含义</th>
+            <th>建议判断</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>greedy plateau</td>
+            <td>单次输出增长变慢。</td>
+            <td>连续若干 eval window 内 IoU@0.5 提升小于阈值。</td>
+          </tr>
+          <tr>
+            <td>oracle gap</td>
+            <td>多采样上限仍高于 greedy。</td>
+            <td>如果 oracle - greedy 仍大，说明压缩空间存在。</td>
+          </tr>
+          <tr>
+            <td>route_failed / route_ambiguous</td>
+            <td>仍有大量需要纠偏的轨迹。</td>
+            <td>failed/ambiguous 不低时，teacher refresh 更可能有效。</td>
+          </tr>
+          <tr>
+            <td>KL / clip ratio</td>
+            <td>ref 是否阻碍更新。</td>
+            <td>KL 长期偏高时考虑 ref refresh；KL 正常时不急于动 ref。</td>
+          </tr>
+          <tr>
+            <td>parse_rate / valid_rate</td>
+            <td>格式与 bbox 合法性。</td>
+            <td>必须保持稳定，否则禁止 refresh。</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>5. 实验矩阵</h2>
+      <p>
+        为了确认收益来自 teacher refresh、ref refresh 还是单纯继续训练，
+        下一轮实验应拆成清晰对照，而不是直接上复杂动态策略。
+      </p>
+      <table>
+        <thead>
+          <tr>
+            <th>实验</th>
+            <th>student 初始化</th>
+            <th>teacher</th>
+            <th>ref</th>
+            <th>目的</th>
+            <th>主要判断</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>A：继续训练基线</td>
+            <td><code>base_rsfull_e1 checkpoint-1740</code></td>
+            <td>旧 teacher 或原设定</td>
+            <td>旧 ref 或原设定</td>
+            <td>排除“只是继续训练”的影响。</td>
+            <td>greedy 是否自然继续涨。</td>
+          </tr>
+          <tr>
+            <td>B：Teacher refresh</td>
+            <td><code>base_rsfull_e1 checkpoint-1740</code></td>
+            <td><code>checkpoint-1740</code></td>
+            <td>旧 ref</td>
+            <td>验证强 teacher 是否改善 failed-route correction。</td>
+            <td>greedy 上涨、oracle gap 缩小，且 KL 稳定。</td>
+          </tr>
+          <tr>
+            <td>C：Teacher + Ref refresh</td>
+            <td><code>base_rsfull_e1 checkpoint-1740</code></td>
+            <td><code>checkpoint-1740</code></td>
+            <td><code>checkpoint-1740</code></td>
+            <td>验证重置 KL 锚点是否释放进一步提升空间。</td>
+            <td>reward 上升是否转化为 greedy，而不是只扩大探索。</td>
+          </tr>
+          <tr>
+            <td>D：ck80 强初始化 refresh</td>
+            <td><code>ck80_rsfull_e1 checkpoint-1740</code></td>
+            <td><code>ck80_rsfull_e1 checkpoint-1740</code></td>
+            <td>旧 ref 或同 checkpoint</td>
+            <td>验证当前 rs_full greedy 最强模型是否还能通过 bootstrapping 继续提升。</td>
+            <td>能否超过 IoU@0.5=0.7759，并接近 base oracle 0.8285。</td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="panel note">
+        <strong>建议顺序：</strong>
+        先做 B 与 A 对照，确认 teacher refresh 是正收益；
+        再做 C，确认 ref refresh 是否值得加入。
+        如果 C 波动大，则保留 teacher refresh，ref 仅在 epoch 边界手动刷新。
+      </div>
+
+      <h3>5.1 立即执行的 800-step 阶段验证</h3>
+      <p>
+        当前最直接、解释性最强的一步，是基于
+        <code>base_rsfull_grpo_srpo_e1 checkpoint-1740</code>
+        继续跑 800 steps，并把 teacher 与 ref 都刷新到同一个 checkpoint。
+        这个实验并不试图一次性证明完整动态 refresh 策略，而是先验证
+        <strong>stage-to-stage checkpoint bootstrapping</strong> 是否能继续提升 greedy 指标。
+      </p>
+      <table>
+        <thead>
+          <tr>
+            <th>项目</th>
+            <th>设置</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>student 初始化</td>
+            <td><code>/mnt/jfs/copilot/lhb/checkpoint/rs/rs-sd/gui-sd-qwen3-8b-base_rsfull_grpo_srpo_topkkl_e1_zero3_offload_r1/v0-20260520-165157/checkpoint-1740</code></td>
+          </tr>
+          <tr>
+            <td>teacher refresh</td>
+            <td><code>teacher_model = checkpoint-1740</code></td>
+          </tr>
+          <tr>
+            <td>ref refresh</td>
+            <td><code>ref_model = checkpoint-1740</code></td>
+          </tr>
+          <tr>
+            <td>训练预算</td>
+            <td><code>MAX_STEPS=800</code>, <code>num_generations=8</code>, <code>GRPO+SDPO</code>, failed-only teacher top-k KL</td>
+          </tr>
+          <tr>
+            <td>训练 / 评测数据</td>
+            <td><code>rs_full/rs_train.jsonl</code> 训练，<code>rs_full/rs_test.jsonl</code> greedy eval</td>
+          </tr>
+          <tr>
+            <td>脚本</td>
+            <td><code>/data/codes/gui_grounding/GUI-SD-code-main/tools/run_stage_refresh_base_rsfull_s800_worker.sh</code></td>
+          </tr>
+          <tr>
+            <td>run name</td>
+            <td><code>gui-sd-qwen3-8b-base_rsfull_stage_refresh_s800_trefsync_r1</code></td>
+          </tr>
+        </tbody>
+      </table>
+      <table>
+        <thead>
+          <tr>
+            <th>判断项</th>
+            <th>当前基线</th>
+            <th>800-step 后期望</th>
+            <th>解释</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>greedy IoU@0.5</td>
+            <td>0.7670</td>
+            <td>高于 0.7670，理想情况下接近或超过 0.78</td>
+            <td>如果上涨，说明阶段式刷新能继续把候选空间能力压缩到单次输出。</td>
+          </tr>
+          <tr>
+            <td>mIoU</td>
+            <td>0.6817</td>
+            <td>同步上涨</td>
+            <td>防止只是在 0.5 阈值附近局部抖动。</td>
+          </tr>
+          <tr>
+            <td>IoU@0.7</td>
+            <td>0.6421</td>
+            <td>不下降，最好上涨</td>
+            <td>高阈值改善说明 bbox 质量真正变好。</td>
+          </tr>
+          <tr>
+            <td>parse / valid</td>
+            <td>1.0000 / 1.0000</td>
+            <td>保持接近 1.0000</td>
+            <td>避免刷新后出现格式退化或非法框。</td>
+          </tr>
+          <tr>
+            <td>oracle gap</td>
+            <td>best-of-8 IoU@0.5=0.8285，gap=+0.0615</td>
+            <td>greedy 上升后 gap 缩小</td>
+            <td>这是 checkpoint bootstrapping 成功的关键证据。</td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="panel success">
+        <strong>成功解释：</strong>
+        如果 800-step 后 greedy IoU@0.5 继续超过 0.7670，且 mIoU / IoU@0.7 不退化，
+        就能初步说明分阶段训练有效：上一阶段 student 的更强候选空间，经过 teacher/ref 刷新后，
+        可以继续被压缩进下一阶段 student 的单次策略。
+      </div>
+      <div class="panel warning">
+        <strong>解释边界：</strong>
+        这个实验同时刷新 teacher 与 ref，因此如果指标上涨，说明 stage refresh 方向有效；
+        但还不能拆分 teacher refresh 与 ref refresh 的单独贡献。
+        后续仍需要 <code>teacher-only refresh</code> 与 <code>teacher+ref refresh</code> 消融。
+      </div>
+    </section>
+
+    <section>
+      <h2>6. 训练流程草案</h2>
+      <pre class="formula">Stage t:
+  student = checkpoint_t
+  teacher = teacher_t
+  ref     = ref_t
+
+  run GRPO + SDPO for N steps or 1 epoch
+  periodically evaluate:
+    greedy@val
+    oracle@8 on a subset
+    parse_rate / valid_rate
+    route_good / route_failed / route_ambiguous
+    kl_mean / sdpo_loss / reward
+
+  choose best student snapshot S*
+
+  if teacher_refresh_condition(S*) is true:
+      teacher_{t+1} = S*
+  else:
+      teacher_{t+1} = teacher_t or EMA(teacher_t, S*)
+
+  if ref_refresh_condition(S*) is true:
+      ref_{t+1} = S*
+      apply KL beta warmup in next stage
+  else:
+      ref_{t+1} = ref_t
+
+  student_{t+1} = S*
+  continue next stage</pre>
+      <table>
+        <thead>
+          <tr>
+            <th>组件</th>
+            <th>建议默认值</th>
+            <th>理由</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>refresh 粒度</td>
+            <td>epoch 边界或固定 stage 边界</td>
+            <td>避免训练中途频繁加载大模型和破坏优化连续性。</td>
+          </tr>
+          <tr>
+            <td>teacher refresh</td>
+            <td>允许每 stage 一次</td>
+            <td>teacher 是上限提供者，可以相对积极。</td>
+          </tr>
+          <tr>
+            <td>ref refresh</td>
+            <td>每 1-2 个 stage 至多一次</td>
+            <td>ref 是 KL 稳定器，刷新必须保守。</td>
+          </tr>
+          <tr>
+            <td>KL beta</td>
+            <td>ref refresh 后 warmup</td>
+            <td>避免 ref 刚刷新后 KL 约束突然失效或过强。</td>
+          </tr>
+          <tr>
+            <td>oracle eval</td>
+            <td>先小子集 K=8，关键 checkpoint 再全量</td>
+            <td>控制评测成本，同时监控候选空间上限。</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>7. 风险与保护</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>风险</th>
+            <th>触发原因</th>
+            <th>保护策略</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>错误自强化</td>
+            <td>student snapshot 在某些类别或尺寸上退化，但被刷新成 teacher。</td>
+            <td>按类别、面积分桶验证；只用全局和分桶都不退化的 snapshot。</td>
+          </tr>
+          <tr>
+            <td>KL 约束失效</td>
+            <td>ref 频繁同步成 student。</td>
+            <td>ref refresh cooldown；刷新后 KL beta warmup；监控 reward hacking。</td>
+          </tr>
+          <tr>
+            <td>探索变强但 greedy 不升</td>
+            <td>ref refresh 释放了采样空间，但单次策略没有学会选择。</td>
+            <td>增加 good route GRPO 权重，或加强 best-sibling / teacher correction 压缩。</td>
+          </tr>
+          <tr>
+            <td>teacher 过度追随</td>
+            <td>teacher 每次都同步最新 student，失去平滑作用。</td>
+            <td>只同步 best validation snapshot；非关键 stage 使用 EMA 或固定 teacher。</td>
+          </tr>
+          <tr>
+            <td>评测成本过高</td>
+            <td>每次都全量 K=8 oracle。</td>
+            <td>训练中用固定子集 oracle@8，最终 checkpoint 再全量评测。</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>8. 成功标准</h2>
+      <p>
+        这个策略真正成功，不是 teacher/ref 同步本身成功，而是它能让 greedy 更接近 oracle。
+      </p>
+      <pre class="formula">primary_success:
+  greedy_iou50_after_refresh > greedy_iou50_continue_baseline
+  and parse_rate >= 0.995
+  and valid_rate >= 0.995
+
+strong_success:
+  oracle_gap_after_refresh < oracle_gap_before_refresh
+  and greedy_iou70 improves
+  and category/area bucket metrics do not regress
+
+failure_case:
+  oracle@8 increases but greedy does not
+  or parse/valid drops
+  or KL/ref refresh causes unstable reward spikes</pre>
+      <div class="panel success">
+        <strong>最终目标：</strong>
+        让每一轮 checkpoint 都把上一轮 best-of-8 中偶然出现的强 bbox 能力压缩回单次 greedy 输出。
+        teacher refresh 负责提高纠偏信号上限；ref refresh 只在旧 KL 锚点阻碍后续学习时重置训练阶段。
+      </div>
+    </section>
+  </main>
+</body>
+</html>
