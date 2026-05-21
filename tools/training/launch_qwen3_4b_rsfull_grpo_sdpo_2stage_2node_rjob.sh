@@ -120,13 +120,29 @@ build_launch_cmd() {
     LAUNCH_CMD+=(-- bash "$worker_script")
 }
 
+run_predict() {
+    local output status
+    set +e
+    output="$("${PREDICT_CMD[@]}" 2>&1)"
+    status=$?
+    set -e
+    printf '%s\n' "$output"
+    if [ "$status" -ne 0 ]; then
+        return "$status"
+    fi
+    if printf '%s\n' "$output" | grep -Eiq 'fail to pass quota check|quota check|not enough|insufficient|cannot .*schedule|no .*resource|resource .*not .*enough'; then
+        return 1
+    fi
+    return 0
+}
+
 run_group() {
     local group="$1"
     local charged_group="${2:-$group}"
     echo "[launch-4b-2stage] probing group=${group} charged_group=${charged_group}"
     build_predict_cmd "$group" "$charged_group"
     echo "[launch-4b-2stage] predict: ${PREDICT_CMD[*]}"
-    "${PREDICT_CMD[@]}"
+    run_predict
 
     build_launch_cmd "$group" "$charged_group"
     echo "[launch-4b-2stage] run_name=${run_name}"
