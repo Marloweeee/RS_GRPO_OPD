@@ -142,7 +142,10 @@ run_group() {
     echo "[launch-4b-2stage] probing group=${group} charged_group=${charged_group}"
     build_predict_cmd "$group" "$charged_group"
     echo "[launch-4b-2stage] predict: ${PREDICT_CMD[*]}"
-    run_predict
+    if ! run_predict; then
+        echo "[launch-4b-2stage] predict failed for group=${group}; skip launch on this group"
+        return 1
+    fi
 
     build_launch_cmd "$group" "$charged_group"
     echo "[launch-4b-2stage] run_name=${run_name}"
