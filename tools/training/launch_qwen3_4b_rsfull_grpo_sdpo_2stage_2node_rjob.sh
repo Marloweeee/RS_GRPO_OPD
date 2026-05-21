@@ -177,13 +177,14 @@ fallback_group="${RJOB_FALLBACK_GROUP:-aos}"
 fallback_charged_group="${RJOB_FALLBACK_CHARGED_GROUP:-$fallback_group}"
 
 {
-    if run_group "$primary_group" "$primary_charged_group"; then
+    primary_status=0
+    run_group "$primary_group" "$primary_charged_group" || primary_status=$?
+    if [ "$primary_status" -eq 0 ]; then
         exit 0
     fi
-    status=$?
-    echo "[launch-4b-2stage] launch on ${primary_group} failed with status=${status}"
+    echo "[launch-4b-2stage] launch on ${primary_group} failed with status=${primary_status}"
     if [ "${DISABLE_AOS_FALLBACK:-false}" = "true" ]; then
-        exit "$status"
+        exit "$primary_status"
     fi
     echo "[launch-4b-2stage] retrying on fallback group=${fallback_group}"
     run_group "$fallback_group" "$fallback_charged_group"
