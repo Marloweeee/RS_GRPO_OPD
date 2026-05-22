@@ -17,6 +17,13 @@ export PYTHON_BIN="${PYTHON_BIN:-${env_root}/bin/python}"
 export SWIFT_BIN="${SWIFT_BIN:-${env_root}/bin/swift}"
 export IMAGE_MAX_TOKEN_NUM="${IMAGE_MAX_TOKEN_NUM:-10000}"
 
+cache_root="${GUI_SD_CACHE_ROOT:-/tmp/guisd_vllm_train_cache_${RUN_NAME:-qwen3_4b}_$(hostname)}"
+export XDG_CACHE_HOME="${XDG_CACHE_HOME:-${cache_root}/xdg}"
+export TORCHINDUCTOR_CACHE_DIR="${TORCHINDUCTOR_CACHE_DIR:-${cache_root}/torchinductor}"
+export TRITON_CACHE_DIR="${TRITON_CACHE_DIR:-${cache_root}/triton}"
+export VLLM_CACHE_ROOT="${VLLM_CACHE_ROOT:-${cache_root}/vllm}"
+mkdir -p "$XDG_CACHE_HOME" "$TORCHINDUCTOR_CACHE_DIR" "$TRITON_CACHE_DIR" "$VLLM_CACHE_ROOT" 2>/dev/null || true
+
 run_name="${RUN_NAME:-gui-sd-qwen3-4b-base_rsfull_grpo_sdpo_2node_bsz4_gacc2_lr2e6_e1}"
 ckpt_root="${CKPT_ROOT:-${CHECKPOINT_ROOT:-/mnt/jfs/copilot/lhb/checkpoint/rs/rs-sd}}"
 artifact_root="${ARTIFACT_ROOT:-/mnt/jfs/copilot/lhb/artifacts/rs/rs-sd}"
@@ -348,6 +355,9 @@ log "nnodes=${NNODES} nproc_per_node=${NPROC_PER_NODE} node_rank=${NODE_RANK}"
 log "pod_ip=${pod_ip} advertise_host=${advertise_host}"
 log "train_cuda=${TRAIN_CUDA_VISIBLE_DEVICES} rollout_cuda=${ROLLOUT_CUDA_VISIBLE_DEVICES}"
 log "per_device_train_batch_size=${PER_DEVICE_TRAIN_BATCH_SIZE} grad_acc=${GRADIENT_ACCUMULATION_STEPS} lr=${LR}"
+log "cache_root=${cache_root}"
+log "torchinductor_cache=${TORCHINDUCTOR_CACHE_DIR}"
+log "triton_cache=${TRITON_CACHE_DIR}"
 
 if [ "${MULTINODE_WORKER_PROBE_ONLY:-false}" = "true" ]; then
     log "MULTINODE_WORKER_PROBE_ONLY=true; exiting before CUDA/model checks."

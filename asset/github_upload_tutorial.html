@@ -1,0 +1,570 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>RS_GRPO_OPD 代码上传 GitHub 操作教程</title>
+  <style>
+    :root {
+      --bg: #f6f8fb;
+      --panel: #ffffff;
+      --text: #1f2937;
+      --muted: #5f6b7a;
+      --line: #d8dee9;
+      --accent: #1264a3;
+      --accent-soft: #e8f2fb;
+      --ok: #0f766e;
+      --warn: #9a5b00;
+      --danger: #b42318;
+      --code-bg: #111827;
+      --code-text: #e5e7eb;
+      --shadow: 0 10px 28px rgba(16, 24, 40, 0.08);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      color: var(--text);
+      background: var(--bg);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif;
+      line-height: 1.65;
+    }
+
+    header {
+      background: #0f172a;
+      color: #f8fafc;
+      padding: 42px 24px 34px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+    }
+
+    .wrap {
+      max-width: 1120px;
+      margin: 0 auto;
+    }
+
+    .eyebrow {
+      margin: 0 0 10px;
+      color: #93c5fd;
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: 0;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(30px, 4vw, 48px);
+      line-height: 1.15;
+      letter-spacing: 0;
+    }
+
+    .subtitle {
+      margin: 18px 0 0;
+      max-width: 900px;
+      color: #d1d5db;
+      font-size: 17px;
+    }
+
+    main {
+      padding: 28px 24px 56px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 300px;
+      gap: 22px;
+      align-items: start;
+    }
+
+    section,
+    aside {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+    }
+
+    section {
+      padding: 24px;
+      margin-bottom: 18px;
+    }
+
+    aside {
+      position: sticky;
+      top: 18px;
+      padding: 18px;
+    }
+
+    h2 {
+      margin: 0 0 14px;
+      font-size: 24px;
+      line-height: 1.25;
+      letter-spacing: 0;
+    }
+
+    h3 {
+      margin: 24px 0 10px;
+      font-size: 18px;
+      letter-spacing: 0;
+    }
+
+    p {
+      margin: 10px 0;
+    }
+
+    ul,
+    ol {
+      margin: 10px 0 0;
+      padding-left: 22px;
+    }
+
+    li {
+      margin: 6px 0;
+    }
+
+    a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+
+    a:hover {
+      text-decoration: underline;
+    }
+
+    code {
+      padding: 1px 5px;
+      border-radius: 4px;
+      background: #eef2f7;
+      color: #111827;
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+      font-size: 0.94em;
+    }
+
+    pre {
+      overflow-x: auto;
+      margin: 12px 0;
+      padding: 16px;
+      border-radius: 8px;
+      background: var(--code-bg);
+      color: var(--code-text);
+      line-height: 1.5;
+      font-size: 14px;
+    }
+
+    pre code {
+      padding: 0;
+      background: transparent;
+      color: inherit;
+      font-size: inherit;
+    }
+
+    .callout {
+      margin: 14px 0;
+      padding: 14px 16px;
+      border: 1px solid var(--line);
+      border-left: 4px solid var(--accent);
+      border-radius: 8px;
+      background: var(--accent-soft);
+    }
+
+    .callout.warn {
+      border-left-color: var(--warn);
+      background: #fff7ed;
+    }
+
+    .callout.danger {
+      border-left-color: var(--danger);
+      background: #fef3f2;
+    }
+
+    .callout.ok {
+      border-left-color: var(--ok);
+      background: #ecfdf5;
+    }
+
+    .meta {
+      display: grid;
+      grid-template-columns: 180px minmax(0, 1fr);
+      gap: 8px 14px;
+      margin: 16px 0 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .meta li {
+      display: contents;
+    }
+
+    .meta strong {
+      color: var(--muted);
+      font-weight: 700;
+    }
+
+    .toc {
+      list-style: none;
+      padding: 0;
+      margin: 8px 0 0;
+    }
+
+    .toc li {
+      margin: 7px 0;
+    }
+
+    .checklist {
+      list-style: none;
+      padding-left: 0;
+    }
+
+    .checklist li {
+      position: relative;
+      padding-left: 28px;
+    }
+
+    .checklist li::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 0.55em;
+      width: 13px;
+      height: 13px;
+      border: 2px solid var(--ok);
+      border-radius: 3px;
+      background: #fff;
+    }
+
+    .kbd {
+      display: inline-block;
+      min-width: 1.7em;
+      padding: 1px 6px;
+      border: 1px solid #cbd5e1;
+      border-bottom-width: 2px;
+      border-radius: 5px;
+      background: #fff;
+      color: #111827;
+      font-family: "SFMono-Regular", Consolas, monospace;
+      font-size: 0.9em;
+      text-align: center;
+    }
+
+    footer {
+      color: var(--muted);
+      padding: 0 24px 40px;
+      font-size: 14px;
+    }
+
+    @media (max-width: 880px) {
+      .grid {
+        grid-template-columns: 1fr;
+      }
+
+      aside {
+        position: static;
+      }
+
+      .meta {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap">
+      <p class="eyebrow">GitHub 发布教程</p>
+      <h1>将 GUI-SD / RS-GRPO-OPD 当前代码上传到 GitHub</h1>
+      <p class="subtitle">
+        目标仓库：<a href="https://github.com/Marloweeee/RS_GRPO_OPD" target="_blank" rel="noreferrer">https://github.com/Marloweeee/RS_GRPO_OPD</a>。
+        本教程面向当前本地工程目录，重点是只上传源码、脚本和文档，避免把训练权重、缓存、日志、数据集和密钥推到公开仓库。
+      </p>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <div class="grid">
+      <div>
+        <section id="scope">
+          <h2>一、当前上下文</h2>
+          <p>本教程假设你在下面这个目录中操作：</p>
+          <pre><code>cd /data/codes/gui_grounding/GUI-SD-code-main</code></pre>
+          <ul class="meta">
+            <li><strong>本地分支</strong><span><code>main</code></span></li>
+            <li><strong>目标远端</strong><span><code>https://github.com/Marloweeee/RS_GRPO_OPD.git</code></span></li>
+            <li><strong>建议上传</strong><span>源码、<code>swift/</code> 修改、<code>tools/</code> 核心脚本、中文 README、实验方案 HTML、复现实验说明。</span></li>
+            <li><strong>不要上传</strong><span><code>output/</code>、<code>train_cache/</code>、<code>GUI-SD_scripts/train_cache/</code>、checkpoint、日志、数据集、token、临时 cache。</span></li>
+          </ul>
+          <div class="callout danger">
+            <strong>安全底线：</strong>任何包含访问 token、wandb/swanlab 密钥、私有路径凭据、模型权重、训练数据或评测结果大文件的内容，都不要执行 <code>git add</code>、<code>git commit</code> 或 <code>git push</code>。
+          </div>
+        </section>
+
+        <section id="precheck">
+          <h2>二、上传前检查</h2>
+          <p>先确认工作区里有哪些改动，并识别明显的临时文件。</p>
+          <pre><code>cd /data/codes/gui_grounding/GUI-SD-code-main
+git status --short
+git remote -v
+git branch --show-current</code></pre>
+          <p>当前本地可能会看到类似这些待处理项：</p>
+          <pre><code> M tools/training/launch_qwen3_4b_base_rsfull_grpo_sdpo_2node_rjob.sh
+ M tools/training/run_qwen3_4b_base_rsfull_grpo_sdpo_2node_worker.sh
+?? tools/training/1-launch_qwen3_4b_single_stage_rsfull_2node.sh
+?? tools/training/launch_qwen3_4b_rsfull_grpo_sdpo_midrefresh_s80_2node_rjob.sh
+?? tools/training/run_qwen3_4b_rsfull_grpo_sdpo_midrefresh_s80_2node_worker.sh
+?? tools/evaluation/run_qwen3_4b_stage1_s80_eval_rjob.sh
+?? =10.1</code></pre>
+          <div class="callout warn">
+            <strong>注意：</strong><code>=10.1</code> 看起来像误生成的临时文件。上传前先用 <code>file =10.1</code> 和 <code>sed -n '1,80p' =10.1</code> 检查内容；如果确认无用，再删除或保持不加入 Git。
+          </div>
+          <p>确认大目录是否已经被忽略。下面这些目录很大，通常只保留在本机或 <code>/mnt</code> 中：</p>
+          <pre><code>git status --ignored --short output train_cache GUI-SD_scripts/train_cache result output_files
+du -sh output train_cache GUI-SD_scripts/train_cache 2&gt;/dev/null || true</code></pre>
+        </section>
+
+        <section id="gitignore">
+          <h2>三、确认 .gitignore 规则</h2>
+          <p>当前仓库已经有忽略规则覆盖核心训练产物，但上传前仍建议再确认一次。关键规则应包括：</p>
+          <pre><code>output/
+train_cache/
+output_files/
+result/
+GUI-SD_scripts/output/
+GUI-SD_scripts/train_cache/
+*.rjob.log
+logging.jsonl
+infer_result/
+checkpoint-*/
+checkpoints/
+*.safetensors
+*.safetensors.index.json
+optimizer.pt
+scheduler.pt
+rng_state_*.pth
+trainer_state.json
+zero_pp_rank_*/
+/data/
+/guisd_data
+/ground_benchmark/
+/cache/</code></pre>
+          <p>用 dry-run 看看 <code>git add .</code> 实际会加入哪些文件，不满意就先别提交：</p>
+          <pre><code>git add --dry-run .
+git ls-files -o --exclude-standard | sort | sed -n '1,200p'</code></pre>
+          <div class="callout ok">
+            <strong>判断标准：</strong>dry-run 列表里应该主要是源码、脚本、README、HTML 文档等文本文件；不应该出现 <code>.safetensors</code>、<code>checkpoint-*</code>、<code>output/</code>、<code>train_cache/</code>、<code>images/</code> 或大体积 JSONL 数据。
+          </div>
+        </section>
+
+        <section id="quality">
+          <h2>四、提交前的轻量验证</h2>
+          <p>上传仓库前至少做一次脚本语法检查，确保核心 shell 脚本没有明显语法错误。</p>
+          <pre><code>bash -n tools/training/1-launch_qwen3_4b_single_stage_rsfull_2node.sh
+bash -n tools/training/launch_qwen3_4b_base_rsfull_grpo_sdpo_2node_rjob.sh
+bash -n tools/training/run_qwen3_4b_base_rsfull_grpo_sdpo_2node_worker.sh
+bash -n tools/training/launch_qwen3_4b_rsfull_grpo_sdpo_midrefresh_s80_2node_rjob.sh
+bash -n tools/training/run_qwen3_4b_rsfull_grpo_sdpo_midrefresh_s80_2node_worker.sh
+bash -n tools/evaluation/run_qwen3_4b_stage1_s80_eval_rjob.sh</code></pre>
+          <p>如果你只想检查所有 shell 文件，可以运行：</p>
+          <pre><code>find tools -name '*.sh' -print0 | xargs -0 -n1 bash -n</code></pre>
+        </section>
+
+        <section id="stage">
+          <h2>五、选择要提交的文件</h2>
+          <p>推荐先按模块显式 add，避免误把临时文件加进去。</p>
+          <pre><code>git add .gitignore README.md REPRODUCE_RS.md
+git add swift tools OPSD_Idea asset
+git status --short</code></pre>
+          <p>如果确认 <code>=10.1</code> 是误生成文件，不要 add。可以删除它：</p>
+          <pre><code>rm -i '=10.1'
+git status --short</code></pre>
+          <div class="callout warn">
+            <strong>如果远端仓库是公开仓库：</strong>提交前建议搜索敏感词。命中后不要直接推送，先确认是不是 token 或私有凭据。
+          </div>
+          <pre><code>grep -RInE 'token|api_key|secret|password|passwd|wandb|swanlab|hf_|github_pat' \
+  --exclude-dir=.git \
+  --exclude-dir=output \
+  --exclude-dir=train_cache \
+  --exclude-dir=GUI-SD_scripts \
+  . | sed -n '1,120p'</code></pre>
+        </section>
+
+        <section id="commit">
+          <h2>六、创建提交</h2>
+          <p>当前工程的协作规范要求 commit message 尽量保留决策信息。可以使用下面这种结构：</p>
+          <pre><code>git commit -m "Prepare RS-GRPO-OPD codebase for public handoff" \
+  -m "Package the remote-sensing GRPO/SDPO experiment scripts, documentation, and repository hygiene so the project can be reviewed and reproduced from GitHub." \
+  -m "Constraint: Do not publish checkpoints, datasets, logs, cache directories, or credentials" \
+  -m "Rejected: Push local output and train_cache artifacts | too large and not source-controlled" \
+  -m "Confidence: medium" \
+  -m "Scope-risk: moderate" \
+  -m "Tested: bash -n on updated training and evaluation shell scripts" \
+  -m "Not-tested: Full training rerun from a fresh clone"</code></pre>
+          <p>提交后检查最近一次提交：</p>
+          <pre><code>git log --oneline -1
+git show --stat --oneline HEAD</code></pre>
+        </section>
+
+        <section id="remote">
+          <h2>七、绑定 GitHub 远端</h2>
+          <p>如果当前没有任何 remote，添加 <code>origin</code>：</p>
+          <pre><code>git remote add origin https://github.com/Marloweeee/RS_GRPO_OPD.git
+git remote -v</code></pre>
+          <p>如果已经存在 <code>origin</code>，但指向旧仓库，则改成新地址：</p>
+          <pre><code>git remote set-url origin https://github.com/Marloweeee/RS_GRPO_OPD.git
+git remote -v</code></pre>
+          <p>如果你更习惯 SSH，并且本机 GitHub SSH key 已配置好，也可以使用：</p>
+          <pre><code>git remote set-url origin git@github.com:Marloweeee/RS_GRPO_OPD.git
+git remote -v</code></pre>
+        </section>
+
+        <section id="push">
+          <h2>八、推送到 GitHub</h2>
+          <p>如果 GitHub 仓库是空仓库，直接推送当前 <code>main</code> 分支：</p>
+          <pre><code>git push -u origin main</code></pre>
+          <p>如果 GitHub 上创建仓库时勾选了 README、LICENSE 或 .gitignore，远端可能已经有一次初始化提交。这时先拉取并 rebase：</p>
+          <pre><code>git pull --rebase origin main --allow-unrelated-histories
+git push -u origin main</code></pre>
+          <div class="callout warn">
+            <strong>只在必要时使用 <code>--allow-unrelated-histories</code>：</strong>它用于合并两个没有共同祖先的历史，通常只发生在“本地已有 Git 历史，而 GitHub 新仓库又初始化了 README”的情况。
+          </div>
+          <p>HTTPS 推送时，GitHub 不再接受账号密码作为 Git 密码。推荐两种认证方式：</p>
+          <ol>
+            <li>使用 GitHub CLI：<code>gh auth login</code>，按提示登录后再执行 <code>git push</code>。</li>
+            <li>使用 Personal Access Token：用户名填 GitHub 用户名，密码位置填 token。</li>
+          </ol>
+        </section>
+
+        <section id="verify">
+          <h2>九、推送后验证</h2>
+          <p>推送完成后，在本地和 GitHub 页面都做一次确认。</p>
+          <pre><code>git status
+git remote -v
+git ls-remote --heads origin</code></pre>
+          <ul class="checklist">
+            <li>GitHub 页面能看到 <code>README.md</code>、<code>swift/</code>、<code>tools/</code>、<code>OPSD_Idea/</code> 等源码和文档。</li>
+            <li>GitHub 页面看不到 <code>output/</code>、<code>train_cache/</code>、checkpoint、<code>.safetensors</code>、日志和数据集。</li>
+            <li>README 中的路径说明清楚地区分了源码路径、本地数据路径和 <code>/mnt</code> checkpoint 路径。</li>
+            <li>核心脚本命名和 <code>tools/*/README.md</code> 说明能让别人理解训练、评测和 rollout 的入口。</li>
+          </ul>
+        </section>
+
+        <section id="errors">
+          <h2>十、常见问题处理</h2>
+          <h3>1. remote origin already exists</h3>
+          <pre><code>git remote -v
+git remote set-url origin https://github.com/Marloweeee/RS_GRPO_OPD.git
+git remote -v</code></pre>
+
+          <h3>2. push 被拒绝，提示远端有你本地没有的提交</h3>
+          <pre><code>git pull --rebase origin main
+git push -u origin main</code></pre>
+          <p>如果是新仓库初始化 README 导致历史无共同祖先，再使用：</p>
+          <pre><code>git pull --rebase origin main --allow-unrelated-histories
+git push -u origin main</code></pre>
+
+          <h3>3. 文件太大或包含权重</h3>
+          <p>如果还没提交，直接取消暂存：</p>
+          <pre><code>git reset HEAD path/to/large-file
+echo "path/to/large-file" &gt;&gt; .gitignore
+git status --short</code></pre>
+          <p>如果已经提交但还没有推送，可以软回退，移除大文件后重新提交：</p>
+          <pre><code>git reset --soft HEAD~1
+git reset HEAD path/to/large-file
+echo "path/to/large-file" &gt;&gt; .gitignore
+git commit</code></pre>
+
+          <h3>4. 不小心提交了 token 或密钥</h3>
+          <div class="callout danger">
+            <strong>立即处理：</strong>先撤销或轮换泄露的 token，再清理 Git 历史。仅从最新提交中删除文件不等于彻底消除泄露风险。
+          </div>
+
+          <h3>5. 需要确认某个文件是否会被忽略</h3>
+          <pre><code>git check-ignore -v path/to/file</code></pre>
+        </section>
+
+        <section id="recommended">
+          <h2>十一、推荐的完整命令序列</h2>
+          <p>下面是一套保守流程。执行前请先根据实际 <code>git status</code> 调整要 add 的文件。</p>
+          <pre><code>cd /data/codes/gui_grounding/GUI-SD-code-main
+
+git status --short
+git remote -v
+
+# 检查误生成文件，确认无用后再删除
+file '=10.1' 2&gt;/dev/null || true
+sed -n '1,80p' '=10.1' 2&gt;/dev/null || true
+rm -i '=10.1'
+
+# 确认不会上传大文件和缓存
+git add --dry-run .
+git status --ignored --short output train_cache GUI-SD_scripts/train_cache result output_files
+
+# 语法检查
+find tools -name '*.sh' -print0 | xargs -0 -n1 bash -n
+
+# 分模块加入源码和文档
+git add .gitignore README.md REPRODUCE_RS.md
+git add swift tools OPSD_Idea asset
+git status --short
+
+# 提交
+git commit -m "Prepare RS-GRPO-OPD codebase for public handoff" \
+  -m "Package the remote-sensing GRPO/SDPO experiment scripts, documentation, and repository hygiene so the project can be reviewed and reproduced from GitHub." \
+  -m "Constraint: Do not publish checkpoints, datasets, logs, cache directories, or credentials" \
+  -m "Rejected: Push local output and train_cache artifacts | too large and not source-controlled" \
+  -m "Confidence: medium" \
+  -m "Scope-risk: moderate" \
+  -m "Tested: bash -n on updated training and evaluation shell scripts" \
+  -m "Not-tested: Full training rerun from a fresh clone"
+
+# 绑定远端并推送
+git remote add origin https://github.com/Marloweeee/RS_GRPO_OPD.git 2&gt;/dev/null \
+  || git remote set-url origin https://github.com/Marloweeee/RS_GRPO_OPD.git
+git remote -v
+git push -u origin main</code></pre>
+        </section>
+
+        <section id="references">
+          <h2>参考资料</h2>
+          <ul>
+            <li><a href="https://docs.github.com/en/github/importing-your-projects-to-github/adding-an-existing-project-to-github-using-the-command-line" target="_blank" rel="noreferrer">GitHub Docs：Adding locally hosted code to GitHub</a></li>
+            <li><a href="https://docs.github.com/en/get-started/git-basics/managing-remote-repositories" target="_blank" rel="noreferrer">GitHub Docs：Managing remote repositories</a></li>
+            <li><a href="https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens" target="_blank" rel="noreferrer">GitHub Docs：Managing your personal access tokens</a></li>
+          </ul>
+        </section>
+      </div>
+
+      <aside>
+        <h2>目录</h2>
+        <ul class="toc">
+          <li><a href="#scope">一、当前上下文</a></li>
+          <li><a href="#precheck">二、上传前检查</a></li>
+          <li><a href="#gitignore">三、确认 .gitignore</a></li>
+          <li><a href="#quality">四、轻量验证</a></li>
+          <li><a href="#stage">五、选择文件</a></li>
+          <li><a href="#commit">六、创建提交</a></li>
+          <li><a href="#remote">七、绑定远端</a></li>
+          <li><a href="#push">八、推送</a></li>
+          <li><a href="#verify">九、验证</a></li>
+          <li><a href="#errors">十、常见问题</a></li>
+          <li><a href="#recommended">十一、完整命令</a></li>
+        </ul>
+        <div class="callout">
+          <strong>最短路径：</strong>
+          <p><span class="kbd">1</span> dry-run 检查<br>
+            <span class="kbd">2</span> 显式 add 源码和文档<br>
+            <span class="kbd">3</span> commit<br>
+            <span class="kbd">4</span> remote set-url<br>
+            <span class="kbd">5</span> push</p>
+        </div>
+      </aside>
+    </div>
+  </main>
+
+  <footer>
+    <div class="wrap">
+      生成时间：2026-05-22。教程中的命令面向当前本地路径和仓库地址，可按实际工作区状态微调。
+    </div>
+  </footer>
+</body>
+</html>
