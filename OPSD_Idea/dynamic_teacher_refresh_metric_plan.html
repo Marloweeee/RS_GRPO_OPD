@@ -1,0 +1,381 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>基于训练指标的一次性动态 Teacher Refresh 验证计划</title>
+  <style>
+    :root {
+      --ink: #1f2933;
+      --muted: #5d6875;
+      --line: #d8dee6;
+      --bg: #f6f8fb;
+      --panel: #ffffff;
+      --blue: #235a97;
+      --green: #246b4f;
+      --amber: #8a6317;
+      --red: #9a3d35;
+      --code: #eef2f6;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans SC", "Microsoft YaHei", Arial, sans-serif;
+      line-height: 1.65;
+    }
+    main {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 38px 28px 64px;
+    }
+    header {
+      padding: 28px 0 22px;
+      border-bottom: 2px solid var(--line);
+    }
+    h1 {
+      margin: 0 0 12px;
+      font-size: 32px;
+      line-height: 1.2;
+      letter-spacing: 0;
+    }
+    h2 {
+      margin: 34px 0 14px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--line);
+      font-size: 23px;
+      line-height: 1.3;
+    }
+    h3 {
+      margin: 24px 0 10px;
+      font-size: 18px;
+    }
+    p { margin: 10px 0; }
+    ul, ol {
+      margin: 10px 0 10px 24px;
+      padding: 0;
+    }
+    li { margin: 5px 0; }
+    table {
+      width: 100%;
+      margin: 14px 0;
+      border-collapse: collapse;
+      background: var(--panel);
+      border: 1px solid var(--line);
+    }
+    th, td {
+      padding: 10px 12px;
+      border: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+    }
+    th { background: #edf2f7; }
+    code {
+      padding: 1px 5px;
+      border-radius: 4px;
+      background: var(--code);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+      font-size: 0.94em;
+    }
+    pre {
+      overflow: auto;
+      margin: 12px 0;
+      padding: 14px 16px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--code);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+    .lead {
+      max-width: 980px;
+      color: #2b3642;
+      font-size: 17px;
+    }
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 18px;
+    }
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      min-height: 30px;
+      padding: 4px 10px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: var(--panel);
+      color: var(--muted);
+      font-size: 14px;
+    }
+    .panel {
+      margin: 16px 0;
+      padding: 16px 18px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+    }
+    .note { border-left: 4px solid var(--blue); }
+    .success { border-left: 4px solid var(--green); }
+    .warning { border-left: 4px solid var(--amber); }
+    .risk { border-left: 4px solid var(--red); }
+    .small { color: var(--muted); font-size: 14px; }
+    @media (max-width: 720px) {
+      main { padding: 24px 16px 48px; }
+      h1 { font-size: 27px; }
+      table { display: block; overflow-x: auto; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>基于训练指标的一次性动态 Teacher Refresh 验证计划</h1>
+      <p class="lead">
+        本计划验证一种比固定 <code>step80</code> 更自适应的 SDPO teacher 更新策略：
+        训练过程中不预设具体刷新步数，而是在 warmup 之后观察 student rollout 的定位质量、
+        失败比例、SDPO 分布纠偏强度与 GRPO KL，当指标显示 student 已经稳定强于早期状态且 teacher 可能过时时，
+        将当前 student 参数同步给 teacher 一次；同步后关闭刷新监控，ref model 保持不变。
+      </p>
+      <div class="meta">
+        <span class="tag">任务：遥感 bbox grounding</span>
+        <span class="tag">训练：Qwen3-VL-4B 全量 rs_train</span>
+        <span class="tag">方法：GRPO + SDPO/OPSD</span>
+        <span class="tag">刷新：指标触发，仅一次</span>
+        <span class="tag">日期：2026-05-23</span>
+      </div>
+    </header>
+
+    <section>
+      <h2>1. 动机</h2>
+      <p>
+        固定 <code>step80</code> 刷新 teacher 的策略已经验证了一个重要事实：
+        不重启训练、不重新加载 checkpoint，而是在训练进程内把 student 权重同步给 SDPO teacher 是可行的。
+        但是固定步数仍然依赖经验估计，不同提示模式、不同 batch 设置、不同数据混合方式下，student 变强的时机并不一定一致。
+      </p>
+      <div class="panel note">
+        <p>
+          因此更合理的第一版方案是：不做额外 probe，不增加生成开销，只利用训练过程中已经计算出的标量指标，
+          自动判断是否刷新 teacher。这样资源消耗几乎不变，并且触发后立即停止监控逻辑。
+        </p>
+      </div>
+    </section>
+
+    <section>
+      <h2>2. 方法定义</h2>
+      <p>新增一种 <code>sdpo_teacher_refresh_mode=metric</code> 模式，与已有固定步数模式兼容。</p>
+      <table>
+        <thead>
+          <tr>
+            <th>模式</th>
+            <th>含义</th>
+            <th>用途</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>fixed</code></td>
+            <td>沿用 <code>sdpo_teacher_refresh_step</code>，到指定 step 后刷新一次。</td>
+            <td>复现实验与固定 step80 对照。</td>
+          </tr>
+          <tr>
+            <td><code>metric</code></td>
+            <td>warmup 后根据 rolling window 指标触发一次 teacher refresh。</td>
+            <td>本次验证的动态刷新策略。</td>
+          </tr>
+          <tr>
+            <td><code>off</code></td>
+            <td>不刷新 teacher。</td>
+            <td>保留为消融或排错入口。</td>
+          </tr>
+        </tbody>
+      </table>
+      <p>动态刷新只更新 teacher，不更新 ref：</p>
+      <pre><code>student: 持续训练，并同步到 vLLM 做 on-policy rollout
+teacher: base 初始化，满足指标后 student -> teacher 同步一次
+ref:     base 初始化，全程不变，继续作为 GRPO KL anchor</code></pre>
+    </section>
+
+    <section>
+      <h2>3. 触发指标</h2>
+      <p>第一版不引入额外模型前向或小型 probe set，只使用训练已有信号：</p>
+      <table>
+        <thead>
+          <tr>
+            <th>指标</th>
+            <th>来源</th>
+            <th>作用</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>sdpo/iou_mean</code></td>
+            <td>rollout bbox 与 GT 的 IoU</td>
+            <td>判断 student 当前定位质量是否已超过早期基线。</td>
+          </tr>
+          <tr>
+            <td><code>sdpo/iou@0.5</code></td>
+            <td>rollout bbox 成功率</td>
+            <td>避免只靠 mIoU 波动触发，辅助确认定位成功率稳定。</td>
+          </tr>
+          <tr>
+            <td><code>sdpo/route_failed</code></td>
+            <td>SDPO 路由</td>
+            <td>失败比例太高说明 student 仍不稳定，不应污染 teacher。</td>
+          </tr>
+          <tr>
+            <td><code>sdpo/loss</code></td>
+            <td>teacher top-k KL 蒸馏损失</td>
+            <td>当 student 已经变强但 SDPO loss 仍偏高时，说明 teacher 可能滞后。</td>
+          </tr>
+          <tr>
+            <td><code>kl</code></td>
+            <td>GRPO 相对 ref 的 KL</td>
+            <td>防止 student 偏离 ref 过大时同步 teacher。</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>4. 触发规则</h2>
+      <p>设 rolling window 为最近 <code>W</code> 个记录点。先用早期窗口建立 student 初始基线，然后 warmup 后每隔若干 step 检查一次。</p>
+      <pre><code>允许刷新，当且仅当：
+
+step >= warmup_step
+and teacher 尚未刷新
+and rolling_iou_mean >= baseline_iou_mean + min_iou_improve
+and rolling_route_failed <= max_failed_ratio
+and rolling_sdpo_loss >= min_sdpo_loss
+and rolling_kl <= max_kl_to_ref</code></pre>
+      <p>建议第一组参数：</p>
+      <table>
+        <thead>
+          <tr>
+            <th>参数</th>
+            <th>建议值</th>
+            <th>理由</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>warmup_step</code></td>
+            <td>80</td>
+            <td>延续固定 step80 的经验，但不强制在 80 更新。</td>
+          </tr>
+          <tr>
+            <td><code>window</code></td>
+            <td>50</td>
+            <td>平滑 rollout 组内波动，避免单步高 IoU 误触发。</td>
+          </tr>
+          <tr>
+            <td><code>check_interval</code></td>
+            <td>10</td>
+            <td>降低判断频率，开销可以忽略。</td>
+          </tr>
+          <tr>
+            <td><code>min_iou_improve</code></td>
+            <td>0.01</td>
+            <td>第一版偏保守，确保能观察动态触发是否工作。</td>
+          </tr>
+          <tr>
+            <td><code>max_failed_ratio</code></td>
+            <td>0.55</td>
+            <td>失败比例过高时不刷新，避免 teacher 被不稳定 student 污染。</td>
+          </tr>
+          <tr>
+            <td><code>min_sdpo_loss</code></td>
+            <td>0.02</td>
+            <td>SDPO loss 太低说明 teacher 与 student 已较接近，刷新收益有限。</td>
+          </tr>
+          <tr>
+            <td><code>max_kl_to_ref</code></td>
+            <td>0.30</td>
+            <td>student 对 ref 偏离过大时不刷新，保持稳定性。</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>5. 实验矩阵</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>实验</th>
+            <th>OPSD hint/mask</th>
+            <th>Teacher refresh</th>
+            <th>目的</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>动态刷新 + gaussian</td>
+            <td><code>gaussian</code></td>
+            <td><code>metric</code>，仅一次</td>
+            <td>与默认高斯 SDPO 逻辑对齐，观察动态刷新能否优于固定 step 或无刷新。</td>
+          </tr>
+          <tr>
+            <td>动态刷新 + zoom_in</td>
+            <td><code>zoom_in</code></td>
+            <td><code>metric</code>，仅一次</td>
+            <td>验证当前更有潜力的 zoom-in 提示模式是否从动态 teacher 中进一步受益。</td>
+          </tr>
+        </tbody>
+      </table>
+      <p>
+        两组均使用 Qwen3-VL-4B base、全量 <code>rs_train.jsonl</code>、两机并行、<code>save_steps=10</code>、
+        训练结束后再独立评测 IoU@0.5 到 IoU@0.9。
+      </p>
+    </section>
+
+    <section>
+      <h2>6. 成功标准</h2>
+      <div class="panel success">
+        <p>实现层面成功：日志出现动态触发原因、刷新 step、<code>copied=713</code>，并且训练继续跨过刷新点。</p>
+        <p>实验层面成功：最终全量测试集 <code>mIoU</code> 或 IoU@0.6/0.7/0.8 相比固定 step80 或普通 GRPO+SDPO 有提升，且没有明显降低 IoU@0.5。</p>
+      </div>
+    </section>
+
+    <section>
+      <h2>7. 风险与排查</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>风险</th>
+            <th>表现</th>
+            <th>处理</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>指标过严导致不触发</td>
+            <td>训练结束日志中没有 refresh</td>
+            <td>降低 <code>min_iou_improve</code> 或 <code>min_sdpo_loss</code>，但保持只刷新一次。</td>
+          </tr>
+          <tr>
+            <td>指标过松导致过早触发</td>
+            <td>刚过 warmup 立刻刷新，性能无提升</td>
+            <td>提高 <code>window</code> 或 <code>min_iou_improve</code>。</td>
+          </tr>
+          <tr>
+            <td>student 发散时刷新</td>
+            <td>刷新后 loss/kl 波动变大</td>
+            <td>降低 <code>max_kl_to_ref</code> 或降低 <code>max_failed_ratio</code>。</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>8. 执行记录</h2>
+      <p class="small">
+        计划文件已创建。后续执行时将在此思路下新增动态刷新参数、训练脚本，并分别提交 gaussian 与 zoom_in 两组 rjob。
+      </p>
+    </section>
+  </main>
+</body>
+</html>

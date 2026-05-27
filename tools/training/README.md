@@ -17,6 +17,13 @@
   rjob 启动脚本。会先执行 `brainctl launch --predict-only` 检查资源，再用
   `-P 2 --replica-prefix` 提交两个 8 卡 replica；默认使用 `gui_agent` 集群、
   每个 replica 请求 `64` CPU、`800000` MiB 内存。
+- `run_qwen3_4b_base_rsfull_opd_only_2node_worker.sh`：4B 全量遥感 OPD/OPSD-only
+  的两节点验证 worker。它使用 `rlhf_type=gkd + use_opsd=true`，关闭 GRPO
+  组内奖励优化和 SDPO，只保留学生 rollout 与带 hint teacher 的蒸馏损失，用来和
+  pure GRPO、GRPO+OPD/SDPO 做消融对照。
+- `launch_qwen3_4b_base_rsfull_opd_only_2node_rjob.sh`：OPD-only 验证实验的
+  rjob 启动脚本。默认仍按两节点 8 卡 replica 提交，checkpoint 和评估产物保存到
+  `/mnt/jfs/copilot/lhb` 下，日志保存到 `/data/codes/gui_grounding/data/logs`。
 - `run_qwen3_4b_rsfull_grpo_sdpo_2stage_2node_worker.sh`：4B 全量遥感两阶段
   worker。Stage 1 从 4B base 只训练 `80` step 并跳过评估；Stage 2 自动读取
   Stage 1 最新 checkpoint，把 student/ref/teacher 都同步到该 checkpoint 后，

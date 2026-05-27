@@ -1,0 +1,790 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>RS-GRPO-OPSD 代码逻辑与论文思路总览</title>
+  <style>
+    :root {
+      --ink: #1f2933;
+      --muted: #5f6b7a;
+      --line: #d8dee6;
+      --bg: #f7f9fc;
+      --panel: #ffffff;
+      --accent: #1f6feb;
+      --accent-2: #0f766e;
+      --warn: #9a6700;
+      --bad: #b42318;
+      --code: #f0f3f7;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: var(--bg);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif;
+      line-height: 1.65;
+    }
+    header {
+      background: #0f172a;
+      color: #fff;
+      padding: 34px 40px 28px;
+      border-bottom: 4px solid var(--accent);
+    }
+    header h1 {
+      margin: 0 0 10px;
+      font-size: 30px;
+      line-height: 1.25;
+      letter-spacing: 0;
+    }
+    header p {
+      margin: 6px 0;
+      max-width: 1180px;
+      color: #d9e2ec;
+    }
+    main {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 28px 28px 48px;
+    }
+    section {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 22px 24px;
+      margin: 18px 0;
+    }
+    h2 {
+      font-size: 21px;
+      margin: 0 0 12px;
+      line-height: 1.35;
+    }
+    h3 {
+      font-size: 16px;
+      margin: 20px 0 8px;
+      color: #243b53;
+    }
+    p { margin: 8px 0; }
+    ul, ol { margin: 8px 0 14px 22px; padding: 0; }
+    li { margin: 4px 0; }
+    code {
+      background: var(--code);
+      border: 1px solid #dfe4ea;
+      border-radius: 5px;
+      padding: 1px 5px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.94em;
+    }
+    pre {
+      overflow-x: auto;
+      background: #111827;
+      color: #e5e7eb;
+      padding: 14px 16px;
+      border-radius: 8px;
+      line-height: 1.55;
+    }
+    pre code {
+      background: transparent;
+      border: 0;
+      padding: 0;
+      color: inherit;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 12px 0 6px;
+      font-size: 14px;
+    }
+    th, td {
+      border: 1px solid var(--line);
+      padding: 8px 9px;
+      vertical-align: top;
+    }
+    th {
+      background: #eef4ff;
+      font-weight: 650;
+      text-align: left;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 12px;
+      margin: 12px 0;
+    }
+    .card {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 13px 14px;
+      background: #fbfdff;
+    }
+    .card h3 { margin-top: 0; }
+    .tag {
+      display: inline-block;
+      border: 1px solid #b6c6df;
+      background: #eef4ff;
+      color: #1d4f91;
+      border-radius: 999px;
+      padding: 1px 8px;
+      margin: 2px 4px 2px 0;
+      font-size: 12px;
+      line-height: 1.8;
+      white-space: nowrap;
+    }
+    .note {
+      border-left: 4px solid var(--accent-2);
+      background: #ecfdf5;
+      padding: 10px 13px;
+      margin: 12px 0;
+    }
+    .warn {
+      border-left: 4px solid var(--warn);
+      background: #fff8e5;
+      padding: 10px 13px;
+      margin: 12px 0;
+    }
+    .risk {
+      border-left: 4px solid var(--bad);
+      background: #fff1f2;
+      padding: 10px 13px;
+      margin: 12px 0;
+    }
+    .path {
+      word-break: break-all;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 12.5px;
+    }
+    .small { color: var(--muted); font-size: 13px; }
+    .formula {
+      background: #f8fafc;
+      border: 1px dashed #cbd5e1;
+      border-radius: 8px;
+      padding: 10px 12px;
+      margin: 10px 0;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      white-space: normal;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>RS-GRPO-OPSD 代码逻辑与论文思路总览</h1>
+    <p>生成日期：2026-05-25。本文面向后续论文构思，重点梳理当前代码中已经实现或正在验证的核心方法：遥感目标 bbox 定位、GRPO 多轨迹采样、OPSD 选择性教师纠偏、视觉提示教师、动态教师刷新和实验消融。</p>
+    <p>工作目录：<code>/data/codes/gui_grounding/GUI-SD-code-main</code>。核心逻辑在本仓库本地 <code>swift/</code> 包内，不能直接等同于上游 ms-swift。</p>
+  </header>
+
+  <main>
+    <section>
+      <h2>1. 一句话概括当前工作</h2>
+      <p>当前代码把遥感目标定位建模为视觉语言模型生成 bbox 的 grounding 任务：模型输入遥感图像与文本描述，输出归一化坐标框。训练上不是只做普通监督微调，而是让学生模型一次对同一 prompt 采样多条 bbox 轨迹，用 GRPO 在组内比较中强化更好的 bbox；同时引入一个带视觉提示的同源教师模型，对低质量或失败轨迹做选择性蒸馏纠偏，从而尝试弥合“单次采样性能”和“best-of-8 oracle 性能”之间的差距。</p>
+      <div class="note">
+        <p>论文主线可以表述为：遥感目标定位中，单次 bbox 生成容易受采样随机性和视觉尺度变化影响；多轨迹 rollout 往往包含更优答案，但直接 oracle 选择不可部署。因此需要一个训练框架，让模型在训练中学会提高好 bbox 的概率，并通过视觉提示教师修正差 bbox 的分布。</p>
+      </div>
+      <p>目前最有潜力的技术关键词包括：<span class="tag">Group-Relative bbox Optimization</span><span class="tag">Selective Distillation</span><span class="tag">Visual-Hint Teacher</span><span class="tag">Teacher Refresh</span><span class="tag">Remote Sensing Grounding</span><span class="tag">Best-of-N Gap Reduction</span></p>
+    </section>
+
+    <section>
+      <h2>2. 代码地图：哪些文件承载主要方法</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>模块</th>
+            <th>关键文件</th>
+            <th>在方法中的角色</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>GRPO + OPSD 主训练</td>
+            <td class="path">swift/rlhf_trainers/grpo_trainer.py</td>
+            <td>实现组内多样本 rollout、reward 计算、GRPO loss、OPSD 路由、教师蒸馏 loss、固定步或指标触发的教师刷新，以及教师 EMA 更新。</td>
+          </tr>
+          <tr>
+            <td>OPSD/GKD 训练</td>
+            <td class="path">swift/rlhf_trainers/opsd_trainer.py<br>swift/rlhf_trainers/gkd_trainer.py</td>
+            <td>早期/并行的 OPSD 自蒸馏路径，基于 GKDTrainer。包含学生 on-policy rollout、教师视觉提示、token 加权 KD、坐标数字加权、EMA 教师更新和 hint mask 构建。</td>
+          </tr>
+          <tr>
+            <td>参数定义</td>
+            <td class="path">swift/rlhf_trainers/args_mixin.py<br>swift/rlhf_trainers/arguments.py</td>
+            <td>定义 OPSD 相关训练参数，包括 OPSD 纠偏开关、OPSD loss 权重、good/failed 路由阈值、teacher refresh 模式、EWMA/双窗口参数、GRPO 分组约束等。</td>
+          </tr>
+          <tr>
+            <td>rollout 服务</td>
+            <td class="path">swift/rlhf_trainers/rollout_mixin.py<br>swift/rlhf_trainers/vllm_client.py</td>
+            <td>与外部 vLLM 引擎通信，用学生模型当前权重生成 on-policy bbox 回答。训练时常见实例包括学生、教师、ref 和 vLLM rollout engine。</td>
+          </tr>
+          <tr>
+            <td>bbox 奖励与解析</td>
+            <td class="path">swift/cus_rewards/bbox_iou_reward.py<br>swift/cus_rewards/bbox_reward.py<br>swift/custom_utils/format_func.py<br>swift/custom_utils/ground_func.py</td>
+            <td>从模型文本中解析 bbox，做坐标归一化/反归一化，计算 IoU/GIoU、格式有效性、中心距离、面积比例、长宽比等几何奖励。</td>
+          </tr>
+          <tr>
+            <td>离线 rollout 与路由数据</td>
+            <td class="path">tools/rollout/stage1_generate_rollout_pool.py<br>tools/rollout/stage2_build_routing_datasets.py</td>
+            <td>生成多轨迹候选池，离线分析 best-of-N oracle、好/坏样本分布，以及后续构造路由训练数据的可行性。</td>
+          </tr>
+          <tr>
+            <td>评测</td>
+            <td class="path">tools/evaluation/eval_student.py<br>tools/evaluation/aggregate_val_ckpt_eval.py<br>tools/evaluation/run_bestof8_eval_rjob.sh</td>
+            <td>对 checkpoint 做 greedy 或 best-of-N 推理，输出 mIoU、IoU@0.5/0.6/0.7/0.8/0.9、parse rate 和 valid rate。</td>
+          </tr>
+          <tr>
+            <td>训练脚本</td>
+            <td class="path">tools/training/<br>tools/training/refresh/</td>
+            <td>保存单阶段、两阶段、GRPO-only、OPD-only、不同视觉提示、固定/动态教师刷新、EMA+refresh 等实验入口。</td>
+          </tr>
+          <tr>
+            <td>实验记录</td>
+            <td class="path">OPSD_Idea/1-exp_summary.html<br>OPSD_Idea/val_4b_ckpt_metrics_summary.html</td>
+            <td>汇总 test/val 全量评测结果，为论文实验表和消融结论提供材料。</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>3. 数据与任务形式：从遥感图像到 bbox 文本生成</h2>
+      <p>当前任务不是传统检测器的 dense prediction，而是 VLM 的指令式 grounding：输入图像和语言描述，输出一个 bbox。数据通常以 jsonl 形式保存，每条样本包含图像路径、对话 messages、目标框 solution，以及 <code>additional_paras</code> 中的图像尺寸信息。训练和评测中的 bbox 统一转换到 Qwen3-VL 常用的 0-1000 归一化坐标系。</p>
+      <p>这种建模带来的优势是，模型可以直接用自然语言指令描述目标类别、属性、场景关系，继承 GUI grounding 和通用 VLM 的 instruction-following 能力；挑战是输出格式和坐标值都由生成模型产生，容易出现格式错误、坐标越界、宽高反转、局部细节丢失等问题。</p>
+      <h3>输出解析与几何度量</h3>
+      <ul>
+        <li><code>swift/custom_utils/format_func.py</code> 中的 bbox 解析函数负责从模型回答文本中提取坐标。解析失败时会返回类似 <code>no bbox</code> 的无效标记。</li>
+        <li><code>swift/custom_utils/ground_func.py</code> 提供真实像素坐标和归一化坐标之间的变换，例如将数据标注框转成 0-1000 空间。</li>
+        <li><code>swift/cus_rewards/bbox_iou_reward.py</code> 等模块计算 IoU/GIoU 和几何 reward，为 GRPO 与 OPSD 路由提供质量信号。</li>
+      </ul>
+      <p>评测时主要报告 <code>mIoU</code> 和多个阈值下的命中率：<code>IoU@0.5</code>、<code>IoU@0.6</code>、<code>IoU@0.7</code>、<code>IoU@0.8</code>、<code>IoU@0.9</code>。其中 <code>IoU@0.5</code> 更接近常规定位成功率，<code>IoU@0.8/0.9</code> 更能反映框边界精度。</p>
+    </section>
+
+    <section>
+      <h2>4. OPSD/GKD 基线：视觉提示教师的自蒸馏</h2>
+      <p>OPSD 可以理解为一种面向 grounding 的 on-policy self-distillation：学生模型先根据当前策略产生回答，教师模型在更强视觉条件下给出分布指导，学生通过 KD 学习教师分布。它不是引入额外大模型作为外部教师，而是使用同源模型实例，通过视觉提示让教师在同一数据上变得更“容易看清目标”。</p>
+      <div class="grid">
+        <div class="card">
+          <h3>学生模型</h3>
+          <p>学生接收原始图像和原始文本 prompt，负责最终部署时的 bbox 生成。训练过程中学生权重持续更新，并会同步到 vLLM rollout 侧用于 on-policy 采样。</p>
+        </div>
+        <div class="card">
+          <h3>教师模型</h3>
+          <p>教师通常从同一 base checkpoint 初始化，但输入端额外带有视觉提示。教师不一定独立进化成完全不同模型，可以固定、EMA 更新，或者在某些时刻从学生硬同步。</p>
+        </div>
+        <div class="card">
+          <h3>视觉提示</h3>
+          <p>教师看到的是被 mask、zoom、window 或 hint 强化后的图像区域。这样教师在训练时拥有比学生更明确的局部目标信息，形成一种“同源但更强条件”的监督。</p>
+        </div>
+        <div class="card">
+          <h3>token 加权</h3>
+          <p>OPSD 代码中支持对坐标数字 token 更高权重，降低非数字文本 token 的干扰，使蒸馏重点落在 bbox 坐标本身。</p>
+        </div>
+      </div>
+      <p>从论文角度看，OPSD 的价值是把 GUI grounding 中常用的“定位点/视觉提示”思想迁移到遥感 bbox 定位：不需要额外人工监督，只利用 GT bbox 或候选框构造教师可见的提示图像，让教师输出分布成为学生的训练信号。</p>
+      <div class="warn">
+        <p>已有实验显示，单独 OPD/OPSD-only 明显弱于 GRPO-only 和 GRPO+OPSD。这说明视觉提示蒸馏本身有帮助但不够，它更适合作为 RL 训练中的纠偏项，而不是完全替代组内策略优化。</p>
+      </div>
+    </section>
+
+    <section>
+      <h2>5. GRPO：多轨迹 bbox rollout 与组内相对优化</h2>
+      <p>GRPO 部分的核心是：同一个 prompt 不只生成一个 bbox，而是生成 <code>NUM_GENERATIONS</code> 个候选回答，例如 8 个 bbox 轨迹。然后在同一组内部根据 reward 计算相对优势。比组平均更好的样本获得正向强化，比组平均差的样本被压低概率。这与遥感 bbox 任务的特点非常契合，因为同一个目标在多次采样中经常会出现“某些框很好、某些框偏移明显”的现象。</p>
+      <div class="formula">
+        对同一 prompt 的第 i 个 rollout：A_i = (R_i - mean(R_group)) / (std(R_group) + epsilon)
+      </div>
+      <p>这里的 reward 主要由 bbox 几何质量、格式有效性等组成。组内相对优势的好处是避免绝对 reward 标度不稳定，同时让模型从同一 prompt 的多个候选中学习“哪个 bbox 更像正确答案”。</p>
+      <h3>为什么 batch 设置要匹配 NUM_GENERATIONS</h3>
+      <p>GRPO 的组内优化要求同一组样本来自同一个 prompt 的多次生成。如果有效 batch 中的样本数不能被 <code>NUM_GENERATIONS</code> 整除，或者数据排列打乱了 prompt 分组，就可能把不同 prompt 的回答混进同一组，导致平均值和优势都没有语义意义。因此代码和脚本中需要保证生成组与训练 batch 的组织方式一致。</p>
+      <p><code>PER_DEVICE_TRAIN_BATCH_SIZE</code> 控制每张卡一次 forward/backward 放入显存的样本数，<code>GRADIENT_ACCUMULATION_STEPS</code> 控制累积多少个 micro-batch 再更新一次参数。它们影响训练吞吐、显存和有效 batch，但 <code>NUM_GENERATIONS</code> 是每个 prompt 的 rollout 数，二者职责不同，只是在 GRPO 分组时需要满足整除和排列约束。</p>
+    </section>
+
+    <section>
+      <h2>6. OPSD：在 GRPO 上增加选择性教师纠偏</h2>
+      <p>当前最关键的代码创新集中在 <code>swift/rlhf_trainers/grpo_trainer.py</code> 的 OPSD 路径。它不是对所有样本无差别蒸馏，而是先根据组内 reward、IoU 和有效性把每条 rollout 划分为 good、failed 或 ambiguous，再只对需要纠偏的样本施加教师蒸馏。</p>
+      <h3>路由规则</h3>
+      <p>代码中的默认思想可以概括为：</p>
+      <ul>
+        <li><strong>good</strong>：bbox 有效，IoU 高于高质量阈值，并且 reward 不低于组内平均值。这类样本主要由 GRPO 强化，作为组内优质行为。</li>
+        <li><strong>failed</strong>：bbox 无效，或 IoU 低于失败阈值，或组内优势显著低于平均水平。这类样本会被 OPSD 选择出来，让教师提供分布指导。</li>
+        <li><strong>ambiguous</strong>：介于两者之间，既不是明确优质，也不是明确失败。默认可不重点蒸馏，避免把不确定样本强行拉向教师分布。</li>
+      </ul>
+      <p>参数入口位于 <code>args_mixin.py</code>：其中包含是否开启 OPSD 纠偏、OPSD 蒸馏 loss 权重、good/failed 路由边界、是否只蒸馏失败样本等配置。论文写作时建议只描述为 OPSD 参数，不再单独引入额外方法缩写。</p>
+      <h3>联合目标</h3>
+      <div class="formula">
+        L_total = L_GRPO + lambda_opsd * L_OPSD
+      </div>
+      <p>GRPO 负责提升组内好轨迹概率，OPSD 负责对差轨迹施加教师纠偏。这个设计对应用户一开始提出的直觉：八次采样中往往包含更好的 bbox，训练应该“取其精华、去其糟粕”。GRPO 处理“取其精华”，OPSD 处理“去其糟粕”。</p>
+      <h3>OPSD target</h3>
+      <p>代码支持以当前 rollout 或 GT bbox 作为 OPSD 蒸馏目标。前者更偏向让教师在当前 rollout 上提供分布平滑与纠偏，后者更接近用真实框构造监督目标。论文中可以把这个设计解释为“教师指导的目标选择”：在失败样本上，教师通过视觉提示对目标区域形成更稳定的坐标分布，学生学习这种分布而不是盲目复制错误 rollout。</p>
+    </section>
+
+    <section>
+      <h2>7. 训练时到底有几个模型实例</h2>
+      <p>从工程实现上，GRPO+OPSD 训练通常涉及四个“模型角色”：</p>
+      <table>
+        <thead>
+          <tr>
+            <th>角色</th>
+            <th>是否训练更新</th>
+            <th>用途</th>
+            <th>论文表述</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Student</td>
+            <td>是</td>
+            <td>主策略模型，接收原始输入，优化 GRPO 和 OPSD loss，最终用于部署。</td>
+            <td>待优化策略 <code>pi_theta</code>。</td>
+          </tr>
+          <tr>
+            <td>Teacher</td>
+            <td>通常不由梯度更新；可 EMA 或 hard refresh</td>
+            <td>带视觉提示输入，为失败 rollout 提供分布监督。</td>
+            <td>同源视觉提示教师 <code>pi_T</code>。</td>
+          </tr>
+          <tr>
+            <td>Reference</td>
+            <td>固定</td>
+            <td>GRPO/RLHF 中的参考模型，用于 KL 约束，防止策略漂移过大。</td>
+            <td>KL anchor <code>pi_ref</code>。</td>
+          </tr>
+          <tr>
+            <td>vLLM rollout engine</td>
+            <td>不反传梯度；周期同步学生权重</td>
+            <td>负责高吞吐生成 on-policy bbox 候选。</td>
+            <td>策略采样后端，不是额外训练目标。</td>
+          </tr>
+        </tbody>
+      </table>
+      <p>因此，用户之前的理解基本正确：训练内存中有学生、教师、参考模型；此外还有一个负责 rollout 的 vLLM 引擎，它加载并同步学生模型权重。vLLM 初始化失败通常意味着 rollout 侧加载学生权重或服务启动失败，而不是教师模型本身的梯度更新失败。</p>
+      <div class="note">
+        <p>重要设计点：当前 refresh 实现中，教师可以从学生硬同步，但 ref model 刻意不随学生刷新。这样做是为了保留 GRPO 的 KL 稳定锚点，避免参考分布也跟着漂移，导致约束失效。</p>
+      </div>
+    </section>
+
+    <section>
+      <h2>8. 教师模型更新：固定、指标触发、EWMA 与慢 EMA</h2>
+      <p>最初的 self-distillation 通常使用 EMA 教师，让教师缓慢跟随学生。这能稳定训练，但也可能让教师在数据集上的上限受限，特别是训练后期学生已经更适应遥感任务，而教师仍停留在较旧分布。当前代码围绕这个问题实现了多种 teacher refresh 策略。</p>
+      <h3>固定 step refresh</h3>
+      <p>固定步刷新会在预设 step，例如 step 80，把学生权重同步给教师一次。这个方案简单、可控，适合验证“阶段性更新教师是否有用”。缺点是更新时机依赖经验估计。</p>
+      <h3>metric refresh</h3>
+      <p>指标触发刷新根据训练过程中的 routing/IoU/failed rate/KL 等指标决定是否刷新教师。直觉是：当学生已经在当前数据上明显超过旧教师，且失败率、KL 等保护指标仍在可接受范围内，就允许教师吸收学生能力。</p>
+      <h3>metric_ewma refresh</h3>
+      <p>EWMA 指标刷新更进一步，引入短窗口、长窗口、EWMA、连续满足条件和保护项：</p>
+      <ul>
+        <li>短窗口与长窗口对比近期表现和较长期表现。</li>
+        <li>EWMA 系数平滑训练噪声，减少偶然 batch 波动触发刷新。</li>
+        <li>连续满足条件机制避免单次指标异常触发。</li>
+        <li>失败率、KL 和 IoU@0.5 下降幅度作为保护，防止在策略崩坏或格式失败时刷新教师。</li>
+      </ul>
+      <h3>慢 EMA + 一次 hard refresh</h3>
+      <p>当前也尝试过 <code>opsd_ema_decay=0.98</code> 这样的慢 EMA：教师大多数时间维持原状态，只缓慢吸收学生变化；当 EWMA/双窗口条件触发时，再将教师硬同步到学生一次。论文中可以把它描述为“stable teacher with opportunistic refresh”：平时保持教师稳定性，只有当证据表明学生已经形成更优策略时才更新教师上限。</p>
+      <div class="warn">
+        <p>从已有 val 结果看，EMA0.98 + metric_ewma 并未稳定超过不带 EMA 的 metric refresh。这不一定说明思路错误，但说明刷新条件、EMA 强度和视觉提示模式之间仍需更细消融。</p>
+      </div>
+    </section>
+
+    <section>
+      <h2>9. 视觉提示模式：为什么 zoom_in 和 gaussian 值得重点写</h2>
+      <p>教师模型之所以可能强于学生，关键在于输入侧的 visual hint。当前代码和脚本中验证过或规划过多种模式：</p>
+      <table>
+        <thead>
+          <tr>
+            <th>模式</th>
+            <th>直观含义</th>
+            <th>适合论文中的解释</th>
+            <th>已有观察</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>gaussian</code></td>
+            <td>围绕目标区域构造高斯权重或软 mask，突出目标中心和邻域。</td>
+            <td>提供平滑的空间先验，避免 hard crop 破坏上下文。</td>
+            <td>默认强基线，metric refresh gaussian 在 val 上 mIoU 最高的一档。</td>
+          </tr>
+          <tr>
+            <td><code>zoom_in</code></td>
+            <td>把候选/目标区域放大，让教师更容易识别小目标或细粒度边界。</td>
+            <td>适合遥感小目标、尺度变化和密集背景，是很好的论文动机。</td>
+            <td>固定 step-80 refresh zoom_in 在 val 上 IoU@0.5 领先，metric zoom 在 IoU@0.7 也很强。</td>
+          </tr>
+          <tr>
+            <td><code>jitter_box</code></td>
+            <td>对 hint bbox 做扰动，让教师对定位噪声更鲁棒。</td>
+            <td>可以解释为增强型 teacher conditioning，减少过拟合精确提示。</td>
+            <td>有效但不如 zoom_in/gaussian 第一梯队。</td>
+          </tr>
+          <tr>
+            <td><code>soft_window</code></td>
+            <td>用窗口化方式保留局部区域，弱化其他区域。</td>
+            <td>介于 hard crop 与 gaussian mask 之间。</td>
+            <td>已有结果偏弱，需要谨慎表述。</td>
+          </tr>
+          <tr>
+            <td><code>no_hint</code></td>
+            <td>教师不获得额外视觉提示。</td>
+            <td>作为证明 visual hint 必要性的负对照。</td>
+            <td>明显弱于带 hint 的设置，支持“提示教师”设计。</td>
+          </tr>
+        </tbody>
+      </table>
+      <p>论文里建议把 <code>gaussian</code> 和 <code>zoom_in</code> 作为主方法候选：前者稳定、平滑、默认表现强；后者对遥感小目标和边界细节更有直观解释。其他模式可以作为 ablation。</p>
+    </section>
+
+    <section>
+      <h2>10. Best-of-8 oracle：为什么多轨迹训练有意义</h2>
+      <p>当前工作最重要的经验事实之一是：对同一 prompt 采样 8 个 bbox 时，best-of-8 oracle 通常显著高于单次 greedy/单次采样。这说明模型并非完全不知道正确位置，而是正确模式已经存在于策略分布的尾部或低概率区域。训练目标就应当从“让模型知道答案”转为“让模型更常选择正确 bbox”。</p>
+      <p>这个观察非常适合支撑 GRPO+OPSD 的设计：</p>
+      <ul>
+        <li>GRPO 利用同组候选之间的相对 reward，把高质量 bbox 的概率推高。</li>
+        <li>OPSD 对低质量 bbox 引入教师纠偏，减少明显错误模式的概率。</li>
+        <li>视觉提示教师提供比原图输入更清晰的局部监督，让纠偏不是简单惩罚，而是有方向的分布迁移。</li>
+      </ul>
+      <p><code>tools/evaluation/eval_student.py</code> 支持 <code>num_rollouts &gt; 1</code> 的 best-of-N 评估，用几何 reward 选择候选；<code>tools/rollout/stage1_generate_rollout_pool.py</code> 和 <code>stage2_build_routing_datasets.py</code> 则可用于离线分析多轨迹候选池。</p>
+    </section>
+
+    <section>
+      <h2>11. 当前实验矩阵：哪些对论文最关键</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>实验类型</th>
+            <th>目的</th>
+            <th>论文中回答的问题</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>GRPO-only</td>
+            <td>只使用组内相对优化，不使用 OPSD 教师纠偏。</td>
+            <td>多轨迹相对强化本身是否有效？</td>
+          </tr>
+          <tr>
+            <td>OPD/OPSD-only</td>
+            <td>只做视觉提示教师蒸馏，不做 GRPO。</td>
+            <td>单纯蒸馏能否替代 RL？目前答案是否定的。</td>
+          </tr>
+          <tr>
+            <td>GRPO+OPSD</td>
+            <td>联合组内 RL 与选择性教师纠偏。</td>
+            <td>二者结合是否优于单独使用？</td>
+          </tr>
+          <tr>
+            <td>Hint ablation</td>
+            <td>比较 gaussian、zoom_in、jitter_box、soft_window、no_hint。</td>
+            <td>视觉提示到底是否必要？哪种提示最适合遥感 bbox？</td>
+          </tr>
+          <tr>
+            <td>Teacher refresh</td>
+            <td>比较不刷新、固定 step80、metric、metric_ewma、EMA0.98+refresh。</td>
+            <td>教师模型应该固定、慢更新，还是在证据充分时刷新？</td>
+          </tr>
+          <tr>
+            <td>两阶段/中途刷新</td>
+            <td>先训 80 step，再加载 checkpoint 更新 teacher/ref 或只更新 teacher 后继续。</td>
+            <td>阶段性训练是否能模拟更强教师并提升最终性能？</td>
+          </tr>
+          <tr>
+            <td>train vs train+val</td>
+            <td>用不同训练数据规模测试泛化和数据量影响。</td>
+            <td>当前提升来自方法还是额外数据？</td>
+          </tr>
+          <tr>
+            <td>test 与 val 双评估</td>
+            <td>对全量测试集和 val 集都统计 mIoU/IoU@不同阈值。</td>
+            <td>方法是否稳定泛化，而不是只在单一 split 上偶然提升？</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>12. 已有代表性结果：可以支撑哪些初步判断</h2>
+      <p>下表摘自目前已整理的 <code>OPSD_Idea/val_4b_ckpt_metrics_summary.html</code>，评测数据为 <code>/data/codes/gui_grounding/data/rs_full/rs_val.jsonl</code>，方式为 greedy 直接推理。这里不是最终论文表，而是帮助构思方法叙事的证据。</p>
+      <table>
+        <thead>
+          <tr>
+            <th>设置</th>
+            <th>核心配置</th>
+            <th>mIoU</th>
+            <th>IoU@0.5</th>
+            <th>IoU@0.7</th>
+            <th>IoU@0.9</th>
+            <th>观察</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>OPD/OPSD-only</td>
+            <td>GKD/OPSD only, gaussian, EMA 0.95</td>
+            <td>0.6045</td>
+            <td>0.6747</td>
+            <td>0.5264</td>
+            <td>0.2448</td>
+            <td>显著弱于 GRPO，说明只靠教师蒸馏不足。</td>
+          </tr>
+          <tr>
+            <td>GRPO-only</td>
+            <td>无 OPSD teacher correction</td>
+            <td>0.6829</td>
+            <td>0.7707</td>
+            <td>0.6534</td>
+            <td>0.3494</td>
+            <td>组内 RL 本身很强，是主干能力来源。</td>
+          </tr>
+          <tr>
+            <td>GRPO+OPSD gaussian</td>
+            <td>default gaussian, no refresh, resumed</td>
+            <td>0.6879</td>
+            <td>0.7759</td>
+            <td>0.6575</td>
+            <td>0.3402</td>
+            <td>较 GRPO-only 有提升，但高阈值仍需观察。</td>
+          </tr>
+          <tr>
+            <td>fixed refresh zoom_in</td>
+            <td>step80 hard teacher refresh, zoom_in</td>
+            <td>0.6939</td>
+            <td>0.7851</td>
+            <td>0.6626</td>
+            <td>0.3523</td>
+            <td>IoU@0.5 很强，说明 zoom_in 对定位成功率有帮助。</td>
+          </tr>
+          <tr>
+            <td>metric refresh gaussian</td>
+            <td>metric-trigger, gaussian, ck750</td>
+            <td>0.6972</td>
+            <td>0.7828</td>
+            <td>0.6592</td>
+            <td>0.3615</td>
+            <td>mIoU 与 IoU@0.9 领先，支持动态教师刷新思路。</td>
+          </tr>
+          <tr>
+            <td>metric refresh zoom_in</td>
+            <td>metric-trigger, zoom_in, ck810</td>
+            <td>0.6940</td>
+            <td>0.7810</td>
+            <td>0.6672</td>
+            <td>0.3477</td>
+            <td>IoU@0.7 很强，可能更利于中高精度定位。</td>
+          </tr>
+          <tr>
+            <td>EMA0.98 + metric_ewma</td>
+            <td>slow EMA teacher plus EWMA refresh, zoom_in</td>
+            <td>0.6889</td>
+            <td>0.7776</td>
+            <td>0.6580</td>
+            <td>0.3443</td>
+            <td>稳定但未领先，需调参或作为负结果分析。</td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="note">
+        <p>可写出的初步结论：GRPO 是性能主要来源；OPSD 作为选择性纠偏项可以在 GRPO 基础上进一步提升；视觉提示模式和教师刷新策略影响明显；zoom_in 与 gaussian 是最值得继续打磨的两个方向。</p>
+      </div>
+    </section>
+
+    <section>
+      <h2>13. 可以形成的论文方法框架</h2>
+      <p>建议把方法拆成三个层次写，而不是把所有工程细节混在一起。</p>
+      <h3>层次一：Group Rollout for bbox Grounding</h3>
+      <p>给定遥感图像和文本描述，同一 prompt 采样 K 个 bbox 回答，构成一个 group。每个 bbox 根据解析有效性、IoU 和几何合理性得到 reward。通过组内均值/方差得到相对 advantage，对学生策略做 GRPO 更新。这个模块解决“怎么从多次采样中学习好选择”。</p>
+      <h3>层次二：Selective Distillation for Failed Rollouts</h3>
+      <p>不是所有 rollout 都用教师蒸馏，而是用路由函数挑出 failed 样本。good 样本由 GRPO 强化，failed 样本由 OPSD 引入教师指导，ambiguous 样本弱处理或跳过。这个模块解决“怎么避免差样本污染训练，同时把错误模式拉回正确分布”。</p>
+      <h3>层次三：Visual-Hint Teacher with Adaptive Refresh</h3>
+      <p>教师和学生来自同一 base 模型，但教师输入有视觉提示，例如 gaussian mask 或 zoom_in crop。教师可固定、EMA 更新或基于指标刷新。这个模块解决“教师不来自外部强模型时如何仍然提供更强监督”，以及“教师过旧时如何更新上限”。</p>
+      <div class="formula">
+        Method = group-relative policy learning + selective failed-sample distillation + visual-hint self-teacher refresh
+      </div>
+    </section>
+
+    <section>
+      <h2>14. 可能的论文贡献表述</h2>
+      <ol>
+        <li><strong>任务视角</strong>：将遥感目标定位重新组织为 VLM bbox grounding，并指出单次生成和 best-of-N oracle 之间存在可利用差距。</li>
+        <li><strong>训练框架</strong>：提出一种面向 bbox 生成的 GRPO+OPSD 框架，在同一 prompt 的多轨迹组内学习相对偏好，并对失败轨迹做选择性蒸馏纠偏。</li>
+        <li><strong>视觉提示教师</strong>：设计同源 visual-hint teacher，不依赖额外大教师模型，通过 gaussian/zoom_in 等提示让教师在训练时获得更强局部感知。</li>
+        <li><strong>教师刷新机制</strong>：提出固定或指标触发的 teacher refresh，用短长窗口、EWMA、连续满足条件和 KL/失败率保护解决 EMA 教师上限受限问题。</li>
+        <li><strong>系统消融</strong>：通过 GRPO-only、OPSD-only、GRPO+OPSD、不同 hint、不同 refresh 策略、val/test 多阈值指标，证明各组件的作用边界。</li>
+      </ol>
+      <p>命名上可以考虑：</p>
+      <ul>
+        <li><strong>STC-GRPO</strong>: Selective Teacher-Corrected GRPO。</li>
+        <li><strong>RS-GRPO-OPSD</strong>: Remote-Sensing Group-Relative On-Policy Self-Distillation。</li>
+      </ul>
+      <p>如果论文更强调工程可复现和遥感应用，可以用 <strong>RS-GRPO-OPSD</strong>；如果更强调方法创新，<strong>STC-OPSD</strong> 更集中。整体建议避免再引入额外缩写作为独立术语，以免和 OPSD 主线冲突。</p>
+    </section>
+
+    <section>
+      <h2>15. 论文实验表建议</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>表名</th>
+            <th>行设置</th>
+            <th>列指标</th>
+            <th>想证明的结论</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Main Results</td>
+            <td>Base/SFT、GRPO-only、OPSD-only、GRPO+OPSD、Best-of-8 oracle</td>
+            <td>mIoU, IoU@0.5, IoU@0.7, IoU@0.9, parse rate</td>
+            <td>提出方法相对核心基线有效，并向 oracle gap 靠近。</td>
+          </tr>
+          <tr>
+            <td>Component Ablation</td>
+            <td>去掉 GRPO、去掉 OPSD 纠偏、去掉 visual hint、只蒸馏 failed vs 蒸馏全部</td>
+            <td>mIoU 与多阈值 IoU</td>
+            <td>GRPO、选择性路由和视觉提示各自必要。</td>
+          </tr>
+          <tr>
+            <td>Hint Mode Ablation</td>
+            <td>gaussian、zoom_in、jitter_box、soft_window、no_hint</td>
+            <td>mIoU, IoU@0.5, IoU@0.8/0.9</td>
+            <td>局部放大或平滑 mask 对遥感 bbox 更有效。</td>
+          </tr>
+          <tr>
+            <td>Teacher Refresh Ablation</td>
+            <td>no refresh、fixed step80、metric、metric_ewma、EMA0.98+refresh</td>
+            <td>最终指标、refresh step、训练稳定性</td>
+            <td>动态刷新能缓解教师滞后，但需要保护条件。</td>
+          </tr>
+          <tr>
+            <td>Rollout Number Study</td>
+            <td>K=1/2/4/8 的训练或评测 oracle</td>
+            <td>single performance, best-of-K, gap</td>
+            <td>多轨迹确实提供可学习信号，K 越大 oracle 越高但成本增加。</td>
+          </tr>
+          <tr>
+            <td>Generalization</td>
+            <td>test split、val split、不同遥感类别/尺度分组</td>
+            <td>mIoU, IoU@0.5, 小目标/大目标子集</td>
+            <td>提升不是单一 split 或单一目标类型上的偶然。</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>16. 当前方法的潜在风险与需要补强的证据</h2>
+      <div class="risk">
+        <p><strong>外部对比不足</strong>：目前更多是内部消融，还需要明确和 SFT、常规 RLHF/GRPO、普通 DPO/KD、遥感检测或 grounding 方法的对比边界。</p>
+      </div>
+      <ul>
+        <li><strong>随机种子与稳定性</strong>：现有实验有多次运行、checkpoint 保存异常和恢复训练记录。论文最终表需要固定 seed 或至少报告多次运行均值/方差。</li>
+        <li><strong>refresh 触发解释</strong>：metric/metric_ewma refresh 需要记录具体 refresh step、触发前后的指标变化，否则很难说服读者这是“自适应”而不是偶然。</li>
+        <li><strong>teacher 与 ref 的边界</strong>：论文中必须讲清 ref 不刷新，teacher 可刷新。否则读者会误解 KL 参考也在动，影响方法合理性。</li>
+        <li><strong>成本分析</strong>：训练中存在 student、teacher、ref 和 vLLM rollout engine，资源开销较大。需要解释为什么这种开销换来部署时单模型推理收益。</li>
+        <li><strong>best-of-8 oracle 的公平性</strong>：oracle 只能作为上限分析，不能作为部署结果。主结果应以单次 greedy 或单次采样为准，oracle 用来证明 gap。</li>
+        <li><strong>OPSD-only 负结果</strong>：这其实有价值，说明方法不是简单蒸馏，而是 RL 和 selective correction 的组合。但写作时要避免把负结果描述成失败，而应解释其边界。</li>
+        <li><strong>坐标格式鲁棒性</strong>：parse_rate/valid_rate 当前多为 1.0，但仍需说明格式约束来自 tokenizer/template/reward 设计，避免评审质疑无效输出被过滤。</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>17. 可以直接交给另一个智能体继续构思的问题</h2>
+      <ol>
+        <li>如何把“best-of-8 中存在更好 bbox”形式化为训练动机？是否能定义一个 oracle gap，并展示方法缩小 gap？</li>
+        <li>OPSD 的路由规则是否可以写成一个清晰的数学函数，例如 <code>route(y_i | x, G)</code>？good/failed/ambiguous 三类在 loss 中分别如何处理？</li>
+        <li>视觉提示教师是否应被描述为 privileged information teacher？训练时有 GT/hint，测试时学生无 hint，这类似 learning using privileged information。</li>
+        <li>teacher refresh 是否可以被类比为 self-training 中的 teacher update，但强调 ref model 保持固定，以保证 RL 约束稳定？</li>
+        <li>论文主标题更适合突出遥感应用还是方法本身？例如 “Selective Teacher-Corrected Group Policy Optimization for Remote Sensing Grounding”。</li>
+        <li>现有 val/test 结果中，mIoU、IoU@0.5、IoU@0.7、IoU@0.9 哪个最适合做主指标？不同指标偏好的方法是否一致？</li>
+        <li>是否需要把 zoom_in 作为最终默认方法，还是采用 gaussian 作为默认、zoom_in 作为高精度/小目标增强？</li>
+      </ol>
+    </section>
+
+    <section>
+      <h2>18. 建议的论文写作骨架</h2>
+      <h3>摘要</h3>
+      <p>遥感目标定位中，VLM 可以通过文本生成 bbox，但单次生成容易不稳定。我们观察到多次 rollout 往往包含更准确的 bbox，因此提出一种基于 OPSD 的选择性教师纠偏组内策略优化框架。该框架用 GRPO 强化组内高质量 bbox，用视觉提示教师对失败 bbox 做选择性蒸馏，并通过指标触发的教师刷新缓解教师滞后。实验在全量遥感 grounding 数据上验证了 GRPO、OPSD、视觉提示和教师刷新各组件的有效性。</p>
+      <h3>方法章节</h3>
+      <ol>
+        <li>Problem Formulation：输入图像与文本，输出归一化 bbox；定义 reward 和 IoU 指标。</li>
+        <li>Group Rollout Policy Optimization：K 个候选、组内均值、advantage、GRPO objective。</li>
+        <li>Selective OPSD Correction：good/failed/ambiguous 路由，failed 样本蒸馏，联合 loss。</li>
+        <li>Visual-Hint Teacher：gaussian/zoom_in hint，教师输入与学生输入的差异，token 加权 KD。</li>
+        <li>Adaptive Teacher Refresh：固定 step、metric、EWMA 双窗口和保护条件。</li>
+      </ol>
+      <h3>实验章节</h3>
+      <ol>
+        <li>Datasets and Metrics：train/val/test split，mIoU 和 IoU thresholds。</li>
+        <li>Main Comparison：base/SFT、OPSD-only、GRPO-only、GRPO+OPSD、oracle。</li>
+        <li>Ablation：路由、hint、refresh、rollout 数。</li>
+        <li>Analysis：失败案例、refresh step 前后、不同目标尺度上的表现。</li>
+      </ol>
+    </section>
+
+    <section>
+      <h2>19. 两轮训练延续实验结果补充</h2>
+      <p>在当前 1-epoch 最优配置基础上，继续运行第二个 epoch 后，得到如下 checkpoint：</p>
+      <p><code>/mnt/jfs/copilot/lhb/checkpoint/rs/rs-sd/gui-sd-qwen3-4b-rsfull_grpo_opsd_best1e_continue_e2_metric_gaussian_20260526-092528/v0-20260526-093208/checkpoint-870</code></p>
+      <p>该实验的初始化 checkpoint 为此前的 1-epoch metric-refresh gaussian 权重：</p>
+      <p><code>/mnt/jfs/copilot/lhb/checkpoint/rs/rs-sd/gui-sd-qwen3-4b-rsfull_grpo_sdpo_teacher_refresh_metric_gaussian_e1-20260524-103053/v0-20260524-103512/checkpoint-870</code></p>
+      <table>
+        <thead>
+          <tr>
+            <th>评测 split</th>
+            <th>样本数</th>
+            <th>mIoU</th>
+            <th>IoU@0.5</th>
+            <th>IoU@0.6</th>
+            <th>IoU@0.7</th>
+            <th>IoU@0.8</th>
+            <th>IoU@0.9</th>
+            <th>parse/valid</th>
+            <th>结果目录</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>train</td>
+            <td>12181</td>
+            <td>0.7339</td>
+            <td>0.8241</td>
+            <td>0.7839</td>
+            <td>0.7165</td>
+            <td>0.6040</td>
+            <td>0.4037</td>
+            <td>1.0000 / 1.0000</td>
+            <td><code>/data/codes/gui_grounding/data/logs/eval/qwen3-4b-best1e-e2-metric-gaussian-train-ck870</code></td>
+          </tr>
+          <tr>
+            <td>val</td>
+            <td>1740</td>
+            <td>0.7054</td>
+            <td>0.7971</td>
+            <td>0.7523</td>
+            <td>0.6874</td>
+            <td>0.5678</td>
+            <td>0.3621</td>
+            <td>1.0000 / 1.0000</td>
+            <td><code>/data/codes/gui_grounding/data/logs/eval/qwen3-4b-best1e-e2-metric-gaussian-val-ck870</code></td>
+          </tr>
+          <tr>
+            <td>test</td>
+            <td>3481</td>
+            <td>0.6967</td>
+            <td>0.7900</td>
+            <td>0.7323</td>
+            <td>0.6622</td>
+            <td>0.5470</td>
+            <td>0.3482</td>
+            <td>1.0000 / 1.0000</td>
+            <td><code>/data/codes/gui_grounding/data/logs/eval/qwen3-4b-best1e-e2-metric-gaussian-test-ck870</code></td>
+          </tr>
+        </tbody>
+      </table>
+      <p>从结果看，第二个 epoch 不是单纯训练集拟合：train 的 mIoU 达到 0.7339，同时 val/test 也分别达到 0.7054 和 0.6967。相较此前 1-epoch 参考结果，val 上 mIoU 约从 0.6946 提升到 0.7054，IoU@0.5 约从 0.7816 提升到 0.7971，说明继续训练在验证集上仍有一定收益。test 上 mIoU=0.6967、IoU@0.5=0.7900，也支持该收益具有一定泛化性。</p>
+      <p>需要注意的是，train 指标主要用于观察拟合程度；论文主表和 checkpoint 选择应优先依据 val/test，而不是训练集分数。后续如果继续探索多 epoch，建议每 50 或 100 step 固定评测 val/test，并使用 val 上的 mIoU 或高阈值 IoU 作为 checkpoint selection 标准。</p>
+    </section>
+
+    <section>
+      <h2>20. 最后给论文主线的建议</h2>
+      <p>不要把论文写成“我们把很多训练技巧堆在一起”。更清晰的主线是：遥感 bbox grounding 的单次生成不稳定，但多次生成暴露出模型分布中已经包含正确答案；因此需要一种能在组内识别好轨迹、纠正坏轨迹的训练机制。GRPO 负责组内选择，OPSD 负责教师纠偏，视觉提示让同源教师更强，动态刷新让教师不过时。所有工程实现都服务于这个主线。</p>
+      <p>如果后续只能保留一个方法名，建议用 <strong>RS-GRPO-OPSD</strong> 或 <strong>Selective Teacher-Corrected OPSD</strong> 作为论文方法名。这样读者能直接理解方法做了两件事：group-relative policy optimization 和 on-policy self-distillation correction。</p>
+      <p class="small">本文件为代码与实验逻辑总览，不替代最终论文实验表。最终论文应以重新整理后的固定 checkpoint、固定评测脚本、固定 split 和完整日志为准。</p>
+    </section>
+  </main>
+</body>
+</html>

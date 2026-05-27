@@ -172,6 +172,19 @@ class GRPOTrainer(RolloutTrainerMixin, SwiftMixin, HFGRPOTrainer):
     def _prepare_sdpo_teacher(self, teacher_model, teacher_deepspeed_config=None):
         self.use_sdpo = bool(getattr(self.args, 'use_sdpo', False))
         self.teacher_model = None
+        self._sdpo_teacher_refreshed = False
+        self._sdpo_teacher_refresh_count = 0
+        self._sdpo_teacher_last_refresh_step = -1
+        self._sdpo_refresh_metric_history = deque(
+            maxlen=max(1, int(getattr(self.args, 'sdpo_teacher_refresh_window', 50) or 50)))
+        self._sdpo_refresh_ewma_history = deque(
+            maxlen=max(1, int(getattr(self.args, 'sdpo_teacher_refresh_long_window', 80) or 80)))
+        self._sdpo_refresh_baseline = None
+        self._sdpo_refresh_ewma_values = None
+        self._sdpo_refresh_ewma_baseline = None
+        self._sdpo_refresh_consecutive_hits = 0
+        self.sdpo_teacher_ema_decay = float(getattr(self.args, 'opsd_ema_decay', 0.0) or 0.0)
+        self._sdpo_teacher_last_ema_step = -1
         self.is_teacher_ds3 = False
         self.teacher_ds3_gather_for_generation = getattr(self.args, 'ds3_gather_for_generation', True)
         if not self.use_sdpo:
@@ -195,6 +208,372 @@ class GRPOTrainer(RolloutTrainerMixin, SwiftMixin, HFGRPOTrainer):
         self.teacher_model.eval()
         if getattr(self.args, 'offload_teacher_model', False):
             self.offload_model(self.accelerator.unwrap_model(self.teacher_model))
+        if self.sdpo_teacher_ema_decay > 0:
+            logger.info(f'SDPO teacher EMA enabled with decay={self.sdpo_teacher_ema_decay}')
+
+    def _sdpo_refresh_limit_reached(self) -> bool:
+        max_refreshes = int(getattr(self.args, 'sdpo_teacher_refresh_max_refreshes', 1) or 1)
+        if max_refreshes < 0:
+            return False
+        return self._sdpo_teacher_refresh_count >= max_refreshes
+
+    def _sdpo_refresh_in_cooldown(self, step: Optional[int] = None) -> bool:
+        cooldown = int(getattr(self.args, 'sdpo_teacher_refresh_cooldown_steps', 0) or 0)
+        if cooldown <= 0 or self._sdpo_teacher_last_refresh_step < 0:
+            return False
+        if step is None:
+            step = int(getattr(self.state, 'global_step', 0))
+        return (int(step) - self._sdpo_teacher_last_refresh_step) < cooldown
+
+    def _reset_sdpo_refresh_trackers_after_refresh(self, step: int) -> None:
+        self._sdpo_teacher_refresh_count += 1
+        self._sdpo_teacher_last_refresh_step = int(step)
+        self._sdpo_teacher_refreshed = self._sdpo_refresh_limit_reached()
+        self._sdpo_refresh_metric_history.clear()
+        self._sdpo_refresh_ewma_history.clear()
+        self._sdpo_refresh_baseline = None
+        self._sdpo_refresh_ewma_values = None
+        self._sdpo_refresh_ewma_baseline = None
+        self._sdpo_refresh_consecutive_hits = 0
+
+    def _maybe_refresh_sdpo_teacher(self) -> None:
+        if not getattr(self, 'use_sdpo', False) or self.teacher_model is None:
+            return
+        refresh_mode = getattr(self.args, 'sdpo_teacher_refresh_mode', 'fixed')
+        if refresh_mode == 'off' or self._sdpo_refresh_limit_reached():
+            return
+        if refresh_mode != 'fixed':
+            return
+        refresh_step = int(getattr(self.args, 'sdpo_teacher_refresh_step', -1) or -1)
+        if refresh_step < 0:
+            return
+        if int(getattr(self.state, 'global_step', 0)) < refresh_step:
+            return
+        self._refresh_sdpo_teacher_from_student(reason=f'fixed_step={refresh_step}')
+
+    def _update_sdpo_refresh_metrics(self, metrics_data: Dict[str, Any]) -> None:
+        if not getattr(self, 'use_sdpo', False) or self.teacher_model is None:
+            return
+        refresh_mode = getattr(self.args, 'sdpo_teacher_refresh_mode', 'fixed')
+        if refresh_mode not in {'metric', 'metric_ewma'}:
+            return
+        if self._sdpo_refresh_limit_reached():
+            return
+        if metrics_data.get('mode') != 'train':
+            return
+
+        step = int(getattr(self.state, 'global_step', 0))
+        if self._sdpo_refresh_in_cooldown(step):
+            return
+        record = {
+            'step': step,
+            'iou_mean': metrics_data.get('sdpo_iou_mean'),
+            'iou_at_05': metrics_data.get('sdpo_iou_at_05'),
+            'route_failed': metrics_data.get('sdpo_route_failed'),
+            'sdpo_loss': metrics_data.get('sdpo_loss'),
+            'kl': metrics_data.get('kl', 0.0),
+        }
+        required = ['iou_mean', 'iou_at_05', 'route_failed', 'sdpo_loss']
+        local_valid = not any(record[key] is None for key in required)
+        metric_keys = ['iou_mean', 'iou_at_05', 'route_failed', 'sdpo_loss', 'kl']
+        metric_values = [1.0 if local_valid else 0.0]
+        metric_values.extend(float(record[key]) if local_valid and record[key] is not None else 0.0
+                             for key in metric_keys)
+        metric_tensor = torch.tensor(metric_values, dtype=torch.float64, device=self.accelerator.device)
+        if dist.is_available() and dist.is_initialized():
+            dist.all_reduce(metric_tensor, op=dist.ReduceOp.SUM)
+        valid_count = metric_tensor[0].item()
+        if valid_count <= 0:
+            return
+        global_record = {'step': float(step)}
+        for idx, key in enumerate(metric_keys, start=1):
+            global_record[key] = float(metric_tensor[idx].item() / valid_count)
+        if refresh_mode == 'metric_ewma':
+            self._update_sdpo_refresh_ewma(global_record)
+            self._sdpo_refresh_ewma_history.append(global_record)
+            self._maybe_refresh_sdpo_teacher_by_ewma_metrics()
+        else:
+            self._sdpo_refresh_metric_history.append(global_record)
+            self._maybe_refresh_sdpo_teacher_by_metrics()
+
+    @staticmethod
+    def _mean_metric(records: List[Dict[str, float]], key: str) -> float:
+        return sum(item[key] for item in records) / max(1, len(records))
+
+    def _update_sdpo_refresh_ewma(self, record: Dict[str, float]) -> None:
+        keys = ('iou_mean', 'iou_at_05', 'route_failed', 'sdpo_loss', 'kl')
+        alpha = float(getattr(self.args, 'sdpo_teacher_refresh_ewma_alpha', 0.10) or 0.10)
+        alpha = min(1.0, max(0.0, alpha))
+        if self._sdpo_refresh_ewma_values is None:
+            self._sdpo_refresh_ewma_values = {key: float(record[key]) for key in keys}
+            return
+        for key in keys:
+            self._sdpo_refresh_ewma_values[key] = (
+                alpha * float(record[key]) + (1.0 - alpha) * self._sdpo_refresh_ewma_values[key])
+
+    def _broadcast_sdpo_refresh_decision(self, should_refresh: bool) -> bool:
+        if dist.is_available() and dist.is_initialized():
+            decision_tensor = torch.tensor(
+                [1 if should_refresh else 0], dtype=torch.int64, device=self.accelerator.device)
+            dist.broadcast(decision_tensor, src=0)
+            should_refresh = bool(decision_tensor.item())
+        return should_refresh
+
+    def _maybe_refresh_sdpo_teacher_by_ewma_metrics(self) -> None:
+        if self._sdpo_refresh_limit_reached():
+            return
+        short_window = max(1, int(getattr(self.args, 'sdpo_teacher_refresh_short_window', 20) or 20))
+        long_window = max(short_window, int(getattr(self.args, 'sdpo_teacher_refresh_long_window', 80) or 80))
+        check_interval = max(1, int(getattr(self.args, 'sdpo_teacher_refresh_check_interval', 10) or 10))
+        step = int(getattr(self.state, 'global_step', 0))
+        history = list(self._sdpo_refresh_ewma_history)
+        if len(history) < long_window:
+            return
+        if step % check_interval != 0:
+            return
+
+        short_records = history[-short_window:]
+        long_records = history[-long_window:]
+        short = {
+            'iou_mean': self._mean_metric(short_records, 'iou_mean'),
+            'iou_at_05': self._mean_metric(short_records, 'iou_at_05'),
+            'route_failed': self._mean_metric(short_records, 'route_failed'),
+            'sdpo_loss': self._mean_metric(short_records, 'sdpo_loss'),
+            'kl': self._mean_metric(short_records, 'kl'),
+        }
+        long = {
+            'iou_mean': self._mean_metric(long_records, 'iou_mean'),
+            'iou_at_05': self._mean_metric(long_records, 'iou_at_05'),
+            'route_failed': self._mean_metric(long_records, 'route_failed'),
+            'sdpo_loss': self._mean_metric(long_records, 'sdpo_loss'),
+            'kl': self._mean_metric(long_records, 'kl'),
+        }
+        ewma = self._sdpo_refresh_ewma_values or {}
+        if self._sdpo_refresh_ewma_baseline is None:
+            self._sdpo_refresh_ewma_baseline = {
+                'iou_mean': float(ewma.get('iou_mean', long['iou_mean'])),
+                'iou_at_05': float(ewma.get('iou_at_05', long['iou_at_05'])),
+                'route_failed': float(ewma.get('route_failed', long['route_failed'])),
+                'sdpo_loss': float(ewma.get('sdpo_loss', long['sdpo_loss'])),
+                'kl': float(ewma.get('kl', long['kl'])),
+                'step': step,
+            }
+            logger.info(
+                'SDPO teacher metric-ewma baseline established at '
+                f'global_step={step}: {self._sdpo_refresh_ewma_baseline}')
+
+        min_short_long_gain = float(
+            getattr(self.args, 'sdpo_teacher_refresh_min_short_long_iou_gain', 0.006) or 0.0)
+        min_ewma_gain = float(getattr(self.args, 'sdpo_teacher_refresh_min_ewma_iou_gain', 0.008) or 0.0)
+        max_iou05_drop = float(getattr(self.args, 'sdpo_teacher_refresh_max_iou05_drop', 0.010) or 0.0)
+        max_failed = float(getattr(self.args, 'sdpo_teacher_refresh_max_failed', 0.55) or 1.0)
+        min_sdpo_loss = float(getattr(self.args, 'sdpo_teacher_refresh_min_sdpo_loss', 0.02) or 0.0)
+        max_kl = float(getattr(self.args, 'sdpo_teacher_refresh_max_kl', 0.30) or 1e9)
+        consecutive_required = max(
+            1, int(getattr(self.args, 'sdpo_teacher_refresh_consecutive_checks', 2) or 2))
+
+        short_long_iou_gain = short['iou_mean'] - long['iou_mean']
+        ewma_iou_gain = float(ewma.get('iou_mean', short['iou_mean'])) - self._sdpo_refresh_ewma_baseline['iou_mean']
+        iou05_delta = short['iou_at_05'] - long['iou_at_05']
+
+        quality_gain = (
+            short_long_iou_gain >= min_short_long_gain
+            and ewma_iou_gain >= min_ewma_gain
+            and iou05_delta >= -max_iou05_drop
+        )
+        stability_guard = (
+            short['route_failed'] <= max_failed
+            and short['sdpo_loss'] >= min_sdpo_loss
+            and short['kl'] <= max_kl
+        )
+        should_count = quality_gain and stability_guard
+        if should_count:
+            self._sdpo_refresh_consecutive_hits += 1
+        else:
+            self._sdpo_refresh_consecutive_hits = 0
+        should_refresh = self._sdpo_refresh_consecutive_hits >= consecutive_required
+
+        logger.info(
+            'SDPO teacher metric-ewma refresh check at '
+            f'global_step={step}: short={short}, long={long}, ewma={ewma}, '
+            f'baseline={self._sdpo_refresh_ewma_baseline}, '
+            f'short_long_iou_gain={short_long_iou_gain:.6f}, '
+            f'ewma_iou_gain={ewma_iou_gain:.6f}, iou05_delta={iou05_delta:.6f}, '
+            f'quality_gain={quality_gain}, stability_guard={stability_guard}, '
+            f'consecutive_hits={self._sdpo_refresh_consecutive_hits}/{consecutive_required}, '
+            f'thresholds={{"min_short_long_iou_gain": {min_short_long_gain}, '
+            f'"min_ewma_iou_gain": {min_ewma_gain}, "max_iou05_drop": {max_iou05_drop}, '
+            f'"max_failed": {max_failed}, "min_sdpo_loss": {min_sdpo_loss}, "max_kl": {max_kl}}}, '
+            f'should_refresh={should_refresh}')
+        self._metrics['train']['sdpo/teacher_refresh_short_long_iou_gain'].append(short_long_iou_gain)
+        self._metrics['train']['sdpo/teacher_refresh_ewma_iou_gain'].append(ewma_iou_gain)
+        self._metrics['train']['sdpo/teacher_refresh_iou05_delta'].append(iou05_delta)
+        self._metrics['train']['sdpo/teacher_refresh_consecutive_hits'].append(
+            float(self._sdpo_refresh_consecutive_hits))
+        should_refresh = self._broadcast_sdpo_refresh_decision(should_refresh)
+        if not should_refresh:
+            return
+        self._refresh_sdpo_teacher_from_student(
+            reason=(
+                f'metric_ewma step={step} short_long_iou_gain={short_long_iou_gain:.6f} '
+                f'ewma_iou_gain={ewma_iou_gain:.6f} iou05_delta={iou05_delta:.6f} '
+                f'consecutive_hits={self._sdpo_refresh_consecutive_hits}/{consecutive_required}'))
+
+    def _maybe_refresh_sdpo_teacher_by_metrics(self) -> None:
+        if self._sdpo_refresh_limit_reached():
+            return
+        warmup = int(getattr(self.args, 'sdpo_teacher_refresh_warmup', 80) or 0)
+        window = max(1, int(getattr(self.args, 'sdpo_teacher_refresh_window', 50) or 50))
+        check_interval = max(1, int(getattr(self.args, 'sdpo_teacher_refresh_check_interval', 10) or 10))
+        step = int(getattr(self.state, 'global_step', 0))
+        history = list(self._sdpo_refresh_metric_history)
+        if len(history) < min(window, warmup if warmup > 0 else window):
+            return
+        if self._sdpo_refresh_baseline is None:
+            self._sdpo_refresh_baseline = {
+                'iou_mean': self._mean_metric(history, 'iou_mean'),
+                'iou_at_05': self._mean_metric(history, 'iou_at_05'),
+                'route_failed': self._mean_metric(history, 'route_failed'),
+                'sdpo_loss': self._mean_metric(history, 'sdpo_loss'),
+                'kl': self._mean_metric(history, 'kl'),
+                'step': step,
+            }
+            logger.info(
+                'SDPO teacher metric-refresh baseline established at '
+                f'global_step={step}: {self._sdpo_refresh_baseline}')
+        if step < warmup or step % check_interval != 0:
+            return
+
+        current = {
+            'iou_mean': self._mean_metric(history, 'iou_mean'),
+            'iou_at_05': self._mean_metric(history, 'iou_at_05'),
+            'route_failed': self._mean_metric(history, 'route_failed'),
+            'sdpo_loss': self._mean_metric(history, 'sdpo_loss'),
+            'kl': self._mean_metric(history, 'kl'),
+        }
+        min_iou_improve = float(getattr(self.args, 'sdpo_teacher_refresh_min_iou_improve', 0.01) or 0.0)
+        max_failed = float(getattr(self.args, 'sdpo_teacher_refresh_max_failed', 0.55) or 1.0)
+        min_sdpo_loss = float(getattr(self.args, 'sdpo_teacher_refresh_min_sdpo_loss', 0.02) or 0.0)
+        max_kl = float(getattr(self.args, 'sdpo_teacher_refresh_max_kl', 0.30) or 1e9)
+
+        iou_gain = current['iou_mean'] - self._sdpo_refresh_baseline['iou_mean']
+        should_refresh = (
+            iou_gain >= min_iou_improve
+            and current['route_failed'] <= max_failed
+            and current['sdpo_loss'] >= min_sdpo_loss
+            and current['kl'] <= max_kl
+        )
+        logger.info(
+            'SDPO teacher metric-refresh check at '
+            f'global_step={step}: current={current}, '
+            f'baseline={self._sdpo_refresh_baseline}, iou_gain={iou_gain:.6f}, '
+            f'thresholds={{"min_iou_improve": {min_iou_improve}, '
+            f'"max_failed": {max_failed}, "min_sdpo_loss": {min_sdpo_loss}, "max_kl": {max_kl}}}, '
+            f'should_refresh={should_refresh}')
+        self._metrics['train']['sdpo/teacher_refresh_iou_gain'].append(iou_gain)
+        should_refresh = self._broadcast_sdpo_refresh_decision(should_refresh)
+        if not should_refresh:
+            return
+        self._refresh_sdpo_teacher_from_student(reason=f'metric_trigger step={step} iou_gain={iou_gain:.6f}')
+
+    @torch.no_grad()
+    def _refresh_sdpo_teacher_from_student(self, reason: str = '') -> None:
+        """One-shot SDPO teacher refresh from the current student parameters.
+
+        The reference model is intentionally left untouched, so GRPO keeps the
+        original KL anchor while SDPO receives a stronger task-adapted teacher.
+        """
+        load_context = self.load_teacher_model_context() if getattr(self.args, 'offload_teacher_model', False) \
+            else nullcontext()
+        if self.is_teacher_ds3:
+            import deepspeed
+            gather_context = lambda params: deepspeed.zero.GatheredParameters(params, modifier_rank=0)
+        else:
+            gather_context = lambda params: nullcontext()
+
+        with load_context:
+            student_model = self.accelerator.unwrap_model(self.model)
+            teacher_model = self.accelerator.unwrap_model(self.teacher_model)
+            student_params = dict(student_model.named_parameters())
+            copied = 0
+            skipped = 0
+            for name, teacher_param in teacher_model.named_parameters():
+                student_param = student_params.get(name)
+                if student_param is None:
+                    skipped += 1
+                    continue
+                with gather_context([teacher_param]):
+                    if not self.is_teacher_ds3 or self.accelerator.is_main_process:
+                        if teacher_param.shape != student_param.shape:
+                            skipped += 1
+                            continue
+                        teacher_param.data.copy_(student_param.data.to(device=teacher_param.device,
+                                                                        dtype=teacher_param.dtype))
+                        copied += 1
+            self.teacher_model.eval()
+
+        if dist.is_available() and dist.is_initialized():
+            dist.barrier()
+
+        step = int(getattr(self.state, 'global_step', 0))
+        next_count = int(getattr(self, '_sdpo_teacher_refresh_count', 0)) + 1
+        max_refreshes = int(getattr(self.args, 'sdpo_teacher_refresh_max_refreshes', 1) or 1)
+        reason_text = f'; reason={reason}' if reason else ''
+        logger.info(
+            f'SDPO teacher refreshed from student at global_step={step}; refresh_count={next_count}; '
+            f'max_refreshes={max_refreshes}; copied={copied}; skipped={skipped}{reason_text}')
+        self._reset_sdpo_refresh_trackers_after_refresh(step)
+        self._metrics['train']['sdpo/teacher_refreshed'].append(1.0)
+        self._metrics['train']['sdpo/teacher_refresh_step'].append(float(step))
+        self._metrics['train']['sdpo/teacher_refresh_count'].append(float(self._sdpo_teacher_refresh_count))
+
+    @torch.no_grad()
+    def _ema_update_sdpo_teacher(self) -> None:
+        if not getattr(self, 'use_sdpo', False) or self.teacher_model is None:
+            return
+        decay = float(getattr(self, 'sdpo_teacher_ema_decay', 0.0) or 0.0)
+        if decay <= 0:
+            return
+        decay = min(1.0, max(0.0, decay))
+        step = int(getattr(self.state, 'global_step', 0))
+        if step <= 0 or step == self._sdpo_teacher_last_ema_step:
+            return
+
+        load_context = self.load_teacher_model_context() if getattr(self.args, 'offload_teacher_model', False) \
+            else nullcontext()
+        if self.is_teacher_ds3:
+            import deepspeed
+            gather_context = lambda params: deepspeed.zero.GatheredParameters(params, modifier_rank=0)
+        else:
+            gather_context = lambda params: nullcontext()
+
+        with load_context:
+            student_model = self.accelerator.unwrap_model(self.model)
+            teacher_model = self.accelerator.unwrap_model(self.teacher_model)
+            student_params = dict(student_model.named_parameters())
+            updated = 0
+            skipped = 0
+            for name, teacher_param in teacher_model.named_parameters():
+                student_param = student_params.get(name)
+                if student_param is None:
+                    skipped += 1
+                    continue
+                with gather_context([teacher_param]):
+                    if not self.is_teacher_ds3 or self.accelerator.is_main_process:
+                        if teacher_param.shape != student_param.shape:
+                            skipped += 1
+                            continue
+                        teacher_param.data.mul_(decay).add_(
+                            student_param.data.to(device=teacher_param.device, dtype=teacher_param.dtype),
+                            alpha=1.0 - decay)
+                        updated += 1
+            self.teacher_model.eval()
+
+        self._metrics['train']['sdpo/teacher_ema_decay'].append(decay)
+        self._metrics['train']['sdpo/teacher_ema_updated_params'].append(float(updated))
+        if skipped:
+            self._metrics['train']['sdpo/teacher_ema_skipped_params'].append(float(skipped))
+        self._sdpo_teacher_last_ema_step = step
 
     def _get_data_collator(self, args, template):
         return identity_data_collator
@@ -365,6 +744,8 @@ class GRPOTrainer(RolloutTrainerMixin, SwiftMixin, HFGRPOTrainer):
             ious.append(iou)
 
         route_counts = defaultdict(int)
+        hint_counts = defaultdict(int)
+        sibling_hint_ious = []
         for start in range(0, len(inputs), num_generations):
             group = inputs[start:start + num_generations]
             if len(group) != num_generations:
@@ -387,12 +768,91 @@ class GRPOTrainer(RolloutTrainerMixin, SwiftMixin, HFGRPOTrainer):
                 data['_sdpo_route'] = route
                 route_counts[route] += 1
 
+            hint_source = self._select_sdpo_sibling_hint(group)
+            for data in group:
+                self._attach_sdpo_hint_source(data, hint_source)
+                source_type = data.get('_sdpo_hint_source_type', 'gt')
+                hint_counts[source_type] += 1
+                if source_type == 'sibling' and data.get('_sdpo_sibling_hint_iou') is not None:
+                    sibling_hint_ious.append(float(data['_sdpo_sibling_hint_iou']))
+
         total = max(1, sum(route_counts.values()))
+        hint_total = max(1, sum(hint_counts.values()))
+        routing_metrics = {
+            'route_good': route_counts['good'] / total,
+            'route_failed': route_counts['failed'] / total,
+            'route_ambiguous': route_counts['ambiguous'] / total,
+            'iou_mean': sum(ious) / max(1, len(ious)),
+            'iou_at_05': sum(i > 0.5 for i in ious) / max(1, len(ious)),
+            'sibling_hit_rate': hint_counts['sibling'] / hint_total,
+            'gt_fallback_rate': hint_counts['gt_fallback'] / hint_total,
+            'sibling_skip_rate': hint_counts['skip'] / hint_total,
+            'sibling_hint_iou_mean': sum(sibling_hint_ious) / max(1, len(sibling_hint_ious)),
+        }
         self._metrics[mode]['sdpo/route_good'].append(route_counts['good'] / total)
         self._metrics[mode]['sdpo/route_failed'].append(route_counts['failed'] / total)
         self._metrics[mode]['sdpo/route_ambiguous'].append(route_counts['ambiguous'] / total)
         self._metrics[mode]['sdpo/iou_mean'].append(sum(ious) / max(1, len(ious)))
         self._metrics[mode]['sdpo/iou@0.5'].append(sum(i > 0.5 for i in ious) / max(1, len(ious)))
+        self._metrics[mode]['sdpo/sibling_hit_rate'].append(hint_counts['sibling'] / hint_total)
+        self._metrics[mode]['sdpo/gt_fallback_rate'].append(hint_counts['gt_fallback'] / hint_total)
+        self._metrics[mode]['sdpo/sibling_skip_rate'].append(hint_counts['skip'] / hint_total)
+        self._metrics[mode]['sdpo/sibling_hint_iou_mean'].append(
+            sum(sibling_hint_ious) / max(1, len(sibling_hint_ious)))
+        for data in inputs:
+            data['_sdpo_routing_metrics'] = routing_metrics
+
+    def _select_sdpo_sibling_hint(self, group: DataType) -> Optional[Dict[str, Any]]:
+        hint_source = getattr(self.args, 'sdpo_hint_source', 'gt')
+        if hint_source == 'gt':
+            return None
+        candidates = [
+            data for data in group
+            if data.get('_sdpo_route') == 'good'
+            and data.get('_sdpo_valid_box') and data.get('_sdpo_iou', 0.0) >= self.args.sdpo_tau_good
+            and data.get('_sdpo_pred_bbox') is not None
+        ]
+        if not candidates:
+            return None
+        metric = getattr(self.args, 'sdpo_sibling_select_metric', 'reward')
+        if metric == 'iou':
+            best = max(candidates, key=lambda item: (item.get('_sdpo_iou', 0.0), item.get('_sdpo_reward', 0.0)))
+        else:
+            best = max(candidates, key=lambda item: (item.get('_sdpo_reward', 0.0), item.get('_sdpo_iou', 0.0)))
+        return {
+            'bbox_norm': list(best['_sdpo_pred_bbox']),
+            'iou': float(best.get('_sdpo_iou', 0.0)),
+            'reward': float(best.get('_sdpo_reward', 0.0)),
+        }
+
+    def _attach_sdpo_hint_source(self, data: Dict[str, Any], hint_source: Optional[Dict[str, Any]]) -> None:
+        mode = getattr(self.args, 'sdpo_hint_source', 'gt')
+        data['_sdpo_hint_source_type'] = 'gt'
+        data.pop('_sdpo_sibling_hint_bbox', None)
+        data.pop('_sdpo_sibling_hint_iou', None)
+        data.pop('_sdpo_sibling_hint_reward', None)
+        if mode == 'gt':
+            return
+        if hint_source is None:
+            fallback = getattr(self.args, 'sdpo_sibling_fallback', 'gt')
+            if mode == 'sibling' or fallback == 'skip':
+                data['_sdpo_hint_source_type'] = 'skip'
+            else:
+                data['_sdpo_hint_source_type'] = 'gt_fallback'
+            return
+        try:
+            from swift.custom_utils.ground_func import bboxnorm2real
+            additional = data.get('additional_paras', '{}')
+            if isinstance(additional, str):
+                additional = json.loads(additional)
+            hint_bbox = bboxnorm2real(hint_source['bbox_norm'], additional['image_size'])
+            data['_sdpo_sibling_hint_bbox'] = hint_bbox
+            data['_sdpo_sibling_hint_iou'] = hint_source['iou']
+            data['_sdpo_sibling_hint_reward'] = hint_source['reward']
+            data['_sdpo_hint_source_type'] = 'sibling'
+        except Exception as e:
+            logger.warning(f'SDPO sibling hint conversion failed; falling back to GT hint. error={e}')
+            data['_sdpo_hint_source_type'] = 'gt_fallback'
 
     def _sdpo_score_completion(self, data):
         from swift.custom_utils.format_func import extract_bbox
@@ -433,9 +893,15 @@ class GRPOTrainer(RolloutTrainerMixin, SwiftMixin, HFGRPOTrainer):
             return
         routes = [data.get('_sdpo_route', 'unknown') for data in batch]
         if getattr(self.args, 'sdpo_only_failed', True):
-            mask_values = [1.0 if route == 'failed' else 0.0 for route in routes]
+            mask_values = [
+                1.0 if route == 'failed' and data.get('_sdpo_hint_source_type') != 'skip' else 0.0
+                for route, data in zip(routes, batch)
+            ]
         else:
-            mask_values = [0.0 if route == 'good' else 1.0 for route in routes]
+            mask_values = [
+                0.0 if route == 'good' or data.get('_sdpo_hint_source_type') == 'skip' else 1.0
+                for route, data in zip(routes, batch)
+            ]
         batch_encoded['sdpo_sequence_mask'] = torch.tensor(mask_values, dtype=torch.float32, device=self.accelerator.device)
         batch_encoded['_sdpo_origin_batch'] = [deepcopy(data) for data in batch]
 
@@ -1456,9 +1922,21 @@ class GRPOTrainer(RolloutTrainerMixin, SwiftMixin, HFGRPOTrainer):
             loss = compute_chord_loss(self, grpo_loss=loss)
 
         if getattr(self, 'use_sdpo', False) and mode == 'train' and self.args.sdpo_lambda > 0:
+            self._maybe_refresh_sdpo_teacher()
             sdpo_loss = self._compute_sdpo_loss(model, inputs)
             loss = loss + self.args.sdpo_lambda * sdpo_loss
             metrics_data['sdpo_loss'] = self.accelerator.gather_for_metrics(sdpo_loss.detach()).nanmean().item()
+            origin_batch = inputs.get('_sdpo_origin_batch') or []
+            for data in origin_batch:
+                routing_metrics = data.get('_sdpo_routing_metrics')
+                if routing_metrics:
+                    metrics_data['sdpo_route_good'] = routing_metrics['route_good']
+                    metrics_data['sdpo_route_failed'] = routing_metrics['route_failed']
+                    metrics_data['sdpo_route_ambiguous'] = routing_metrics['route_ambiguous']
+                    metrics_data['sdpo_iou_mean'] = routing_metrics['iou_mean']
+                    metrics_data['sdpo_iou_at_05'] = routing_metrics['iou_at_05']
+                    break
+            self._update_sdpo_refresh_metrics(metrics_data)
 
         return loss, metrics_data
 
@@ -1641,9 +2119,12 @@ class GRPOTrainer(RolloutTrainerMixin, SwiftMixin, HFGRPOTrainer):
         teacher_data = deepcopy(data)
         for key in [
                 '_sdpo_route', '_sdpo_iou', '_sdpo_valid_box', '_sdpo_pred_bbox', '_sdpo_reward',
-                '_sdpo_advantage'
+                '_sdpo_advantage', '_sdpo_routing_metrics'
         ]:
             teacher_data.pop(key, None)
+        hint_source_type = teacher_data.get('_sdpo_hint_source_type', 'gt')
+        if hint_source_type == 'skip':
+            return teacher_data
         hint_mode = getattr(self.args, 'opsd_hint_mode', 'hint')
         if 'messages' not in teacher_data or len(teacher_data['messages']) <= 1:
             return teacher_data
@@ -1651,7 +2132,13 @@ class GRPOTrainer(RolloutTrainerMixin, SwiftMixin, HFGRPOTrainer):
             return teacher_data
         if hint_mode == 'hint':
             mask_mode = getattr(self.args, 'opsd_mask_mode', 'zoom_in')
-            if mask_mode == 'soft_window':
+            if hint_source_type == 'sibling':
+                if mask_mode == 'jitter_box':
+                    color = getattr(self.args, 'opsd_hint_box_color', 'magenta')
+                    hint_text = f' Hint: The target is approximately within the {color} box.'
+                else:
+                    hint_text = ' Hint: The target is likely within the highlighted region.'
+            elif mask_mode == 'soft_window':
                 hint_text = ' Hint: The target is in the brighter (un-dimmed) region of the image.'
             elif mask_mode == 'jitter_box':
                 color = getattr(self.args, 'opsd_hint_box_color', 'magenta')
@@ -1807,9 +2294,12 @@ class GRPOTrainer(RolloutTrainerMixin, SwiftMixin, HFGRPOTrainer):
         else:
             image_item = images[0]
             image_path = image_item.get('path') if isinstance(image_item, dict) else image_item
-        x1, y1, x2, y2 = map(int, data['solution']['arguments']['coordinate'])
+        hint_bbox = data.get('_sdpo_sibling_hint_bbox') or data['solution']['arguments']['coordinate']
+        x1, y1, x2, y2 = map(int, hint_bbox)
         sample_id = data.get('sample_id') or data.get('ref_id') or str(abs(hash(image_path)))
-        save_path = os.path.join(self.args.opsd_mask_dir, f"{sample_id}_{os.path.basename(image_path)}")
+        hint_source = data.get('_sdpo_hint_source_type', 'gt')
+        suffix = f"{hint_source}_{sample_id}_{os.path.basename(image_path)}"
+        save_path = os.path.join(self.args.opsd_mask_dir, suffix)
         os.makedirs(os.path.dirname(save_path), exist_ok=True)
 
         img = load_image(image_path)
@@ -2391,6 +2881,7 @@ class GRPOTrainer(RolloutTrainerMixin, SwiftMixin, HFGRPOTrainer):
             # Wait for the eval rollout to complete
             while not self.is_async_generate_eval_rollout_done():
                 time.sleep(0.1)
+        self._ema_update_sdpo_teacher()
         return super().training_step(model, inputs, num_items_in_batch)
 
     def old_policy(self):

@@ -1,5 +1,6 @@
 import atexit
 import logging
+import os
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -64,6 +65,9 @@ class VLLMClient:
             self.hosts = hosts
 
         self.num_servers = len(self.base_urls)
+        self.request_retries = max(1, int(os.getenv('VLLM_CLIENT_POST_RETRIES', '3')))
+        self.request_retry_delay = max(0.0, float(os.getenv('VLLM_CLIENT_POST_RETRY_DELAY', '2')))
+        self.request_timeout = max(1.0, float(os.getenv('VLLM_CLIENT_POST_TIMEOUT', '120')))
 
         if group_ports is None:
             group_ports = [51216 + i for i in range(self.num_servers)]
@@ -79,6 +83,25 @@ class VLLMClient:
 
         self.pynccl_comms = []
         self.check_server(connection_timeout)
+
+    def _post_with_retry(self, session: requests.Session, url: str, **kwargs):
+        last_error = None
+        kwargs.setdefault('timeout', self.request_timeout)
+        for attempt in range(1, self.request_retries + 1):
+            try:
+                response = session.post(url, **kwargs)
+                if response.status_code < 500:
+                    return response
+                last_error = RuntimeError(f'HTTP {response.status_code}: {response.text}')
+            except requests.RequestException as e:
+                last_error = e
+            if attempt < self.request_retries:
+                logger.warning('vLLM POST failed (%s/%s) for %s: %s. Retrying in %.1fs.', attempt,
+                               self.request_retries, url, last_error, self.request_retry_delay)
+                time.sleep(self.request_retry_delay)
+        if last_error is not None:
+            raise last_error
+        raise RuntimeError(f'vLLM POST failed without an explicit error: {url}')
 
     def check_server(self, total_timeout: float = 0.0, retry_interval: float = 2.0):
         server_status = [False] * self.num_servers
@@ -374,7 +397,8 @@ class VLLMClient:
                     'metadatas': metadatas,
                 }
 
-                response = self.sessions[i].post(
+                response = self._post_with_retry(
+                    self.sessions[i],
                     f'{self.base_urls[i]}/update_flattened_params/',
                     json=data,
                 )

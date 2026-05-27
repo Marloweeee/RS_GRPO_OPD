@@ -1,0 +1,568 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MRPD 实验结果汇总</title>
+<style>
+:root { --bg:#f6f7f9; --panel:#ffffff; --text:#1f2937; --muted:#64748b; --line:#d9e0e8; --head:#eef3f8; --ok:#167a3c; --pending:#9a5b00; --accent:#0f766e; }
+body { margin:0; background:var(--bg); color:var(--text); font:14px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Arial,"Noto Sans SC",sans-serif; }
+main { max-width: 1480px; margin: 0 auto; padding: 28px 24px 48px; }
+h1 { margin: 0 0 8px; font-size: 28px; letter-spacing:0; }
+h2 { margin: 28px 0 10px; font-size: 20px; }
+p { margin: 8px 0; color: var(--muted); }
+.note { background:#fff7ed; border:1px solid #fed7aa; padding:10px 12px; border-radius:8px; color:#7c2d12; }
+.card { background: var(--panel); border:1px solid var(--line); border-radius:8px; padding:16px; margin: 14px 0; box-shadow:0 1px 2px rgba(15,23,42,.04); }
+.grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(260px,1fr)); gap:12px; }
+.kpi { background:#f8fafc; border:1px solid var(--line); border-radius:8px; padding:12px; }
+.kpi b { display:block; font-size:18px; color:var(--accent); }
+.table-wrap { overflow:auto; border:1px solid var(--line); border-radius:8px; background:white; }
+table { border-collapse:collapse; width:100%; min-width:1180px; }
+th, td { border-bottom:1px solid var(--line); border-right:1px solid #edf1f5; padding:8px 9px; vertical-align:top; }
+th { position:sticky; top:0; background:var(--head); text-align:left; font-weight:650; white-space:nowrap; }
+td.num { text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap; }
+td.path { max-width:360px; color:#475569; }
+code { font-family: ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:12px; white-space:normal; word-break:break-all; }
+.badge { display:inline-block; padding:2px 7px; border-radius:999px; font-size:12px; border:1px solid currentColor; white-space:nowrap; }
+.badge.ok { color:var(--ok); background:#ecfdf5; }
+.badge.pending { color:var(--pending); background:#fffbeb; }
+ul { margin: 8px 0 0 18px; padding:0; }
+li { margin:4px 0; }
+.small { font-size:12px; color:var(--muted); }
+</style>
+</head>
+<body>
+<main>
+<h1>MRPD / OPSD 实验结果汇总</h1>
+<p>生成时间：2026-05-27 14:25:00。本页从 <code>/data/codes/gui_grounding/data/logs/eval</code> 中已有的 <code>summary.json</code> / <code>threshold_summary.json</code> 汇总，不包含重新评测。</p>
+<div class="note">术语说明：当前汇总中尽量使用 MRPD/OPSD 表述；历史目录名里仍可能出现 sdpo/opd/grpo_sdpo 等旧命名，表格保留原路径以便追溯。</div>
+
+<section class="card">
+<h2>关键结论</h2>
+<div class="grid">
+<div class="kpi"><b>0.7000</b>当前 RRSIS-D test greedy 已评测最高 mIoU：SFT -&gt; MRPD EMA0.98 gaussian</div>
+<div class="kpi"><b>0.8251</b>SFT ckpt + gaussian hint 的 best@8 mIoU 上限</div>
+<div class="kpi"><b>0.6987</b>固定 step-80 教师刷新 test mIoU</div>
+</div>
+<ul>
+<li>SFT 后继续做 GRPO+OPSD/MRPD 明显优于 SFT-only，当前 gaussian metric refresh 主线约 <b>0.6990</b> mIoU。</li>
+<li>OPSD-only 与 GRPO-only 都已验证：GRPO-only 提升明显，OPSD-only 单独收益较小，组合 MRPD 最稳定。</li>
+<li>提示模式消融里，gaussian metric refresh 仍是当前 test greedy 主线最好；zoom_in、jitter_box、soft_window、no_hint 都没有超过它。</li>
+<li>教师刷新对照中，no-refresh、fixed step-80、metric/window refresh 与 EMA0.98 均已出 test 分；EMA0.98 当前 mIoU 最高，但优势很小，需要结合稳定性与可复现实验判断。</li>
+</ul>
+</section>
+
+<section class="card">
+<h2>RRSIS-D Test 主线结果</h2>
+<div class="table-wrap"><table><tr><th>实验</th><th>数据集</th><th>配置说明</th><th>n</th><th>rollouts</th><th>temp</th><th>mIoU</th><th>IoU@0.5</th><th>IoU@0.6</th><th>IoU@0.7</th><th>IoU@0.8</th><th>IoU@0.9</th><th>状态</th><th>来源</th></tr>
+<tr>
+<td>SFT-only 4B</td>
+<td>RRSIS-D test</td>
+<td>Qwen3-VL-4B 从原始权重 SFT 1 epoch，greedy 单次推理</td>
+<td class="num">3481.0000</td>
+<td class="num">1.0000</td>
+<td class="num">0.0000</td>
+<td class="num">0.6809</td><td class="num">0.7696</td><td class="num">0.7156</td><td class="num">0.6400</td><td class="num">0.5260</td><td class="num">0.3424</td>
+<td><span class="badge ok">完成</span></td>
+<td class="path"><code>data/logs/eval/qwen3-4b-rrsisd-sft-20260526-220915-checkpoint-96-test-greedy/summary.json</code></td>
+</tr>
+<tr>
+<td>SFT -&gt; OPSD-only gaussian</td>
+<td>RRSIS-D test</td>
+<td>SFT ckpt 后只使用 OPSD/教师提示蒸馏，不使用 GRPO</td>
+<td class="num">3481.0000</td>
+<td class="num">1.0000</td>
+<td class="num">0.0000</td>
+<td class="num">0.6833</td><td class="num">0.7708</td><td class="num">0.7167</td><td class="num">0.6438</td><td class="num">0.5338</td><td class="num">0.3396</td>
+<td><span class="badge ok">完成</span></td>
+<td class="path"><code>data/logs/eval/q4b-sft-opsd-only-gaussian-20260527-085701-test/summary.json</code></td>
+</tr>
+<tr>
+<td>SFT -&gt; GRPO-only</td>
+<td>RRSIS-D test</td>
+<td>SFT ckpt 后只使用 GRPO，不引入 OPSD 教师提示</td>
+<td class="num">3481.0000</td>
+<td class="num">1.0000</td>
+<td class="num">0.0000</td>
+<td class="num">0.6962</td><td class="num">0.7914</td><td class="num">0.7369</td><td class="num">0.6619</td><td class="num">0.5484</td><td class="num">0.3608</td>
+<td><span class="badge ok">完成</span></td>
+<td class="path"><code>data/logs/eval/q4b-sft-grpo-only-20260527-082554-test/summary.json</code></td>
+</tr>
+<tr>
+<td>SFT -&gt; MRPD gaussian metric refresh</td>
+<td>RRSIS-D test</td>
+<td>当前主线：GRPO+OPSD，gaussian hint，metric/window teacher refresh</td>
+<td class="num">3481.0000</td>
+<td class="num">1.0000</td>
+<td class="num">0.0000</td>
+<td class="num">0.6990</td><td class="num">0.7912</td><td class="num">0.7369</td><td class="num">0.6665</td><td class="num">0.5530</td><td class="num">0.3577</td>
+<td><span class="badge ok">完成</span></td>
+<td class="path"><code>data/logs/eval/gui-sd-qwen3-4b-rrsisd_sft_grpo_opsd_metric_gaussian_e1-20260526-225857_test/summary.json</code></td>
+</tr>
+<tr>
+<td>SFT -&gt; MRPD zoom_in</td>
+<td>RRSIS-D test</td>
+<td>GRPO+OPSD，zoom_in hint，metric refresh</td>
+<td class="num">3481.0000</td>
+<td class="num">1.0000</td>
+<td class="num">0.0000</td>
+<td class="num">0.6979</td><td class="num">0.7883</td><td class="num">0.7374</td><td class="num">0.6625</td><td class="num">0.5470</td><td class="num">0.3488</td>
+<td><span class="badge ok">完成</span></td>
+<td class="path"><code>data/logs/eval/q4b-sft-grpo-opsd-zoom-in-20260527-082554-test/summary.json</code></td>
+</tr>
+<tr>
+<td>SFT -&gt; MRPD jitter_box</td>
+<td>RRSIS-D test</td>
+<td>GRPO+OPSD，jitter_box hint，metric refresh</td>
+<td class="num">3481.0000</td>
+<td class="num">1.0000</td>
+<td class="num">0.0000</td>
+<td class="num">0.6973</td><td class="num">0.7920</td><td class="num">0.7323</td><td class="num">0.6610</td><td class="num">0.5496</td><td class="num">0.3522</td>
+<td><span class="badge ok">完成</span></td>
+<td class="path"><code>data/logs/eval/q4b-sft-grpo-opsd-jitter-box-20260527-082554-test/summary.json</code></td>
+</tr>
+<tr>
+<td>SFT -&gt; MRPD soft_window</td>
+<td>RRSIS-D test</td>
+<td>GRPO+OPSD，soft_window hint，metric refresh</td>
+<td class="num">3481.0000</td>
+<td class="num">1.0000</td>
+<td class="num">0.0000</td>
+<td class="num">0.6952</td><td class="num">0.7863</td><td class="num">0.7297</td><td class="num">0.6579</td><td class="num">0.5496</td><td class="num">0.3536</td>
+<td><span class="badge ok">完成</span></td>
+<td class="path"><code>data/logs/eval/q4b-sft-grpo-opsd-soft-window-20260527-100136-test/summary.json</code></td>
+</tr>
+<tr>
+<td>SFT -&gt; MRPD no_hint</td>
+<td>RRSIS-D test</td>
+<td>GRPO+OPSD，但教师侧不使用视觉 hint / no_mask</td>
+<td class="num">3481.0000</td>
+<td class="num">1.0000</td>
+<td class="num">0.0000</td>
+<td class="num">0.6918</td><td class="num">0.7794</td><td class="num">0.7302</td><td class="num">0.6576</td><td class="num">0.5432</td><td class="num">0.3577</td>
+<td><span class="badge ok">完成</span></td>
+<td class="path"><code>data/logs/eval/q4b-sft-grpo-opsd-no-hint-20260527-093400-aos2n-test/summary.json</code></td>
+</tr></table></div>
+</section>
+
+<section class="card">
+<h2>Pass@8 / Best-of-8 上限分析</h2>
+<p>这些结果用于说明多次 rollout 中存在显著更优 bbox，因此 MRPD 的目标是缩小单次采样与组内最优之间的 gap。</p>
+<div class="table-wrap"><table><tr><th>实验</th><th>提示/采样</th><th>n</th><th>rollouts</th><th>first mIoU</th><th>first@0.5</th><th>first@0.6</th><th>first@0.7</th><th>first@0.8</th><th>first@0.9</th><th>best@8 mIoU</th><th>best@8@0.5</th><th>best@8@0.6</th><th>best@8@0.7</th><th>best@8@0.8</th><th>best@8@0.9</th><th>状态</th><th>来源</th></tr>
+<tr>
+<td>SFT ckpt no-hint pass@8</td>
+<td>无教师视觉提示，temperature=0.7</td>
+<td class="num">3481.0000</td>
+<td class="num">8.0000</td>
+<td class="num">0.7685</td><td class="num">0.8544</td><td class="num">0.8173</td><td class="num">0.7656</td><td class="num">0.6613</td><td class="num">0.4631</td><td class="num">-</td><td class="num">-</td><td class="num">-</td><td class="num">-</td><td class="num">-</td><td class="num">-</td>
+<td><span class="badge ok">完成</span></td>
+<td class="path"><code>data/logs/eval/qwen3-4b-rrsisd-sft-20260526-220915-checkpoint-96-test-nohint-pass8-b32/summary.json</code></td>
+</tr>
+<tr>
+<td>SFT ckpt gaussian hint pass@8</td>
+<td>教师 gaussian 视觉提示，temperature=0.7</td>
+<td class="num">3481.0000</td>
+<td class="num">8.0000</td>
+<td class="num">0.7273</td><td class="num">0.8268</td><td class="num">0.7716</td><td class="num">0.6912</td><td class="num">0.5837</td><td class="num">0.3712</td><td class="num">0.8251</td><td class="num">0.9038</td><td class="num">0.8756</td><td class="num">0.8271</td><td class="num">0.7443</td><td class="num">0.5745</td>
+<td><span class="badge ok">完成</span></td>
+<td class="path"><code>data/logs/eval/qwen3-4b-rrsisd-sft-20260526-220915-checkpoint-96-test-hint-gaussian-pass8-b32/summary.json</code></td>
+</tr>
+<tr>
+<td>SFT ckpt zoom_in hint pass@8</td>
+<td>教师 zoom_in 视觉提示，temperature=0.7</td>
+<td class="num">3481.0000</td>
+<td class="num">8.0000</td>
+<td class="num">0.6735</td><td class="num">0.7794</td><td class="num">0.6932</td><td class="num">0.5817</td><td class="num">0.4473</td><td class="num">0.2448</td><td class="num">0.7728</td><td class="num">0.8791</td><td class="num">0.8156</td><td class="num">0.7239</td><td class="num">0.6016</td><td class="num">0.4053</td>
+<td><span class="badge ok">完成</span></td>
+<td class="path"><code>data/logs/eval/qwen3-4b-rrsisd-sft-20260526-220915-checkpoint-96-test-hint-zoom_in-pass8-b32/summary.json</code></td>
+</tr>
+<tr>
+<td>4B two-stage s80 best-of-8</td>
+<td>旧 4B 两阶段 ckpt best-of-8</td>
+<td class="num">3481.0000</td>
+<td class="num">8.0000</td>
+<td class="num">0.7427</td><td class="num">0.8262</td><td class="num">-</td><td class="num">0.7228</td><td class="num">-</td><td class="num">-</td><td class="num">-</td><td class="num">-</td><td class="num">-</td><td class="num">-</td><td class="num">-</td><td class="num">-</td>
+<td><span class="badge ok">完成</span></td>
+<td class="path"><code>data/logs/eval/qwen3-4b-2stage-s80-bestof8-20260522/summary.json</code></td>
+</tr></table></div>
+</section>
+
+<section class="card">
+<h2>教师刷新策略对照</h2>
+<div class="table-wrap"><table><tr><th>实验</th><th>数据集</th><th>配置说明</th><th>n</th><th>rollouts</th><th>temp</th><th>mIoU</th><th>IoU@0.5</th><th>IoU@0.6</th><th>IoU@0.7</th><th>IoU@0.8</th><th>IoU@0.9</th><th>状态</th><th>来源</th></tr>
+<tr>
+<td>Metric/window refresh gaussian</td>
+<td>RRSIS-D test</td>
+<td>主线动态窗口刷新，gaussian hint</td>
+<td class="num">3481.0000</td>
+<td class="num">1.0000</td>
+<td class="num">0.0000</td>
+<td class="num">0.6990</td><td class="num">0.7912</td><td class="num">0.7369</td><td class="num">0.6665</td><td class="num">0.5530</td><td class="num">0.3577</td>
+<td><span class="badge ok">完成</span></td>
+<td class="path"><code>data/logs/eval/gui-sd-qwen3-4b-rrsisd_sft_grpo_opsd_metric_gaussian_e1-20260526-225857_test/summary.json</code></td>
+</tr>
+<tr>
+<td>Fixed step-80 refresh gaussian</td>
+<td>RRSIS-D test</td>
+<td>固定 global step=80 同步一次教师模型</td>
+<td class="num">3481.0000</td>
+<td class="num">1.0000</td>
+<td class="num">0.0000</td>
+<td class="num">0.6987</td><td class="num">0.7903</td><td class="num">0.7386</td><td class="num">0.6613</td><td class="num">0.5564</td><td class="num">0.3554</td>
+<td><span class="badge ok">完成</span></td>
+<td class="path"><code>data/logs/eval/gui-sd-qwen3-4b-rrsisd_sft_grpo_opsd_fixed_s80_gaussian_e1-20260527-113500-s80_test/summary.json</code></td>
+</tr>
+<tr>
+<td>No refresh gaussian</td>
+<td>RRSIS-D test</td>
+<td>教师固定不刷新，gaussian hint</td>
+<td class="num">3481.0000</td>
+<td class="num">1.0000</td>
+<td class="num">0.0000</td>
+<td class="num">0.6981</td><td class="num">0.7889</td><td class="num">0.7351</td><td class="num">0.6668</td><td class="num">0.5536</td><td class="num">0.3628</td>
+<td><span class="badge ok">完成</span></td>
+<td class="path"><code>data/logs/eval/gui-sd-qwen3-4b-rrsisd_sft_grpo_opsd_no_refresh_gaussian_e1-20260527-114200-norefresh_test/summary.json</code></td>
+</tr>
+<tr>
+<td>EMA0.98 teacher only gaussian</td>
+<td>RRSIS-D test</td>
+<td>教师 EMA=0.98，无 hard refresh；AOS 8 卡 TP=8 完成评测</td>
+<td class="num">3481.0000</td>
+<td class="num">1.0000</td>
+<td class="num">0.0000</td>
+<td class="num">0.7000</td><td class="num">0.7923</td><td class="num">0.7392</td><td class="num">0.6636</td><td class="num">0.5533</td><td class="num">0.3588</td>
+<td><span class="badge ok">完成</span></td>
+<td class="path"><code>data/logs/eval/gui-sd-qwen3-4b-rrsisd_sft_grpo_opsd_ema098_gaussian_e1-20260527-113500-ema098_test/summary.json</code></td>
+</tr>
+<tr>
+<td>Metric EWMA refresh zoom_in</td>
+<td>RRSIS-D val</td>
+<td>旧实验：EWMA/双窗口 refresh，zoom_in，在 val split 评测</td>
+<td class="num">1740.0000</td>
+<td class="num">1.0000</td>
+<td class="num">0.0000</td>
+<td class="num">0.6933</td><td class="num">0.7793</td><td class="num">0.7356</td><td class="num">0.6615</td><td class="num">0.5529</td><td class="num">0.3443</td>
+<td><span class="badge ok">完成</span></td>
+<td class="path"><code>data/logs/eval/val_ckpt_eval_20260525-130018/R09_4b_metric_ewma_refresh_zoom_in/summary.json</code></td>
+</tr>
+<tr>
+<td>EMA0.98 + metric EWMA refresh zoom_in</td>
+<td>RRSIS-D val</td>
+<td>旧实验：慢 EMA + 指标刷新，在 val split 评测</td>
+<td class="num">1740.0000</td>
+<td class="num">1.0000</td>
+<td class="num">0.0000</td>
+<td class="num">0.6889</td><td class="num">0.7776</td><td class="num">0.7264</td><td class="num">0.6580</td><td class="num">0.5511</td><td class="num">0.3443</td>
+<td><span class="badge ok">完成</span></td>
+<td class="path"><code>data/logs/eval/val_ckpt_eval_20260525-130018/R10_4b_teacher_ema0.98_metric_ewma_refresh_zoom_in/summary.json</code></td>
+</tr></table></div>
+</section>
+
+<section class="card">
+<h2>Train / Val / Extra Epoch 结果</h2>
+<div class="table-wrap"><table><tr><th>实验</th><th>数据集</th><th>配置说明</th><th>n</th><th>rollouts</th><th>temp</th><th>mIoU</th><th>IoU@0.5</th><th>IoU@0.6</th><th>IoU@0.7</th><th>IoU@0.8</th><th>IoU@0.9</th><th>状态</th><th>来源</th></tr>
+<tr>
+<td>Best 1e+extra epoch train</td>
+<td>RRSIS-D train</td>
+<td>从 1 epoch 最优设置继续额外 epoch 后，在 train 上评测</td>
+<td class="num">12181.0000</td>
+<td class="num">1.0000</td>
+<td class="num">0.0000</td>
+<td class="num">0.7339</td><td class="num">0.8241</td><td class="num">0.7839</td><td class="num">0.7165</td><td class="num">0.6040</td><td class="num">0.4037</td>
+<td><span class="badge ok">完成</span></td>
+<td class="path"><code>data/logs/eval/qwen3-4b-best1e-e2-metric-gaussian-train-ck870/summary.json</code></td>
+</tr>
+<tr>
+<td>Best 1e+extra epoch val</td>
+<td>RRSIS-D val</td>
+<td>同一 ckpt，在 val 上评测</td>
+<td class="num">1740.0000</td>
+<td class="num">1.0000</td>
+<td class="num">0.0000</td>
+<td class="num">0.7054</td><td class="num">0.7971</td><td class="num">0.7523</td><td class="num">0.6874</td><td class="num">0.5678</td><td class="num">0.3621</td>
+<td><span class="badge ok">完成</span></td>
+<td class="path"><code>data/logs/eval/qwen3-4b-best1e-e2-metric-gaussian-val-ck870/summary.json</code></td>
+</tr>
+<tr>
+<td>Best 1e+extra epoch test</td>
+<td>RRSIS-D test</td>
+<td>同一 ckpt，在 test 上评测</td>
+<td class="num">3481.0000</td>
+<td class="num">1.0000</td>
+<td class="num">0.0000</td>
+<td class="num">0.6967</td><td class="num">0.7900</td><td class="num">0.7323</td><td class="num">0.6622</td><td class="num">0.5470</td><td class="num">0.3482</td>
+<td><span class="badge ok">完成</span></td>
+<td class="path"><code>data/logs/eval/qwen3-4b-best1e-e2-metric-gaussian-test-ck870/summary.json</code></td>
+</tr>
+<tr>
+<td>SFT-only val</td>
+<td>RRSIS-D val</td>
+<td>SFT-only 4B 在 val 上 greedy 评测</td>
+<td class="num">1740.0000</td>
+<td class="num">1.0000</td>
+<td class="num">0.0000</td>
+<td class="num">0.6845</td><td class="num">0.7655</td><td class="num">0.7241</td><td class="num">0.6644</td><td class="num">0.5557</td><td class="num">0.3523</td>
+<td><span class="badge ok">完成</span></td>
+<td class="path"><code>data/logs/eval/qwen3-4b-rrsisd-sft-20260526-220915-checkpoint-96-val-greedy/summary.json</code></td>
+</tr></table></div>
+</section>
+
+<section class="card">
+<h2>RSVG-DIOR 结果</h2>
+<p>RSVG-DIOR 使用每个 XML object/ref 作为一条样本，图像路径指向 <code>/data/codes/gui_grounding/data/RSVG-DIOR/JPEGImages</code>。当前 SFT-only 已完成 test 评测，SFT 后继续 MRPD 的训练仍在运行。</p>
+<div class="table-wrap"><table><tr><th>实验</th><th>数据集</th><th>配置说明</th><th>n</th><th>rollouts</th><th>temp</th><th>mIoU</th><th>IoU@0.5</th><th>IoU@0.6</th><th>IoU@0.7</th><th>IoU@0.8</th><th>IoU@0.9</th><th>状态</th><th>来源</th></tr>
+<tr>
+<td>RSVG-DIOR SFT-only 4B</td>
+<td>RSVG-DIOR test</td>
+<td>Qwen3-VL-4B 从原始权重在 RSVG-DIOR train 上 SFT 1 epoch，greedy 单次推理</td>
+<td class="num">7500.0000</td>
+<td class="num">1.0000</td>
+<td class="num">0.0000</td>
+<td class="num">0.6841</td><td class="num">0.7712</td><td class="num">0.7297</td><td class="num">0.6601</td><td class="num">0.5481</td><td class="num">0.3632</td>
+<td><span class="badge ok">完成</span></td>
+<td class="path"><code>data/logs/eval/q4b-rsvg-sft-20260527-123311-rsvgsftmrpd-test/summary.json</code></td>
+</tr>
+<tr>
+<td>RSVG-DIOR SFT -&gt; MRPD gaussian</td>
+<td>RSVG-DIOR test</td>
+<td>SFT ckpt 后继续 MRPD/OPSD gaussian metric refresh；训练 rjob 当前仍在运行，结束后由 pipeline 自动评测</td>
+<td class="num">-</td>
+<td class="num">-</td>
+<td class="num">-</td>
+<td class="num">-</td><td class="num">-</td><td class="num">-</td><td class="num">-</td><td class="num">-</td><td class="num">-</td>
+<td><span class="badge pending">训练中</span></td>
+<td class="path"><code>data/logs/eval/q4b-rsvg-sft-mrpd-20260527-123311-rsvgsftmrpd-test/summary.json</code></td>
+</tr></table></div>
+</section>
+
+<section class="card">
+<h2>历史 Val 批量评测记录</h2>
+<p>该表保留 2026-05-25 批量评测记录，主要用于回看早期 4B 全量训练、提示模式、教师刷新策略在 val split 上的相对趋势。</p>
+<div class="table-wrap"><table><tr><th>实验</th><th>数据集</th><th>配置说明</th><th>n</th><th>rollouts</th><th>temp</th><th>mIoU</th><th>IoU@0.5</th><th>IoU@0.6</th><th>IoU@0.7</th><th>IoU@0.8</th><th>IoU@0.9</th><th>状态</th><th>来源</th></tr>
+<tr>
+<td>F01 4b two-stage s80 grpo sdpo</td>
+<td>RRSIS-D val</td>
+<td>2026-05-25 批量 val ckpt 对照</td>
+<td class="num">1740.0000</td>
+<td class="num">1.0000</td>
+<td class="num">0.0000</td>
+<td class="num">0.6937</td><td class="num">0.7747</td><td class="num">0.7293</td><td class="num">0.6626</td><td class="num">0.5500</td><td class="num">0.3598</td>
+<td><span class="badge ok">完成</span></td>
+<td class="path"><code>data/logs/eval/val_ckpt_eval_20260525-130018/F01_4b_two-stage_s80_grpo_sdpo/summary.json</code></td>
+</tr>
+<tr>
+<td>F02 4b grpo-only</td>
+<td>RRSIS-D val</td>
+<td>2026-05-25 批量 val ckpt 对照</td>
+<td class="num">1740.0000</td>
+<td class="num">1.0000</td>
+<td class="num">0.0000</td>
+<td class="num">0.6829</td><td class="num">0.7707</td><td class="num">0.7207</td><td class="num">0.6534</td><td class="num">0.5454</td><td class="num">0.3494</td>
+<td><span class="badge ok">完成</span></td>
+<td class="path"><code>data/logs/eval/val_ckpt_eval_20260525-130018/F02_4b_grpo-only/summary.json</code></td>
+</tr>
+<tr>
+<td>F03 4b opd opsd-only</td>
+<td>RRSIS-D val</td>
+<td>2026-05-25 批量 val ckpt 对照</td>
+<td class="num">1740.0000</td>
+<td class="num">1.0000</td>
+<td class="num">0.0000</td>
+<td class="num">0.6045</td><td class="num">0.6747</td><td class="num">0.6075</td><td class="num">0.5264</td><td class="num">0.4161</td><td class="num">0.2448</td>
+<td><span class="badge ok">完成</span></td>
+<td class="path"><code>data/logs/eval/val_ckpt_eval_20260525-130018/F03_4b_opd_opsd-only/summary.json</code></td>
+</tr>
+<tr>
+<td>F04 4b mid-refresh s80</td>
+<td>RRSIS-D val</td>
+<td>2026-05-25 批量 val ckpt 对照</td>
+<td class="num">1740.0000</td>
+<td class="num">1.0000</td>
+<td class="num">0.0000</td>
+<td class="num">0.6926</td><td class="num">0.7799</td><td class="num">0.7282</td><td class="num">0.6632</td><td class="num">0.5540</td><td class="num">0.3483</td>
+<td><span class="badge ok">完成</span></td>
+<td class="path"><code>data/logs/eval/val_ckpt_eval_20260525-130018/F04_4b_mid-refresh_s80/summary.json</code></td>
+</tr>
+<tr>
+<td>H01 4b grpo sdpo zoom in</td>
+<td>RRSIS-D val</td>
+<td>2026-05-25 批量 val ckpt 对照</td>
+<td class="num">1740.0000</td>
+<td class="num">1.0000</td>
+<td class="num">0.0000</td>
+<td class="num">0.6925</td><td class="num">0.7793</td><td class="num">0.7316</td><td class="num">0.6580</td><td class="num">0.5460</td><td class="num">0.3483</td>
+<td><span class="badge ok">完成</span></td>
+<td class="path"><code>data/logs/eval/val_ckpt_eval_20260525-130018/H01_4b_grpo_sdpo_zoom_in/summary.json</code></td>
+</tr>
+<tr>
+<td>H02 4b grpo sdpo jitter box</td>
+<td>RRSIS-D val</td>
+<td>2026-05-25 批量 val ckpt 对照</td>
+<td class="num">1740.0000</td>
+<td class="num">1.0000</td>
+<td class="num">0.0000</td>
+<td class="num">0.6846</td><td class="num">0.7736</td><td class="num">0.7247</td><td class="num">0.6489</td><td class="num">0.5414</td><td class="num">0.3425</td>
+<td><span class="badge ok">完成</span></td>
+<td class="path"><code>data/logs/eval/val_ckpt_eval_20260525-130018/H02_4b_grpo_sdpo_jitter_box/summary.json</code></td>
+</tr>
+<tr>
+<td>H03 4b grpo sdpo soft window</td>
+<td>RRSIS-D val</td>
+<td>2026-05-25 批量 val ckpt 对照</td>
+<td class="num">1740.0000</td>
+<td class="num">1.0000</td>
+<td class="num">0.0000</td>
+<td class="num">0.6607</td><td class="num">0.7414</td><td class="num">0.6897</td><td class="num">0.6207</td><td class="num">0.5126</td><td class="num">0.3190</td>
+<td><span class="badge ok">完成</span></td>
+<td class="path"><code>data/logs/eval/val_ckpt_eval_20260525-130018/H03_4b_grpo_sdpo_soft_window/summary.json</code></td>
+</tr>
+<tr>
+<td>H04 4b grpo sdpo no hint</td>
+<td>RRSIS-D val</td>
+<td>2026-05-25 批量 val ckpt 对照</td>
+<td class="num">1740.0000</td>
+<td class="num">1.0000</td>
+<td class="num">0.0000</td>
+<td class="num">0.6579</td><td class="num">0.7310</td><td class="num">0.6851</td><td class="num">0.6236</td><td class="num">0.5121</td><td class="num">0.3178</td>
+<td><span class="badge ok">完成</span></td>
+<td class="path"><code>data/logs/eval/val_ckpt_eval_20260525-130018/H04_4b_grpo_sdpo_no_hint/summary.json</code></td>
+</tr>
+<tr>
+<td>H05 4b grpo sdpo gaussian resumed</td>
+<td>RRSIS-D val</td>
+<td>2026-05-25 批量 val ckpt 对照</td>
+<td class="num">1740.0000</td>
+<td class="num">1.0000</td>
+<td class="num">0.0000</td>
+<td class="num">0.6879</td><td class="num">0.7759</td><td class="num">0.7276</td><td class="num">0.6575</td><td class="num">0.5489</td><td class="num">0.3402</td>
+<td><span class="badge ok">完成</span></td>
+<td class="path"><code>data/logs/eval/val_ckpt_eval_20260525-130018/H05_4b_grpo_sdpo_gaussian_resumed/summary.json</code></td>
+</tr>
+<tr>
+<td>R01 4b fixed step-80 teacher refresh zoom in</td>
+<td>RRSIS-D val</td>
+<td>2026-05-25 批量 val ckpt 对照</td>
+<td class="num">1740.0000</td>
+<td class="num">1.0000</td>
+<td class="num">0.0000</td>
+<td class="num">0.6939</td><td class="num">0.7851</td><td class="num">0.7351</td><td class="num">0.6626</td><td class="num">0.5529</td><td class="num">0.3523</td>
+<td><span class="badge ok">完成</span></td>
+<td class="path"><code>data/logs/eval/val_ckpt_eval_20260525-130018/R01_4b_fixed_step-80_teacher_refresh_zoom_in/summary.json</code></td>
+</tr>
+<tr>
+<td>R02 4b fixed step-80 teacher refresh gaussian</td>
+<td>RRSIS-D val</td>
+<td>2026-05-25 批量 val ckpt 对照</td>
+<td class="num">1740.0000</td>
+<td class="num">1.0000</td>
+<td class="num">0.0000</td>
+<td class="num">0.6910</td><td class="num">0.7799</td><td class="num">0.7264</td><td class="num">0.6580</td><td class="num">0.5500</td><td class="num">0.3431</td>
+<td><span class="badge ok">完成</span></td>
+<td class="path"><code>data/logs/eval/val_ckpt_eval_20260525-130018/R02_4b_fixed_step-80_teacher_refresh_gaussian/summary.json</code></td>
+</tr>
+<tr>
+<td>R03 4b metric refresh gaussian fix ck750</td>
+<td>RRSIS-D val</td>
+<td>2026-05-25 批量 val ckpt 对照</td>
+<td class="num">1740.0000</td>
+<td class="num">1.0000</td>
+<td class="num">0.0000</td>
+<td class="num">0.6972</td><td class="num">0.7828</td><td class="num">0.7397</td><td class="num">0.6592</td><td class="num">0.5592</td><td class="num">0.3615</td>
+<td><span class="badge ok">完成</span></td>
+<td class="path"><code>data/logs/eval/val_ckpt_eval_20260525-130018/R03_4b_metric_refresh_gaussian_fix_ck750/summary.json</code></td>
+</tr>
+<tr>
+<td>R04 4b metric refresh zoom in fix ck810</td>
+<td>RRSIS-D val</td>
+<td>2026-05-25 批量 val ckpt 对照</td>
+<td class="num">1740.0000</td>
+<td class="num">1.0000</td>
+<td class="num">0.0000</td>
+<td class="num">0.6940</td><td class="num">0.7810</td><td class="num">0.7299</td><td class="num">0.6672</td><td class="num">0.5546</td><td class="num">0.3477</td>
+<td><span class="badge ok">完成</span></td>
+<td class="path"><code>data/logs/eval/val_ckpt_eval_20260525-130018/R04_4b_metric_refresh_zoom_in_fix_ck810/summary.json</code></td>
+</tr>
+<tr>
+<td>R07 4b metric refresh gaussian rerun</td>
+<td>RRSIS-D val</td>
+<td>2026-05-25 批量 val ckpt 对照</td>
+<td class="num">1740.0000</td>
+<td class="num">1.0000</td>
+<td class="num">0.0000</td>
+<td class="num">0.6946</td><td class="num">0.7816</td><td class="num">0.7339</td><td class="num">0.6632</td><td class="num">0.5563</td><td class="num">0.3580</td>
+<td><span class="badge ok">完成</span></td>
+<td class="path"><code>data/logs/eval/val_ckpt_eval_20260525-130018/R07_4b_metric_refresh_gaussian_rerun/summary.json</code></td>
+</tr>
+<tr>
+<td>R08 4b metric refresh zoom in rerun</td>
+<td>RRSIS-D val</td>
+<td>2026-05-25 批量 val ckpt 对照</td>
+<td class="num">1740.0000</td>
+<td class="num">1.0000</td>
+<td class="num">0.0000</td>
+<td class="num">0.6926</td><td class="num">0.7816</td><td class="num">0.7305</td><td class="num">0.6672</td><td class="num">0.5483</td><td class="num">0.3402</td>
+<td><span class="badge ok">完成</span></td>
+<td class="path"><code>data/logs/eval/val_ckpt_eval_20260525-130018/R08_4b_metric_refresh_zoom_in_rerun/summary.json</code></td>
+</tr>
+<tr>
+<td>R09 4b metric ewma refresh zoom in</td>
+<td>RRSIS-D val</td>
+<td>2026-05-25 批量 val ckpt 对照</td>
+<td class="num">1740.0000</td>
+<td class="num">1.0000</td>
+<td class="num">0.0000</td>
+<td class="num">0.6933</td><td class="num">0.7793</td><td class="num">0.7356</td><td class="num">0.6615</td><td class="num">0.5529</td><td class="num">0.3443</td>
+<td><span class="badge ok">完成</span></td>
+<td class="path"><code>data/logs/eval/val_ckpt_eval_20260525-130018/R09_4b_metric_ewma_refresh_zoom_in/summary.json</code></td>
+</tr>
+<tr>
+<td>R10 4b teacher ema0.98 metric ewma refresh zoom in</td>
+<td>RRSIS-D val</td>
+<td>2026-05-25 批量 val ckpt 对照</td>
+<td class="num">1740.0000</td>
+<td class="num">1.0000</td>
+<td class="num">0.0000</td>
+<td class="num">0.6889</td><td class="num">0.7776</td><td class="num">0.7264</td><td class="num">0.6580</td><td class="num">0.5511</td><td class="num">0.3443</td>
+<td><span class="badge ok">完成</span></td>
+<td class="path"><code>data/logs/eval/val_ckpt_eval_20260525-130018/R10_4b_teacher_ema0.98_metric_ewma_refresh_zoom_in/summary.json</code></td>
+</tr></table></div>
+</section>
+
+<section class="card">
+<h2>其他已发现 Summary</h2>
+<p>下面列出不在主表中的其他 summary 文件，避免遗漏。部分为早期实验、临时评测或重复 ckpt。</p>
+<div class="table-wrap">
+<table><tr><th>路径</th><th>n</th><th>rollouts</th><th>mIoU / first mIoU</th><th>IoU@0.5 / first@0.5</th><th>best@8 mIoU</th><th>best@8@0.5</th></tr>
+<tr><td class="path"><code>data/logs/eval/ema098_zoom_eval_20260525-000435/ema098_zoom_ck870/summary.json</code></td><td class="num">3481.0000</td><td class="num">1.0000</td><td class="num">0.6838</td><td class="num">0.7748</td><td class="num">-</td><td class="num">-</td></tr>
+<tr><td class="path"><code>data/logs/eval/ewma_zoom_eval_20260524-200831/ewma_zoom_ck870/summary.json</code></td><td class="num">3481.0000</td><td class="num">1.0000</td><td class="num">0.6851</td><td class="num">0.7751</td><td class="num">-</td><td class="num">-</td></tr>
+<tr><td class="path"><code>data/logs/eval/sdpo_ablation_ck870_eval/05222308/jitter_box/summary.json</code></td><td class="num">3481.0000</td><td class="num">1.0000</td><td class="num">0.6789</td><td class="num">0.7639</td><td class="num">-</td><td class="num">-</td></tr>
+<tr><td class="path"><code>data/logs/eval/sdpo_ablation_ck870_eval/05222308/zoom_in/summary.json</code></td><td class="num">3481.0000</td><td class="num">1.0000</td><td class="num">0.6853</td><td class="num">0.7771</td><td class="num">-</td><td class="num">-</td></tr>
+<tr><td class="path"><code>data/logs/eval/sdpo_threshold_eval/05230918/no_hint/summary.json</code></td><td class="num">3481.0000</td><td class="num">1.0000</td><td class="num">0.6478</td><td class="num">0.7234</td><td class="num">-</td><td class="num">-</td></tr>
+<tr><td class="path"><code>data/logs/eval/sdpo_threshold_eval/05230918/soft_window/summary.json</code></td><td class="num">3481.0000</td><td class="num">1.0000</td><td class="num">0.6566</td><td class="num">0.7366</td><td class="num">-</td><td class="num">-</td></tr>
+<tr><td class="path"><code>data/logs/eval/teacher_refresh_eval_20260523-161645/metric_gaussian/summary.json</code></td><td class="num">3481.0000</td><td class="num">1.0000</td><td class="num">0.6054</td><td class="num">0.6711</td><td class="num">-</td><td class="num">-</td></tr>
+<tr><td class="path"><code>data/logs/eval/teacher_refresh_eval_20260523-161645/metric_zoom/summary.json</code></td><td class="num">3481.0000</td><td class="num">1.0000</td><td class="num">0.6120</td><td class="num">0.6808</td><td class="num">-</td><td class="num">-</td></tr>
+<tr><td class="path"><code>data/logs/eval/teacher_refresh_eval_20260523-161645/s80_gaussian/summary.json</code></td><td class="num">3481.0000</td><td class="num">1.0000</td><td class="num">0.6844</td><td class="num">0.7748</td><td class="num">-</td><td class="num">-</td></tr>
+<tr><td class="path"><code>data/logs/eval/teacher_refresh_eval_20260523-161645/s80_zoom/summary.json</code></td><td class="num">3481.0000</td><td class="num">1.0000</td><td class="num">0.6850</td><td class="num">0.7794</td><td class="num">-</td><td class="num">-</td></tr>
+<tr><td class="path"><code>data/logs/eval/teacher_refresh_eval_fix_20260524-101553/metric_gauss_fix/summary.json</code></td><td class="num">3481.0000</td><td class="num">1.0000</td><td class="num">0.6876</td><td class="num">0.7768</td><td class="num">-</td><td class="num">-</td></tr>
+<tr><td class="path"><code>data/logs/eval/teacher_refresh_eval_fix_20260524-101553/metric_zoom_fix/summary.json</code></td><td class="num">3481.0000</td><td class="num">1.0000</td><td class="num">0.6852</td><td class="num">0.7710</td><td class="num">-</td><td class="num">-</td></tr>
+<tr><td class="path"><code>data/logs/eval/tr_latest_eval_20260524-141310/tr_gauss_baseline_ck650/summary.json</code></td><td class="num">3481.0000</td><td class="num">1.0000</td><td class="num">0.6767</td><td class="num">0.7653</td><td class="num">-</td><td class="num">-</td></tr>
+<tr><td class="path"><code>data/logs/eval/tr_latest_eval_20260524-141310/tr_metric_gauss_ck870/summary.json</code></td><td class="num">3481.0000</td><td class="num">1.0000</td><td class="num">0.6867</td><td class="num">0.7785</td><td class="num">-</td><td class="num">-</td></tr>
+<tr><td class="path"><code>data/logs/eval/tr_latest_eval_20260524-141310/tr_metric_zoom_ck870/summary.json</code></td><td class="num">3481.0000</td><td class="num">1.0000</td><td class="num">0.6824</td><td class="num">0.7733</td><td class="num">-</td><td class="num">-</td></tr>
+<tr><td class="path"><code>data/logs/eval/tr_latest_eval_20260524-1535/tr_gauss_baseline_resume870/summary.json</code></td><td class="num">3481.0000</td><td class="num">1.0000</td><td class="num">0.6831</td><td class="num">0.7696</td><td class="num">-</td><td class="num">-</td></tr>
+</table>
+</div>
+</section>
+
+<section class="card">
+<h2>待补充 / 正在运行</h2>
+<table><tr><th>实验</th><th>当前状态</th><th>预期 summary</th></tr>
+<tr><td>No refresh gaussian test eval</td><td><span class="badge ok">已完成并写入教师刷新策略对照表</span></td><td class="path"><code>data/logs/eval/gui-sd-qwen3-4b-rrsisd_sft_grpo_opsd_no_refresh_gaussian_e1-20260527-114200-norefresh_test/summary.json</code></td></tr>
+<tr><td>EMA0.98 gaussian eval</td><td><span class="badge ok">已完成并写入教师刷新策略对照表；评测使用 AOS 8 卡 TP=8</span></td><td class="path"><code>data/logs/eval/gui-sd-qwen3-4b-rrsisd_sft_grpo_opsd_ema098_gaussian_e1-20260527-113500-ema098_test/summary.json</code></td></tr>
+<tr><td>RSVG-DIOR SFT-only</td><td><span class="badge ok">已完成并写入 RSVG-DIOR 结果表</span></td><td class="path"><code>data/logs/eval/q4b-rsvg-sft-20260527-123311-rsvgsftmrpd-test/summary.json</code></td></tr>
+<tr><td>RSVG-DIOR SFT -&gt; MRPD</td><td><span class="badge pending">SFT 已完成，MRPD rjob 仍在运行，测试 summary 待生成</span></td><td class="path"><code>data/logs/eval/q4b-rsvg-sft-mrpd-20260527-123311-rsvgsftmrpd-test/summary.json</code></td></tr>
+</table>
+<p class="small">如果这些任务后续出分，重新运行汇总脚本或手动追加对应 summary 即可更新本页。</p>
+</section>
+</main>
+</body>
+</html>

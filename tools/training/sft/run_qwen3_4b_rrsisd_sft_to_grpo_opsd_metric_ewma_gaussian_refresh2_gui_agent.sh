@@ -1,0 +1,57 @@
+#!/usr/bin/env bash
+# SFT-initialized GRPO+OPSD gaussian ablation: metric-ewma sliding-window
+# teacher hard refresh, allowing at most two refreshes.
+set -euo pipefail
+
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+timestamp="${RUN_TIMESTAMP:-$(date +%Y%m%d-%H%M%S)}"
+
+export RUN_TIMESTAMP="$timestamp"
+export EXPERIMENT_SLUG="${EXPERIMENT_SLUG:-sft-grpo-opsd-metric-ewma-gaussian-refresh2}"
+export RUN_NAME="${RUN_NAME:-gui-sd-qwen3-4b-rrsisd_sft_grpo_opsd_metric_ewma_gaussian_refresh2_e1-${timestamp}}"
+export RJOB_NAME="${RJOB_NAME:-q4b-sftopsd-ewma-gauss-r2-e1-${timestamp}}"
+export TRAIN_RJOB_LOG_PATH="${TRAIN_RJOB_LOG_PATH:-/data/codes/gui_grounding/data/logs/training/${RJOB_NAME}.rjob.log}"
+export EVAL_ROOT="${EVAL_ROOT:-/data/codes/gui_grounding/data/logs/eval/${RUN_NAME}_test}"
+export EVAL_RJOB_NAME="${EVAL_RJOB_NAME:-eval-sftopsd-ewma-gauss-r2-${timestamp}}"
+
+export RJOB_GROUP="${RJOB_GROUP:-gui_agent}"
+export RJOB_CHARGED_GROUP="${RJOB_CHARGED_GROUP:-gui_agent}"
+export RJOB_CPU="${RJOB_CPU:-64}"
+export RJOB_MEMORY="${RJOB_MEMORY:-700000}"
+export RJOB_GPU="${RJOB_GPU:-8}"
+export RJOB_REPLICA="${RJOB_REPLICA:-2}"
+
+export EVAL_RJOB_GROUP="${EVAL_RJOB_GROUP:-gui_agent}"
+export EVAL_RJOB_CHARGED_GROUP="${EVAL_RJOB_CHARGED_GROUP:-gui_agent}"
+export EVAL_RJOB_CPU="${EVAL_RJOB_CPU:-28}"
+export EVAL_RJOB_MEMORY="${EVAL_RJOB_MEMORY:-600000}"
+
+export MASTER_PORT="${MASTER_PORT:-30420}"
+export VLLM_SERVER_PORT="${VLLM_SERVER_PORT:-9042}"
+
+export LR="${LR:-1e-6}"
+export WARMUP_RATIO="${WARMUP_RATIO:-0.01}"
+export SAVE_STEPS="${SAVE_STEPS:-10}"
+export SAVE_TOTAL_LIMIT="${SAVE_TOTAL_LIMIT:-20}"
+export OPSD_MASK_MODE="${OPSD_MASK_MODE:-gaussian}"
+export OPSD_HINT_MODE="${OPSD_HINT_MODE:-hint}"
+export OPSD_EMA_DECAY="${OPSD_EMA_DECAY:-0.0}"
+
+export SDPO_TEACHER_REFRESH_MODE="${SDPO_TEACHER_REFRESH_MODE:-metric_ewma}"
+export SDPO_TEACHER_REFRESH_STEP="${SDPO_TEACHER_REFRESH_STEP:--1}"
+export SDPO_TEACHER_REFRESH_WARMUP="${SDPO_TEACHER_REFRESH_WARMUP:-80}"
+export SDPO_TEACHER_REFRESH_SHORT_WINDOW="${SDPO_TEACHER_REFRESH_SHORT_WINDOW:-20}"
+export SDPO_TEACHER_REFRESH_LONG_WINDOW="${SDPO_TEACHER_REFRESH_LONG_WINDOW:-80}"
+export SDPO_TEACHER_REFRESH_CHECK_INTERVAL="${SDPO_TEACHER_REFRESH_CHECK_INTERVAL:-10}"
+export SDPO_TEACHER_REFRESH_EWMA_ALPHA="${SDPO_TEACHER_REFRESH_EWMA_ALPHA:-0.10}"
+export SDPO_TEACHER_REFRESH_CONSECUTIVE_CHECKS="${SDPO_TEACHER_REFRESH_CONSECUTIVE_CHECKS:-2}"
+export SDPO_TEACHER_REFRESH_MIN_SHORT_LONG_IOU_GAIN="${SDPO_TEACHER_REFRESH_MIN_SHORT_LONG_IOU_GAIN:-0.006}"
+export SDPO_TEACHER_REFRESH_MIN_EWMA_IOU_GAIN="${SDPO_TEACHER_REFRESH_MIN_EWMA_IOU_GAIN:-0.008}"
+export SDPO_TEACHER_REFRESH_MAX_IOU05_DROP="${SDPO_TEACHER_REFRESH_MAX_IOU05_DROP:-0.010}"
+export SDPO_TEACHER_REFRESH_MAX_FAILED="${SDPO_TEACHER_REFRESH_MAX_FAILED:-0.55}"
+export SDPO_TEACHER_REFRESH_MIN_SDPO_LOSS="${SDPO_TEACHER_REFRESH_MIN_SDPO_LOSS:-0.02}"
+export SDPO_TEACHER_REFRESH_MAX_KL="${SDPO_TEACHER_REFRESH_MAX_KL:-0.30}"
+export SDPO_TEACHER_REFRESH_MAX_REFRESHES="${SDPO_TEACHER_REFRESH_MAX_REFRESHES:-2}"
+export SDPO_TEACHER_REFRESH_COOLDOWN_STEPS="${SDPO_TEACHER_REFRESH_COOLDOWN_STEPS:-120}"
+
+bash "${script_dir}/run_qwen3_4b_rrsisd_sft_to_grpo_opsd_metric_gaussian_gui_agent.sh"

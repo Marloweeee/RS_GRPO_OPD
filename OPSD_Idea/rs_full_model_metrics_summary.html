@@ -1,0 +1,688 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>RS Full 全量测试指标汇总</title>
+  <style>
+    :root {
+      --bg: #f6f8fb;
+      --panel: #ffffff;
+      --ink: #172033;
+      --muted: #5d6878;
+      --line: #d9e0ea;
+      --head: #0f172a;
+      --blue: #1f5d99;
+      --blue-soft: #eaf3ff;
+      --green: #176b52;
+      --green-soft: #eaf8f2;
+      --amber: #8a5a12;
+      --amber-soft: #fff6e5;
+      --red: #9e2f28;
+      --red-soft: #fff0ef;
+      --gray-soft: #eef2f7;
+      --shadow: 0 10px 26px rgba(15, 23, 42, 0.08);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: var(--bg);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans SC", "Microsoft YaHei", Arial, sans-serif;
+      line-height: 1.62;
+    }
+
+    header {
+      padding: 40px 24px 34px;
+      background: var(--head);
+      color: #f8fafc;
+    }
+
+    .wrap,
+    main {
+      max-width: 1280px;
+      margin: 0 auto;
+    }
+
+    main {
+      padding: 28px 24px 60px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(30px, 4vw, 44px);
+      line-height: 1.16;
+      letter-spacing: 0;
+    }
+
+    h2 {
+      margin: 0 0 14px;
+      font-size: 23px;
+      line-height: 1.28;
+      letter-spacing: 0;
+    }
+
+    h3 {
+      margin: 22px 0 10px;
+      font-size: 18px;
+      letter-spacing: 0;
+    }
+
+    p { margin: 9px 0; }
+
+    ul {
+      margin: 10px 0 0;
+      padding-left: 22px;
+    }
+
+    li { margin: 6px 0; }
+
+    code {
+      padding: 1px 5px;
+      border-radius: 4px;
+      background: var(--gray-soft);
+      color: #111827;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+      font-size: 0.92em;
+      word-break: break-all;
+    }
+
+    section {
+      margin: 0 0 18px;
+      padding: 22px 24px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+    }
+
+    .lead {
+      max-width: 980px;
+      margin-top: 14px;
+      color: #d1d5db;
+      font-size: 17px;
+    }
+
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 18px;
+    }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      min-height: 30px;
+      padding: 4px 10px;
+      border: 1px solid rgba(248, 250, 252, 0.22);
+      border-radius: 6px;
+      color: #e5e7eb;
+      background: rgba(255, 255, 255, 0.08);
+      font-size: 14px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .card {
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fbfdff;
+    }
+
+    .card .label {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .card .value {
+      margin-top: 5px;
+      font-size: 26px;
+      font-weight: 800;
+      line-height: 1.2;
+    }
+
+    .card .desc {
+      margin-top: 6px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .callout {
+      margin: 13px 0;
+      padding: 13px 15px;
+      border: 1px solid var(--line);
+      border-left: 4px solid var(--blue);
+      border-radius: 8px;
+      background: var(--blue-soft);
+    }
+
+    .callout.success {
+      border-left-color: var(--green);
+      background: var(--green-soft);
+    }
+
+    .callout.warn {
+      border-left-color: var(--amber);
+      background: var(--amber-soft);
+    }
+
+    .callout.risk {
+      border-left-color: var(--red);
+      background: var(--red-soft);
+    }
+
+    .table-wrap {
+      width: 100%;
+      overflow-x: auto;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+    }
+
+    table {
+      width: 100%;
+      min-width: 1420px;
+      border-collapse: collapse;
+      background: var(--panel);
+    }
+
+    th,
+    td {
+      padding: 10px 11px;
+      border-bottom: 1px solid var(--line);
+      border-right: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+      font-size: 14px;
+    }
+
+    th:last-child,
+    td:last-child {
+      border-right: 0;
+    }
+
+    tr:last-child td {
+      border-bottom: 0;
+    }
+
+    th {
+      position: sticky;
+      top: 0;
+      background: #eef3f9;
+      z-index: 1;
+      font-weight: 750;
+      white-space: nowrap;
+    }
+
+    .num {
+      text-align: right;
+      white-space: nowrap;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .model {
+      min-width: 250px;
+      font-weight: 720;
+    }
+
+    .path {
+      max-width: 360px;
+      color: var(--muted);
+      font-size: 12px;
+      word-break: break-all;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      min-height: 24px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: var(--gray-soft);
+      color: #273449;
+      font-size: 12px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .badge.oracle {
+      border-color: #7aa6d8;
+      background: var(--blue-soft);
+      color: var(--blue);
+    }
+
+    .badge.greedy {
+      border-color: #80bea9;
+      background: var(--green-soft);
+      color: var(--green);
+    }
+
+    .badge.warn {
+      border-color: #d8b675;
+      background: var(--amber-soft);
+      color: var(--amber);
+    }
+
+    .small {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .footnote {
+      color: var(--muted);
+      font-size: 13px;
+      margin-top: 10px;
+    }
+
+    @media (max-width: 900px) {
+      main { padding: 22px 14px 46px; }
+      header { padding: 32px 16px 28px; }
+      .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+
+    @media (max-width: 560px) {
+      .grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap">
+      <h1>RS Full 全量测试指标汇总</h1>
+      <p class="lead">本页汇总目前已经运行并完成全量遥感测试集评估的模型结果，统一口径为 <code>rs_full/rs_test.jsonl</code>，样本数 <code>n=3481</code>。主表按 <code>IoU@0.5</code> 降序排列；best-of-8 oracle 是多候选上限估计，不等价于实际部署时的单次 greedy student 指标。</p>
+      <div class="meta">
+        <span class="tag">生成时间：2026-05-22</span>
+        <span class="tag">测试集：RS Full</span>
+        <span class="tag">样本数：3481</span>
+        <span class="tag">指标：mIoU / IoU@0.5-0.9 / parse / valid</span>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section>
+      <h2>结果概览</h2>
+      <div class="grid">
+        <div class="card">
+          <div class="label">最佳 greedy IoU@0.5</div>
+          <div class="value">0.7762</div>
+          <div class="desc">4B two-stage s80 -> full GRPO+SDPO，checkpoint-870。</div>
+        </div>
+        <div class="card">
+          <div class="label">最佳 best-of-8 oracle IoU@0.5</div>
+          <div class="value">0.8308</div>
+          <div class="desc">8B stage-refresh checkpoint-600，多采样候选中的 oracle 上限。</div>
+        </div>
+        <div class="card">
+          <div class="label">GRPO-only IoU@0.5</div>
+          <div class="value">0.7679</div>
+          <div class="desc">4B checkpoint-870，明显高于 OPD-only。</div>
+        </div>
+        <div class="card">
+          <div class="label">OPD-only IoU@0.5</div>
+          <div class="value">0.6490</div>
+          <div class="desc">4B checkpoint-109，说明仅做 OPD 不足以支撑最终效果。</div>
+        </div>
+      </div>
+
+      <div class="callout warn">
+        <strong>口径提醒：</strong>表中的 best-of-8 oracle 结果使用 8 次采样后按真实标签选择最优候选，只能反映候选空间的上限和后续蒸馏/选择器的潜力；和 greedy student 的可部署单次输出不可直接等价比较。
+      </div>
+    </section>
+
+    <section>
+      <h2>主表：全量测试集指标</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>排名</th>
+              <th>模型 / 实验</th>
+              <th>规模</th>
+              <th>训练策略</th>
+              <th>Checkpoint</th>
+              <th>推理设置</th>
+              <th class="num">n</th>
+              <th class="num">mIoU</th>
+              <th class="num">IoU@0.5</th>
+              <th class="num">IoU@0.6</th>
+              <th class="num">IoU@0.7</th>
+              <th class="num">IoU@0.8</th>
+              <th class="num">IoU@0.9</th>
+              <th>parse / valid</th>
+              <th>来源与备注</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="num">1</td>
+              <td class="model">8B base stage-refresh best-of-8 oracle</td>
+              <td>Qwen3-VL 8B</td>
+              <td>Stage refresh / teacher-ref sync 后续训练</td>
+              <td><code>checkpoint-600</code><div class="path">/mnt/jfs/copilot/lhb/checkpoint/rs/rs-sd/gui-sd-qwen3-8b-base_rsfull_stage_refresh_s800_trefsync_r1/v1-20260521-152725/checkpoint-600</div></td>
+              <td><span class="badge oracle">best-of-8 oracle</span><br><span class="small">K=8, temperature=0.7, top_p=0.95</span></td>
+              <td class="num">3481</td>
+              <td class="num">0.7435</td>
+              <td class="num"><strong>0.8308</strong></td>
+              <td class="num">-</td>
+              <td class="num">0.7257</td>
+              <td class="num">-</td>
+              <td class="num">-</td>
+              <td>1.0000 / 1.0000</td>
+              <td><code>/mnt/jfs/copilot/lhb/artifacts/rs/rs-sd/eval_bestof8_stage_refresh/v1-20260521-152725_checkpoint-600_bestof8/summary.json</code><br><code>/data/codes/gui_grounding/data/rs_full/rsbo8-stage-refresh-ck600-05212048.rjob.log</code></td>
+            </tr>
+            <tr>
+              <td class="num">2</td>
+              <td class="model">8B base rsfull GRPO+SRPO best-of-8 oracle</td>
+              <td>Qwen3-VL 8B</td>
+              <td>GRPO + SRPO，全量 1 epoch</td>
+              <td><code>checkpoint-1740</code><div class="path">/mnt/jfs/copilot/lhb/checkpoint/rs/rs-sd/gui-sd-qwen3-8b-base_rsfull_grpo_srpo_topkkl_e1_zero3_offload_r1/v0-20260520-165157/checkpoint-1740</div></td>
+              <td><span class="badge oracle">best-of-8 oracle</span><br><span class="small">K=8, temperature=0.7, top_p=0.95</span></td>
+              <td class="num">3481</td>
+              <td class="num">0.7419</td>
+              <td class="num">0.8285</td>
+              <td class="num">-</td>
+              <td class="num">0.7234</td>
+              <td class="num">-</td>
+              <td class="num">-</td>
+              <td>1.0000 / 1.0000</td>
+              <td><code>/data/codes/gui_grounding/data/rs_full/eval_bestof8_qwen3_8b_base_rsfull_grpo_srpo_e1_checkpoint1740_gpu075/summary.json</code><br><code>/data/codes/gui_grounding/data/rs_full/eval_bestof8_qwen3_8b_base_rsfull_grpo_srpo_e1_checkpoint1740_gpu075.rjob.log</code></td>
+            </tr>
+            <tr>
+              <td class="num">3</td>
+              <td class="model">4B two-stage s80 -> full GRPO+SDPO</td>
+              <td>Qwen3-VL 4B</td>
+              <td>两阶段：先 80 step，再加载 s80 checkpoint 跑全量</td>
+              <td><code>checkpoint-870</code><div class="path">/mnt/jfs/copilot/lhb/checkpoint/rs/rs-sd/gui-sd-qwen3-4b-base_rsfull_grpo_sdpo_2stage_s80_e1-20260521-231115_stage2_from_s80_e1/v0-20260521-233318/checkpoint-870</div></td>
+              <td><span class="badge greedy">greedy student</span><br><span class="small">num_rollouts=1, temperature=0.0</span></td>
+              <td class="num">3481</td>
+              <td class="num">0.6876</td>
+              <td class="num">0.7762</td>
+              <td class="num">0.7179</td>
+              <td class="num">0.6458</td>
+              <td class="num">0.5355</td>
+              <td class="num">0.3430</td>
+              <td>1.0000 / 1.0000</td>
+              <td><code>/mnt/jfs/copilot/lhb/artifacts/rs/rs-sd/eval/gui-sd-qwen3-4b-base_rsfull_grpo_sdpo_2stage_s80_e1-20260521-231115_stage2_from_s80_e1/checkpoint-870/summary.json</code><br><code>/data/codes/gui_grounding/data/logs/qwen3-4b-2stage-iou-sweep-20260522-100209.log</code></td>
+            </tr>
+            <tr>
+              <td class="num">4</td>
+              <td class="model">8B ck80 rsfull GRPO+SDPO</td>
+              <td>Qwen3-VL 8B</td>
+              <td>ck80 初始化 / GRPO+SDPO，全量 1 epoch</td>
+              <td><code>checkpoint-1740</code><div class="path">/mnt/jfs/copilot/lhb/checkpoint/rs/rs-sd/gui-sd-qwen3-8b-ck80_rsfull_grpo_sdpo_topkkl_e1_zero3_offload_r1/v0-20260520-164016/checkpoint-1740</div></td>
+              <td><span class="badge greedy">greedy student</span></td>
+              <td class="num">3481</td>
+              <td class="num">0.6859</td>
+              <td class="num">0.7759</td>
+              <td class="num">-</td>
+              <td class="num">0.6487</td>
+              <td class="num">-</td>
+              <td class="num">-</td>
+              <td>1.0000 / 1.0000</td>
+              <td><code>/data/codes/gui_grounding/data/rs_full/eval_gui-sd-qwen3-8b-ck80_rsfull_grpo_sdpo_topkkl_e1_zero3_offload_r1/checkpoint-1740/summary.json</code><br><code>/data/codes/gui_grounding/data/rs_full/rsfull-ck80-grpo-sdpo-e1-20260520-162334.rjob.log</code></td>
+            </tr>
+            <tr>
+              <td class="num">5</td>
+              <td class="model">8B base stage-refresh greedy</td>
+              <td>Qwen3-VL 8B</td>
+              <td>Stage refresh / teacher-ref sync 后续训练</td>
+              <td><code>checkpoint-800</code><div class="path">/mnt/jfs/copilot/lhb/checkpoint/rs/rs-sd/gui-sd-qwen3-8b-base_rsfull_stage_refresh_s800_trefsync_r1/v1-20260521-152725/checkpoint-800</div></td>
+              <td><span class="badge greedy">greedy student</span></td>
+              <td class="num">3481</td>
+              <td class="num">0.6858</td>
+              <td class="num">0.7748</td>
+              <td class="num">-</td>
+              <td class="num">0.6518</td>
+              <td class="num">-</td>
+              <td class="num">-</td>
+              <td>1.0000 / 1.0000</td>
+              <td><code>/mnt/jfs/copilot/lhb/artifacts/rs/rs-sd/eval/gui-sd-qwen3-8b-base_rsfull_stage_refresh_s800_trefsync_r1/checkpoint-800/summary.json</code><br><code>/data/codes/gui_grounding/data/rs_full/rsfull-base-s800-resume-mnt-05211519.rjob.log</code></td>
+            </tr>
+            <tr>
+              <td class="num">6</td>
+              <td class="model">8B base stage-refresh greedy</td>
+              <td>Qwen3-VL 8B</td>
+              <td>Stage refresh / teacher-ref sync 后续训练</td>
+              <td><code>checkpoint-600</code><div class="path">/mnt/jfs/copilot/lhb/checkpoint/rs/rs-sd/gui-sd-qwen3-8b-base_rsfull_stage_refresh_s800_trefsync_r1/v1-20260521-152725/checkpoint-600</div></td>
+              <td><span class="badge greedy">greedy student</span></td>
+              <td class="num">3481</td>
+              <td class="num">0.6833</td>
+              <td class="num">0.7731</td>
+              <td class="num">-</td>
+              <td class="num">0.6478</td>
+              <td class="num">-</td>
+              <td class="num">-</td>
+              <td>1.0000 / 1.0000</td>
+              <td><code>/mnt/jfs/copilot/lhb/artifacts/rs/rs-sd/eval_latest_stage_refresh_test/v1-20260521-152725_checkpoint-600_greedy/summary.json</code><br><code>/data/codes/gui_grounding/data/rs_full/rseval-latest-stage-refresh-05212017.rjob.log</code></td>
+            </tr>
+            <tr>
+              <td class="num">7</td>
+              <td class="model">4B mid-refresh s80</td>
+              <td>Qwen3-VL 4B</td>
+              <td>单次训练中 80 step 刷新 teacher/ref 后继续全量</td>
+              <td><code>checkpoint-870</code><div class="path">/mnt/jfs/copilot/lhb/checkpoint/rs/rs-sd/gui-sd-qwen3-4b-base_rsfull_grpo_sdpo_midrefresh_s80_e1-20260522-101550/v1-20260522-103558/checkpoint-870</div></td>
+              <td><span class="badge greedy">greedy student</span></td>
+              <td class="num">3481</td>
+              <td class="num">0.6794</td>
+              <td class="num">0.7713</td>
+              <td class="num">0.7087</td>
+              <td class="num">0.6332</td>
+              <td class="num">0.5246</td>
+              <td class="num">0.3298</td>
+              <td>1.0000 / 1.0000</td>
+              <td><code>/data/codes/gui_grounding/data/logs/qwen3-4b-midrefresh-s80.metrics.json</code><br><code>/data/codes/gui_grounding/data/logs/qwen3-4b-midrefresh-s80.rjob.log</code></td>
+            </tr>
+            <tr>
+              <td class="num">8</td>
+              <td class="model">4B GRPO-only</td>
+              <td>Qwen3-VL 4B</td>
+              <td>只启用 GRPO，不启用 OPD/SDPO</td>
+              <td><code>checkpoint-870</code><div class="path">/mnt/jfs/copilot/lhb/checkpoint/rs/rs-sd/gui-sd-qwen3-4b-base_rsfull_grpo_only_2node_bsz4_gacc2_lr2e6_e1-05221155/v0-20260522-120155/checkpoint-870</div></td>
+              <td><span class="badge greedy">greedy student</span></td>
+              <td class="num">3481</td>
+              <td class="num">0.6797</td>
+              <td class="num">0.7679</td>
+              <td class="num">0.7162</td>
+              <td class="num">0.6377</td>
+              <td class="num">0.5294</td>
+              <td class="num">0.3424</td>
+              <td>1.0000 / 1.0000</td>
+              <td><code>/data/codes/gui_grounding/data/logs/qwen3-4b-grpo-only-ck870-aos.metrics.json</code><br><code>/data/codes/gui_grounding/data/logs/qwen3-4b-grpo-only-ck870-aos.rjob.log</code></td>
+            </tr>
+            <tr>
+              <td class="num">9</td>
+              <td class="model">8B base rsfull GRPO+SRPO greedy</td>
+              <td>Qwen3-VL 8B</td>
+              <td>GRPO + SRPO，全量 1 epoch</td>
+              <td><code>checkpoint-1740</code><div class="path">/mnt/jfs/copilot/lhb/checkpoint/rs/rs-sd/gui-sd-qwen3-8b-base_rsfull_grpo_srpo_topkkl_e1_zero3_offload_r1/v0-20260520-165157/checkpoint-1740</div></td>
+              <td><span class="badge greedy">greedy student</span></td>
+              <td class="num">3481</td>
+              <td class="num">0.6817</td>
+              <td class="num">0.7670</td>
+              <td class="num">-</td>
+              <td class="num">0.6421</td>
+              <td class="num">-</td>
+              <td class="num">-</td>
+              <td>1.0000 / 1.0000</td>
+              <td><code>/data/codes/gui_grounding/data/rs_full/eval_gui-sd-qwen3-8b-base_rsfull_grpo_srpo_topkkl_e1_zero3_offload_r1/checkpoint-1740/summary.json</code><br><code>/data/codes/gui_grounding/data/rs_full/rsfull-base-grpo-srpo-e1-cpu30-20260520-164419.rjob.log</code></td>
+            </tr>
+            <tr>
+              <td class="num">10</td>
+              <td class="model">4B OPD-only</td>
+              <td>Qwen3-VL 4B</td>
+              <td>只启用 OPD，不启用 GRPO</td>
+              <td><code>checkpoint-109</code><div class="path">/mnt/jfs/copilot/lhb/checkpoint/rs/rs-sd/gui-sd-qwen3-4b-base_rsfull_opd_only_2node_bsz4_gacc2_lr2e6_e1-0522/v0-20260522-154413/checkpoint-109</div></td>
+              <td><span class="badge greedy">greedy student</span></td>
+              <td class="num">3481</td>
+              <td class="num">0.5910</td>
+              <td class="num">0.6490</td>
+              <td class="num">-</td>
+              <td class="num">0.5016</td>
+              <td class="num">-</td>
+              <td class="num">-</td>
+              <td>1.0000 / 1.0000</td>
+              <td><code>/data/codes/gui_grounding/data/logs/q4b-opdonly-2n-0522.metrics.json</code><br><code>/data/codes/gui_grounding/data/logs/q4b-opdonly-2n-0522.rjob.log</code></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="footnote">表中 <code>-</code> 表示当前记录中未单独保存该阈值的 sweep 指标；不是失败，也不代表该阈值无法计算。</p>
+    </section>
+
+    <section>
+      <h2>Greedy 单次部署口径排名</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>部署排名</th>
+              <th>模型 / 实验</th>
+              <th>规模</th>
+              <th class="num">mIoU</th>
+              <th class="num">IoU@0.5</th>
+              <th class="num">IoU@0.6</th>
+              <th class="num">IoU@0.7</th>
+              <th class="num">IoU@0.8</th>
+              <th class="num">IoU@0.9</th>
+              <th>备注</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="num">1</td>
+              <td class="model">4B two-stage s80 -> full GRPO+SDPO</td>
+              <td>4B</td>
+              <td class="num">0.6876</td>
+              <td class="num"><strong>0.7762</strong></td>
+              <td class="num">0.7179</td>
+              <td class="num">0.6458</td>
+              <td class="num">0.5355</td>
+              <td class="num">0.3430</td>
+              <td>当前 greedy 单次输出下 IoU@0.5 最好。</td>
+            </tr>
+            <tr>
+              <td class="num">2</td>
+              <td class="model">8B ck80 rsfull GRPO+SDPO</td>
+              <td>8B</td>
+              <td class="num">0.6859</td>
+              <td class="num">0.7759</td>
+              <td class="num">-</td>
+              <td class="num">0.6487</td>
+              <td class="num">-</td>
+              <td class="num">-</td>
+              <td>和 4B two-stage 的 IoU@0.5 非常接近。</td>
+            </tr>
+            <tr>
+              <td class="num">3</td>
+              <td class="model">8B base stage-refresh checkpoint-800</td>
+              <td>8B</td>
+              <td class="num">0.6858</td>
+              <td class="num">0.7748</td>
+              <td class="num">-</td>
+              <td class="num"><strong>0.6518</strong></td>
+              <td class="num">-</td>
+              <td class="num">-</td>
+              <td>IoU@0.7 在已有 greedy 记录里最高。</td>
+            </tr>
+            <tr>
+              <td class="num">4</td>
+              <td class="model">8B base stage-refresh checkpoint-600</td>
+              <td>8B</td>
+              <td class="num">0.6833</td>
+              <td class="num">0.7731</td>
+              <td class="num">-</td>
+              <td class="num">0.6478</td>
+              <td class="num">-</td>
+              <td class="num">-</td>
+              <td>同一阶段刷新实验的较早 checkpoint。</td>
+            </tr>
+            <tr>
+              <td class="num">5</td>
+              <td class="model">4B mid-refresh s80</td>
+              <td>4B</td>
+              <td class="num">0.6794</td>
+              <td class="num">0.7713</td>
+              <td class="num">0.7087</td>
+              <td class="num">0.6332</td>
+              <td class="num">0.5246</td>
+              <td class="num">0.3298</td>
+              <td>单次训练中刷新 teacher/ref，不从头重启全量阶段。</td>
+            </tr>
+            <tr>
+              <td class="num">6</td>
+              <td class="model">4B GRPO-only</td>
+              <td>4B</td>
+              <td class="num">0.6797</td>
+              <td class="num">0.7679</td>
+              <td class="num">0.7162</td>
+              <td class="num">0.6377</td>
+              <td class="num">0.5294</td>
+              <td class="num">0.3424</td>
+              <td>验证只做 GRPO 的基线，显著强于 OPD-only。</td>
+            </tr>
+            <tr>
+              <td class="num">7</td>
+              <td class="model">8B base rsfull GRPO+SRPO</td>
+              <td>8B</td>
+              <td class="num">0.6817</td>
+              <td class="num">0.7670</td>
+              <td class="num">-</td>
+              <td class="num">0.6421</td>
+              <td class="num">-</td>
+              <td class="num">-</td>
+              <td>对应 best-of-8 oracle 仍有 0.8285 上限。</td>
+            </tr>
+            <tr>
+              <td class="num">8</td>
+              <td class="model">4B OPD-only</td>
+              <td>4B</td>
+              <td class="num">0.5910</td>
+              <td class="num">0.6490</td>
+              <td class="num">-</td>
+              <td class="num">0.5016</td>
+              <td class="num">-</td>
+              <td class="num">-</td>
+              <td>单独 OPD 的效果明显不足。</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section>
+      <h2>关键结论</h2>
+      <ul>
+        <li><strong>只 OPD 不够：</strong>4B OPD-only 的 IoU@0.5 为 <code>0.6490</code>，远低于 4B GRPO-only 的 <code>0.7679</code>，说明定位任务的主收益仍来自 GRPO 式的组内相对优化。</li>
+        <li><strong>GRPO-only 已经是强基线：</strong>4B GRPO-only 与 8B base GRPO+SRPO greedy 的 IoU@0.5 分别为 <code>0.7679</code> 与 <code>0.7670</code>，差距很小。</li>
+        <li><strong>GRPO+OPD/SDPO 的组合仍有价值：</strong>4B two-stage s80 -> full GRPO+SDPO 当前达到 greedy <code>0.7762</code>，是已有单次部署口径的最好结果。</li>
+        <li><strong>stage-refresh 带来有限但正向提升：</strong>8B base 从全量 GRPO+SRPO greedy 的 <code>0.7670</code> 提升到 stage-refresh checkpoint-800 的 <code>0.7748</code>，IoU@0.7 也达到 <code>0.6518</code>。</li>
+        <li><strong>多采样候选空间仍有明显上限：</strong>8B stage-refresh checkpoint-600 的 best-of-8 oracle IoU@0.5 达到 <code>0.8308</code>，说明“如何把 8 次 rollout 中的好候选压缩回单次输出分布”仍是后续优化重点。</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>未纳入主表的任务或结果</h2>
+      <div class="callout">
+        <strong>纳入原则：</strong>主表只统计完成 <code>rs_full/rs_test.jsonl</code>、<code>n=3481</code> 的结果。烟测、小样本、其他 benchmark、训练失败或未形成完整全量测试指标的任务不进入主排名。
+      </div>
+      <ul>
+        <li><code>4B single-stage rerun/safe</code>：日志 <code>/data/codes/gui_grounding/data/logs/q4b-sg-safe-05221215.rjob.log</code> 显示训练到 <code>checkpoint-450</code> 后失败，未形成完整全量测试指标。</li>
+        <li><code>q4b-sg-r05221038</code>：提交过任务，但日志主要是 tmp 碎片和 stop 权限失败信息，没有可用全量评测结果。</li>
+        <li><code>rs_sub_dir</code> legacy / jitter / checkpoint-80 等：只测了约 <code>n=349</code> 的子集，不是全量 RS Full，不能纳入主表。</li>
+        <li><code>eval-screenspot-pro-ckpt330</code> 等 ScreenSpotPro 任务：属于 GUI grounding benchmark，不是遥感全量测试集。</li>
+        <li><code>8B-srpo-debug</code> tmux 里的内容主要是清理磁盘和历史操作，不是本次可纳入的 <code>rs_full</code> 测试记录。</li>
+      </ul>
+    </section>
+  </main>
+</body>
+</html>

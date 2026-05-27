@@ -1,0 +1,567 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MRPD Sibling-Hint SDPO 实验方案</title>
+  <style>
+    :root {
+      --bg: #f6f8fb;
+      --panel: #ffffff;
+      --ink: #172033;
+      --muted: #5d697a;
+      --line: #d8e0ea;
+      --head: #101827;
+      --blue: #215f9c;
+      --blue-soft: #eaf3ff;
+      --green: #176b52;
+      --green-soft: #e9f8f2;
+      --amber: #8a5a12;
+      --amber-soft: #fff6e5;
+      --red: #9d332f;
+      --red-soft: #fff1ef;
+      --purple: #6a3fa0;
+      --purple-soft: #f1ebff;
+      --gray: #eef2f7;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: var(--bg);
+      font: 14px/1.62 -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans SC",
+        "Microsoft YaHei", Arial, sans-serif;
+    }
+
+    header {
+      padding: 34px 28px 30px;
+      color: #f8fafc;
+      background: var(--head);
+    }
+
+    main,
+    .wrap {
+      max-width: 1500px;
+      margin: 0 auto;
+    }
+
+    main { padding: 24px 24px 60px; }
+
+    h1 {
+      margin: 0;
+      font-size: 32px;
+      line-height: 1.18;
+      letter-spacing: 0;
+    }
+
+    h2 {
+      margin: 0 0 12px;
+      font-size: 22px;
+      line-height: 1.3;
+      letter-spacing: 0;
+    }
+
+    h3 {
+      margin: 16px 0 8px;
+      font-size: 17px;
+      letter-spacing: 0;
+    }
+
+    p { margin: 8px 0; }
+    ul, ol { margin: 8px 0 0 22px; padding: 0; }
+    li { margin: 5px 0; }
+
+    section {
+      margin: 0 0 18px;
+      padding: 20px 22px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+    }
+
+    code {
+      padding: 1px 5px;
+      border-radius: 4px;
+      background: var(--gray);
+      color: #111827;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+      font-size: 0.92em;
+      word-break: break-all;
+    }
+
+    pre {
+      overflow-x: auto;
+      margin: 10px 0 0;
+      padding: 12px 14px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #0f172a;
+      color: #e5e7eb;
+      font-size: 13px;
+      line-height: 1.55;
+    }
+
+    .lead {
+      max-width: 1160px;
+      margin-top: 12px;
+      color: #d7dde8;
+      font-size: 16px;
+    }
+
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 15px;
+    }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      min-height: 28px;
+      padding: 3px 9px;
+      border: 1px solid rgba(248, 250, 252, 0.24);
+      border-radius: 6px;
+      color: #e5e7eb;
+      background: rgba(255, 255, 255, 0.08);
+      font-size: 13px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .cards-4 {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .card {
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fbfdff;
+    }
+
+    .card b {
+      display: block;
+      margin-bottom: 4px;
+      color: #111827;
+    }
+
+    .card p {
+      color: var(--muted);
+      margin: 0;
+    }
+
+    .flow {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: stretch;
+    }
+
+    .node {
+      position: relative;
+      min-width: 190px;
+      max-width: 260px;
+      flex: 1;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fbfdff;
+    }
+
+    .node:after {
+      content: "→";
+      position: absolute;
+      right: -13px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: #64748b;
+      font-weight: 800;
+    }
+
+    .node:last-child:after { content: ""; }
+
+    .blue { background: var(--blue-soft); border-color: #b8d7fb; }
+    .green { background: var(--green-soft); border-color: #a8dec7; }
+    .amber { background: var(--amber-soft); border-color: #f0cb86; }
+    .red { background: var(--red-soft); border-color: #f4b7b3; }
+    .purple { background: var(--purple-soft); border-color: #cdbaf2; }
+
+    .callout {
+      margin: 12px 0;
+      padding: 12px 14px;
+      border: 1px solid var(--line);
+      border-left: 4px solid var(--blue);
+      border-radius: 8px;
+      background: var(--blue-soft);
+    }
+
+    .callout.good { border-left-color: var(--green); background: var(--green-soft); }
+    .callout.warn { border-left-color: var(--amber); background: var(--amber-soft); }
+    .callout.risk { border-left-color: var(--red); background: var(--red-soft); }
+    .callout.idea { border-left-color: var(--purple); background: var(--purple-soft); }
+
+    .table-wrap {
+      width: 100%;
+      overflow-x: auto;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+    }
+
+    table {
+      width: 100%;
+      min-width: 1160px;
+      border-collapse: collapse;
+      background: var(--panel);
+    }
+
+    th,
+    td {
+      padding: 9px 10px;
+      border-right: 1px solid var(--line);
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+      font-size: 13px;
+    }
+
+    th {
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      color: #172033;
+      background: #eef3f9;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    th:last-child,
+    td:last-child { border-right: 0; }
+    tr:last-child td { border-bottom: 0; }
+
+    .small { color: var(--muted); font-size: 12px; }
+    .strong { font-weight: 700; color: #111827; }
+
+    @media (max-width: 940px) {
+      .grid,
+      .cards-4 { grid-template-columns: 1fr; }
+      .node { min-width: 100%; max-width: none; }
+      .node:after { content: "↓"; right: 50%; top: auto; bottom: -18px; transform: translateX(50%); }
+    }
+  </style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <h1>MRPD Sibling-Hint SDPO 实验方案</h1>
+    <p class="lead">目标是在现有 GT-hint SDPO 基础上，验证一种更少依赖 oracle 视觉提示的 sibling-guided teacher 方案：用同组 rollout 中的高质量 sibling bbox 构造 teacher 视觉提示，再修正 failed rollout。</p>
+    <div class="meta">
+      <span class="tag">训练：GRPO + SDPO/MRPD</span>
+      <span class="tag">核心变量：sibling hint source</span>
+      <span class="tag">正式评测：student greedy no-hint</span>
+      <span class="tag">Fallback：无 good sibling 时使用 GT hint</span>
+    </div>
+  </div>
+</header>
+
+<main>
+  <section>
+    <h2>1. 核心假设</h2>
+    <div class="callout idea">
+      <p><span class="strong">假设：</span>同一个 prompt 的 K 条 rollout 中，如果存在一个高质量 sibling，它的预测 bbox 可以作为 teacher 的弱视觉提示，帮助 teacher 对 failed sibling 给出更贴近正确区域的 token 分布。这样既保留 MRPD 对 failed 样本的纠偏能力，又减少 teacher 输入直接依赖 GT bbox 的程度。</p>
+    </div>
+    <div class="grid">
+      <div class="card">
+        <b>现有 GT-hint SDPO</b>
+        <p>teacher 视觉提示由 GT bbox 生成，强、稳定，但属于 privileged teacher。</p>
+      </div>
+      <div class="card">
+        <b>Sibling-hint SDPO</b>
+        <p>teacher 视觉提示由同组 best sibling 的预测 bbox 生成，更像 on-policy self-correction。</p>
+      </div>
+      <div class="card">
+        <b>Fallback GT-hint</b>
+        <p>当一组 rollout 没有合格 sibling 时，为保证训练覆盖率，回退到当前 GT-hint teacher。</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>2. 单组 Rollout 流程</h2>
+    <div class="flow">
+      <div class="node blue"><b>生成 K 条 rollout</b><p>student 对同一 prompt 采样 K 个候选 bbox，默认 K=8。</p></div>
+      <div class="node green"><b>计算 bbox / IoU / reward</b><p>解析每条 response，计算 valid_box、IoU、geometry reward。</p></div>
+      <div class="node green"><b>选择 best sibling</b><p>从满足 IoU ≥ tau_good 的候选中，按 reward / IoU 最高选出 hint source。</p></div>
+      <div class="node red"><b>定位 failed rollout</b><p>沿用现有 route 规则，找出需要 teacher 修正的 failed 样本。</p></div>
+      <div class="node purple"><b>构造 teacher hint</b><p>用 best_sibling.pred_bbox 生成 teacher 视觉提示图和弱提示文本。</p></div>
+      <div class="node amber"><b>无 sibling fallback</b><p>如果没有 good sibling，则使用 GT hint，保证强性能与训练密度。</p></div>
+      <div class="node purple"><b>计算 SDPO loss</b><p>teacher 在 hint 条件下对 failed response tokens 做 forward，和 student logits 做 top-k KL。</p></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>3. 具体算法定义</h2>
+    <ol>
+      <li>对每个 prompt 生成 K 个 rollout，保存每条候选的 response text、response token ids、pred bbox、valid_box、IoU、geometry reward。</li>
+      <li>按当前 SDPO 路由规则计算 <code>good</code>、<code>failed</code>、<code>ambiguous</code>。</li>
+      <li>在同组候选中筛选 <code>valid_box == true</code> 且 <code>IoU >= tau_good</code> 的候选。</li>
+      <li>如果存在合格候选，选择 <code>best_sibling</code>。主排序建议为 <code>(reward, IoU, valid_box)</code>，因为 reward 已综合 IoU、中心、面积、长宽比；如需更偏 IoU，可用 <code>(IoU, reward, valid_box)</code> 做 ablation。</li>
+      <li>对每条 <code>failed</code> rollout，student 输入保持不变：原图 + 原 prompt + failed response tokens。</li>
+      <li>teacher 输入改造：用 <code>best_sibling.pred_bbox</code> 生成 hint 图；文本提示使用弱语气，不写 correct。</li>
+      <li>如果该组没有合格 <code>best_sibling</code>，强性能版本回退到 GT hint，沿用当前 MRPD 的 teacher 输入构造方式。</li>
+    </ol>
+
+    <pre><code>for group in rollout_groups:
+    for cand in group:
+        cand.pred_bbox = extract_bbox(cand.text)
+        cand.iou = iou(cand.pred_bbox, gt_bbox) if cand.valid_box else 0
+        cand.reward = geometry_reward(cand.pred_bbox, gt_bbox)
+        cand.route = route_by_current_sdpo_rule(cand, group)
+
+    good_pool = [
+        cand for cand in group
+        if cand.valid_box and cand.iou >= tau_good
+    ]
+
+    if good_pool:
+        hint_source = max(good_pool, key=lambda x: (x.reward, x.iou, x.valid_box))
+        hint_source_type = "sibling"
+        hint_bbox = hint_source.pred_bbox
+    else:
+        hint_source_type = "gt_fallback"
+        hint_bbox = gt_bbox_norm_or_pixel
+
+    for cand in group:
+        if cand.route != "failed":
+            continue
+        student_input = original_image + original_prompt + cand.response_token_ids
+        teacher_input = render_hint(image, hint_bbox, source=hint_source_type) \
+            + weak_hint_text(hint_source_type) + cand.response_token_ids
+        sdpo_loss += topk_teacher_kl(student_logits, teacher_logits)</code></pre>
+  </section>
+
+  <section>
+    <h2>4. Teacher 文本与视觉提示</h2>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Hint 来源</th>
+            <th>视觉提示 bbox</th>
+            <th>推荐 mask mode</th>
+            <th>Teacher 文本</th>
+            <th>原因</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Sibling hint</td>
+            <td><code>best_sibling.pred_bbox</code></td>
+            <td><code>soft_window</code> 或 <code>jitter_box</code></td>
+            <td><code>Hint: The target is likely within the highlighted region.</code></td>
+            <td>best sibling 仍有噪声，不应把预测框描述为正确答案。弱提示能降低错误边界被 teacher 过拟合的风险。</td>
+          </tr>
+          <tr>
+            <td>Sibling box hint</td>
+            <td><code>best_sibling.pred_bbox</code></td>
+            <td><code>jitter_box</code></td>
+            <td><code>Hint: The target is approximately within the highlighted box.</code></td>
+            <td>当需要更强空间定位信号时使用，但文本必须使用 approximately。</td>
+          </tr>
+          <tr>
+            <td>GT fallback</td>
+            <td><code>solution.arguments.coordinate</code></td>
+            <td>沿用当前 <code>gaussian</code> / <code>zoom_in</code></td>
+            <td><code>Hint: The answer is located within the green rectangle.</code></td>
+            <td>无 good sibling 时保留当前强 teacher，避免大量 failed 样本没有 SDPO 信号。</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="callout warn">
+      <p><strong>注意：</strong>即使用 sibling bbox 做 teacher 视觉提示，训练时仍然使用 GT 来计算 IoU、reward、good sibling 选择和 failed 路由。因此它不是完全无 GT 的训练方法；它减少的是 teacher 输入中直接使用 GT bbox 的比例。</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>5. 推荐实现接口</h2>
+    <div class="cards-4">
+      <div class="card">
+        <b>新增参数</b>
+        <p><code>sdpo_hint_source</code>: <code>gt</code> / <code>sibling</code> / <code>sibling_gt_fallback</code></p>
+      </div>
+      <div class="card">
+        <b>新增参数</b>
+        <p><code>sdpo_sibling_select_metric</code>: <code>reward</code> / <code>iou</code></p>
+      </div>
+      <div class="card">
+        <b>新增参数</b>
+        <p><code>sdpo_sibling_fallback</code>: <code>gt</code> / <code>skip</code></p>
+      </div>
+      <div class="card">
+        <b>新增日志</b>
+        <p><code>sibling_hit_rate</code>, <code>gt_fallback_rate</code>, <code>sibling_hint_iou_mean</code></p>
+      </div>
+    </div>
+
+    <h3>需要改动的核心位置</h3>
+    <ul>
+      <li><code>swift/rlhf_trainers/args_mixin.py</code>：注册 sibling hint 相关参数。</li>
+      <li><code>swift/rlhf_trainers/grpo_trainer.py::_prepare_sdpo_routing</code>：在每个 rollout group 内缓存 best sibling 信息，例如 <code>_sdpo_sibling_hint_bbox</code>、<code>_sdpo_hint_source_type</code>。</li>
+      <li><code>swift/rlhf_trainers/grpo_trainer.py::_make_sdpo_teacher_data</code>：根据 hint source 选择 GT bbox 或 sibling bbox 渲染 teacher image，并切换弱提示文本。</li>
+      <li><code>swift/rlhf_trainers/grpo_trainer.py::sdpo_mask_processor</code>：支持从 <code>data['_sdpo_sibling_hint_bbox']</code> 读取 bbox，而不是总是读取 <code>solution.arguments.coordinate</code>。</li>
+      <li>训练脚本：新增 <code>SDPO_HINT_SOURCE=sibling_gt_fallback</code>、<code>SDPO_SIBLING_SELECT_METRIC=reward</code> 等环境变量。</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>6. 实验矩阵</h2>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>实验名</th>
+            <th>Teacher hint source</th>
+            <th>Fallback</th>
+            <th>Mask mode</th>
+            <th>选择规则</th>
+            <th>目的</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Baseline MRPD</td>
+            <td>GT bbox</td>
+            <td>无</td>
+            <td><code>gaussian</code></td>
+            <td>不使用 sibling</td>
+            <td>当前强基线，衡量 sibling-hint 是否能接近或超过 GT-hint。</td>
+          </tr>
+          <tr>
+            <td>Sibling + GT fallback</td>
+            <td>best sibling bbox</td>
+            <td>GT hint</td>
+            <td><code>soft_window</code></td>
+            <td><code>max(reward, IoU)</code></td>
+            <td>主实验。优先利用同组成功轨迹，无 good sibling 时保留强 teacher 覆盖率。</td>
+          </tr>
+          <tr>
+            <td>Sibling-box + GT fallback</td>
+            <td>best sibling bbox</td>
+            <td>GT hint</td>
+            <td><code>jitter_box</code></td>
+            <td><code>max(reward, IoU)</code></td>
+            <td>测试更显式近似框是否比 soft region 更有效。</td>
+          </tr>
+          <tr>
+            <td>Sibling only</td>
+            <td>best sibling bbox</td>
+            <td>skip SDPO</td>
+            <td><code>soft_window</code></td>
+            <td><code>max(reward, IoU)</code></td>
+            <td>干净 ablation：衡量 sibling 信息本身的贡献，不混入 GT fallback。</td>
+          </tr>
+          <tr>
+            <td>GT fallback only analysis</td>
+            <td>GT bbox</td>
+            <td>仅无 sibling group</td>
+            <td><code>gaussian</code></td>
+            <td>无 sibling 时触发</td>
+            <td>统计 fallback 发生的样本分布，判断 sibling 覆盖率是否足够。</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>7. 关键日志与判断指标</h2>
+    <div class="grid">
+      <div class="card">
+        <b>覆盖率指标</b>
+        <p><code>sibling_hit_rate</code>：有 good sibling 的 group 比例。若过低，sibling 方案会主要退化为 GT fallback。</p>
+      </div>
+      <div class="card">
+        <b>fallback 指标</b>
+        <p><code>gt_fallback_rate</code>：无 good sibling 而回退 GT hint 的 group 比例。</p>
+      </div>
+      <div class="card">
+        <b>提示质量指标</b>
+        <p><code>sibling_hint_iou_mean</code>：被选为 hint source 的 sibling bbox 平均 IoU。</p>
+      </div>
+      <div class="card">
+        <b>路由指标</b>
+        <p><code>route_good</code>、<code>route_failed</code>、<code>route_ambiguous</code>，确认 sibling 方案是否改变 failed 占比。</p>
+      </div>
+      <div class="card">
+        <b>训练指标</b>
+        <p><code>sdpo_loss</code>、GRPO reward、KL、completion length、clipped ratio。</p>
+      </div>
+      <div class="card">
+        <b>正式评测</b>
+        <p>只使用 student no-hint greedy evaluation：<code>num_rollouts=1</code>、<code>temperature=0.0</code>。</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>8. 预期现象与风险控制</h2>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>现象</th>
+            <th>解释</th>
+            <th>处理方式</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>训练早期 sibling_hit_rate 低</td>
+            <td>student 还不稳定，同组 8 条里未必有 IoU ≥ 0.5 的候选。</td>
+            <td>使用 GT fallback 保持训练密度；或前 N step 使用 GT-hint warmup，再切 sibling-hint。</td>
+          </tr>
+          <tr>
+            <td>sibling bbox 边界不准</td>
+            <td>IoU ≥ 0.5 只说明大致定位正确，不代表边界精确。</td>
+            <td>优先用 <code>soft_window</code> 弱视觉提示；文本使用 likely / approximately，不写 correct。</td>
+          </tr>
+          <tr>
+            <td>性能低于 GT-hint baseline</td>
+            <td>GT-hint teacher 是强 oracle，sibling-hint 是 noisy teacher。</td>
+            <td>看 gap 是否缩小、fallback rate 是否下降、是否带来更清晰的论文叙事。</td>
+          </tr>
+          <tr>
+            <td>性能超过 GT-hint baseline</td>
+            <td>sibling hint 可能减少 GT 过强提示导致的 train/test mismatch，使 teacher 分布更接近 student 可利用的信息。</td>
+            <td>重复不同 seed，并检查是否存在 test-set checkpoint selection。</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>9. 最小可执行版本</h2>
+    <div class="callout good">
+      <p><strong>建议第一版只做一个主实验：</strong><code>sdpo_hint_source=sibling_gt_fallback</code>，<code>mask_mode=soft_window</code>，<code>select_metric=reward</code>。如果有 good sibling，就用 sibling bbox 做弱视觉提示；如果没有，就 fallback 到当前 GT gaussian/hint teacher。这样改动最小、性能风险低，也能直接和现有 MRPD baseline 对比。</p>
+    </div>
+    <ul>
+      <li>训练数据：继续使用 <code>rs_full/rs_train.jsonl</code>。</li>
+      <li>checkpoint 选择：使用 <code>rs_val.jsonl</code>，不要用 test 选最佳 checkpoint。</li>
+      <li>最终报告：只在 <code>rs_test.jsonl</code> 上做一次 student no-hint greedy 测试。</li>
+      <li>核心对比：Baseline MRPD GT-hint vs Sibling+GT fallback vs Sibling-only。</li>
+    </ul>
+  </section>
+</main>
+</body>
+</html>

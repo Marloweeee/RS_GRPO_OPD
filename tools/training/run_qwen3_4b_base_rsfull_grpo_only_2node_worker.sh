@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Two-node worker for Qwen3-VL-4B full rs_full GRPO+SDPO training.
+# Two-node worker for Qwen3-VL-4B full rs_full GRPO-only training.
 #
 # Each replica uses 7 GPUs for training and 1 GPU for a local rollout server.
 # Replicas exchange NODE_RANK, MASTER_ADDR, and rollout server addresses through
@@ -24,32 +24,24 @@ export TRITON_CACHE_DIR="${TRITON_CACHE_DIR:-${cache_root}/triton}"
 export VLLM_CACHE_ROOT="${VLLM_CACHE_ROOT:-${cache_root}/vllm}"
 mkdir -p "$XDG_CACHE_HOME" "$TORCHINDUCTOR_CACHE_DIR" "$TRITON_CACHE_DIR" "$VLLM_CACHE_ROOT" 2>/dev/null || true
 
-run_name="${RUN_NAME:-gui-sd-qwen3-4b-base_rsfull_grpo_sdpo_2node_bsz4_gacc2_lr2e6_e1}"
+run_name="${RUN_NAME:-gui-sd-qwen3-4b-base_rsfull_grpo_only_2node_bsz4_gacc2_lr2e6_e1}"
 ckpt_root="${CKPT_ROOT:-${CHECKPOINT_ROOT:-/mnt/jfs/copilot/lhb/checkpoint/rs/rs-sd}}"
 artifact_root="${ARTIFACT_ROOT:-/mnt/jfs/copilot/lhb/artifacts/rs/rs-sd}"
 base_model_path="${BASE_MODEL_PATH:-/mnt/jfs/copilot/lhb/checkpoint/opensource/Qwen3-VL-4B-Instruct}"
 model_path="${MODEL_PATH:-${base_model_path}}"
-teacher_path="${TEACHER_PATH:-${TEACHER_MODEL_PATH:-${base_model_path}}}"
-rollout_model_path="${ROLLOUT_MODEL_PATH:-${model_path}}"
 train_jsonl="${TRAIN_JSONL:-/data/codes/gui_grounding/data/rs_full/rs_train.jsonl}"
 test_jsonl="${TEST_JSONL:-/data/codes/gui_grounding/data/rs_full/rs_test.jsonl}"
-mask_dir="${OPSD_MASK_DIR:-${artifact_root}/train_cache/${run_name}}"
 eval_out="${EVAL_OUT:-${artifact_root}/eval/${run_name}}"
 save_only_model="${SAVE_ONLY_MODEL:-true}"
-tuner_type="${TUNER_TYPE:-full}"
 
 export RUN_NAME="$run_name"
 export CKPT_ROOT="$ckpt_root"
 export CHECKPOINT_ROOT="$ckpt_root"
 export ARTIFACT_ROOT="$artifact_root"
 export MODEL_PATH="$model_path"
-export TEACHER_PATH="$teacher_path"
-export ROLLOUT_MODEL_PATH="$rollout_model_path"
 export TRAIN_JSONL="$train_jsonl"
 export TEST_JSONL="$test_jsonl"
-export OPSD_MASK_DIR="$mask_dir"
 export EVAL_OUT="$eval_out"
-export TUNER_TYPE="$tuner_type"
 
 export NNODES="${NNODES:-2}"
 export NPROC_PER_NODE="${NPROC_PER_NODE:-7}"
@@ -66,8 +58,8 @@ export CLEANUP_ROLLOUT_ON_EXIT="${CLEANUP_ROLLOUT_ON_EXIT:-true}"
 
 export NUM_TRAIN_EPOCHS="${NUM_TRAIN_EPOCHS:-1}"
 export MAX_STEPS="${MAX_STEPS:--1}"
-export SAVE_STEPS="${SAVE_STEPS:-50}"
-export SAVE_TOTAL_LIMIT="${SAVE_TOTAL_LIMIT:-10}"
+export SAVE_STEPS="${SAVE_STEPS:-250}"
+export SAVE_TOTAL_LIMIT="${SAVE_TOTAL_LIMIT:-8}"
 export PER_DEVICE_TRAIN_BATCH_SIZE="${PER_DEVICE_TRAIN_BATCH_SIZE:-4}"
 export GRADIENT_ACCUMULATION_STEPS="${GRADIENT_ACCUMULATION_STEPS:-2}"
 export LR="${LR:-${LEARNING_RATE:-2e-6}}"
@@ -77,35 +69,11 @@ export NUM_ITERATIONS="${NUM_ITERATIONS:-1}"
 export MAX_LENGTH="${MAX_LENGTH:-20000}"
 export MAX_COMPLETION_LENGTH="${MAX_COMPLETION_LENGTH:-64}"
 export DEEPSPEED_CONFIG="${DEEPSPEED_CONFIG:-zero2}"
-export TEACHER_DEEPSPEED_CONFIG="${TEACHER_DEEPSPEED_CONFIG:-zero3}"
-export OFFLOAD_TEACHER_MODEL="${OFFLOAD_TEACHER_MODEL:-false}"
-export VLLM_GPU_MEMORY_UTIL="${VLLM_GPU_MEMORY_UTIL:-${ROLLOUT_GPU_MEM_UTIL:-0.82}}"
+export VLLM_GPU_MEMORY_UTIL="${VLLM_GPU_MEMORY_UTIL:-${ROLLOUT_GPU_MEM_UTIL:-0.88}}"
 export VLLM_MAX_MODEL_LEN="${VLLM_MAX_MODEL_LEN:-20000}"
-export VLLM_MAX_NUM_SEQS="${VLLM_MAX_NUM_SEQS:-}"
-export VLLM_ENFORCE_EAGER="${VLLM_ENFORCE_EAGER:-}"
 export DATASET_NUM_PROC="${DATASET_NUM_PROC:-8}"
 export DATALOADER_NUM_WORKERS="${DATALOADER_NUM_WORKERS:-8}"
 
-export SDPO_LAMBDA="${SDPO_LAMBDA:-0.25}"
-export SDPO_TAU_GOOD="${SDPO_TAU_GOOD:-0.5}"
-export SDPO_TAU_FAIL="${SDPO_TAU_FAIL:-0.3}"
-export SDPO_DELTA="${SDPO_DELTA:-0.5}"
-export SDPO_TARGET="${SDPO_TARGET:-rollout}"
-export SDPO_HINT_SOURCE="${SDPO_HINT_SOURCE:-gt}"
-export SDPO_SIBLING_SELECT_METRIC="${SDPO_SIBLING_SELECT_METRIC:-reward}"
-export SDPO_SIBLING_FALLBACK="${SDPO_SIBLING_FALLBACK:-gt}"
-export SDPO_TEACHER_REFRESH_STEP="${SDPO_TEACHER_REFRESH_STEP:-${TEACHER_REFRESH_STEP:--1}}"
-export OPSD_TOKEN_WEIGHT_MODE="${OPSD_TOKEN_WEIGHT_MODE:-uniform-entropy}"
-export OPSD_NON_DIGIT_WEIGHT="${OPSD_NON_DIGIT_WEIGHT:-0.05}"
-export OPSD_MAX_DIGIT_LEN="${OPSD_MAX_DIGIT_LEN:-3}"
-export OPSD_EMA_DECAY="${OPSD_EMA_DECAY:-0.0}"
-export OPSD_MASK_MODE="${OPSD_MASK_MODE:-gaussian}"
-export OPSD_ZOOM_RATIO="${OPSD_ZOOM_RATIO:-2.0}"
-export OPSD_MIN_AREA_FRAC="${OPSD_MIN_AREA_FRAC:-0.1}"
-export OPSD_GAUSSIAN_SIGMA_RATIO="${OPSD_GAUSSIAN_SIGMA_RATIO:-1.5}"
-export OPSD_HINT_MODE="${OPSD_HINT_MODE:-hint}"
-export OPSD_HINT_BOX_COLOR="${OPSD_HINT_BOX_COLOR:-magenta}"
-export OPSD_JITTER_RATIO="${OPSD_JITTER_RATIO:-0.2}"
 export GRPO_BETA="${GRPO_BETA:-0.04}"
 export ROLLOUT_TEMPERATURE="${ROLLOUT_TEMPERATURE:-0.7}"
 export TOP_P="${TOP_P:-0.95}"
@@ -123,7 +91,7 @@ rollout_hosts=()
 rollout_ports=()
 
 worker_log_dir="${MULTINODE_WORKER_LOG_DIR:-${artifact_root}/logs/multinode_worker_logs}"
-mkdir -p "$worker_log_dir" "$mask_dir" "$eval_out" "${ckpt_root}/${run_name}" 2>/dev/null || true
+mkdir -p "$worker_log_dir" "$eval_out" "${ckpt_root}/${run_name}" 2>/dev/null || true
 worker_log="${worker_log_dir}/${run_name}_rank-${NODE_RANK:-unknown}_$(hostname)_$(date +%Y%m%d-%H%M%S).log"
 touch "$worker_log" 2>/dev/null || true
 if [ -w "$worker_log" ]; then
@@ -131,7 +99,7 @@ if [ -w "$worker_log" ]; then
 fi
 
 log() {
-    echo "[4b-2node-worker][$(date '+%F %T')][host=$(hostname)][rank=${NODE_RANK:-?}] $*"
+    echo "[4b-grpo-only-2node-worker][$(date '+%F %T')][host=$(hostname)][rank=${NODE_RANK:-?}] $*"
 }
 
 cleanup_rollout() {
@@ -278,85 +246,6 @@ mark_phase() {
     sync "$final" 2>/dev/null || sync 2>/dev/null || true
 }
 
-count_cluster_phase() {
-    local phase="$1"
-    local idx ready file
-    ready=0
-    for idx in $(seq 0 $((NNODES - 1))); do
-        file="${rendezvous_dir}/node_${idx}.${phase}"
-        if [ -f "$file" ]; then
-            ready=$((ready + 1))
-        fi
-    done
-    printf '%s\n' "$ready"
-}
-
-wait_for_train_terminal_phase() {
-    local start now done_count failed_count
-    start="$(date +%s)"
-    while true; do
-        failed_count="$(count_cluster_phase train_failed)"
-        if [ "$failed_count" -gt 0 ]; then
-            log "detected train_failed marker: ${failed_count}/${NNODES}"
-            return 1
-        fi
-        done_count="$(count_cluster_phase train_done)"
-        if [ "$done_count" -eq "$NNODES" ]; then
-            return 0
-        fi
-        now="$(date +%s)"
-        if [ $((now - start)) -gt "$RENDEZVOUS_TIMEOUT_SEC" ]; then
-            echo "ERROR: training terminal rendezvous timed out; train_done=${done_count}/${NNODES} train_failed=${failed_count}/${NNODES}" >&2
-            ls -la "$rendezvous_dir" >&2 || true
-            return 1
-        fi
-        log "waiting for training terminal phase: train_done=${done_count}/${NNODES} train_failed=${failed_count}/${NNODES}"
-        sleep 10
-    done
-}
-
-watch_remote_train_failure() {
-    local train_pid="$1"
-    local failed_count
-    while kill -0 "$train_pid" 2>/dev/null; do
-        failed_count="$(count_cluster_phase train_failed)"
-        if [ "$failed_count" -gt 0 ]; then
-            log "remote train_failed marker detected; terminating local training process group pid=${train_pid}"
-            kill -TERM "-${train_pid}" 2>/dev/null || kill "$train_pid" 2>/dev/null || true
-            sleep 20
-            if kill -0 "$train_pid" 2>/dev/null; then
-                kill -KILL "-${train_pid}" 2>/dev/null || kill -9 "$train_pid" 2>/dev/null || true
-            fi
-            return 0
-        fi
-        sleep "${TRAIN_FAILURE_POLL_SEC:-10}"
-    done
-}
-
-wait_for_eval_terminal_phase() {
-    local start now done_count failed_count
-    start="$(date +%s)"
-    while true; do
-        failed_count="$(count_cluster_phase eval_failed)"
-        if [ "$failed_count" -gt 0 ]; then
-            log "detected eval_failed marker: ${failed_count}/${NNODES}"
-            return 1
-        fi
-        done_count="$(count_cluster_phase eval_done)"
-        if [ "$done_count" -eq "$NNODES" ]; then
-            return 0
-        fi
-        now="$(date +%s)"
-        if [ $((now - start)) -gt "$RENDEZVOUS_TIMEOUT_SEC" ]; then
-            echo "ERROR: eval terminal rendezvous timed out; eval_done=${done_count}/${NNODES} eval_failed=${failed_count}/${NNODES}" >&2
-            ls -la "$rendezvous_dir" >&2 || true
-            return 1
-        fi
-        log "waiting for eval terminal phase: eval_done=${done_count}/${NNODES} eval_failed=${failed_count}/${NNODES}"
-        sleep 10
-    done
-}
-
 wait_for_cluster_phase() {
     local phase="$1"
     local start now ready idx file
@@ -401,21 +290,10 @@ build_cluster_env() {
 }
 
 check_remote_rollouts() {
-    local idx start now
+    local idx
     for idx in "${!rollout_hosts[@]}"; do
-        start="$(date +%s)"
-        while true; do
-            log "checking rollout server ${rollout_hosts[$idx]}:${rollout_ports[$idx]}"
-            if rollout_ready "${rollout_hosts[$idx]}" "${rollout_ports[$idx]}"; then
-                break
-            fi
-            now="$(date +%s)"
-            if [ $((now - start)) -gt "$ROLLOUT_READY_TIMEOUT_SEC" ]; then
-                echo "ERROR: remote rollout server ${rollout_hosts[$idx]}:${rollout_ports[$idx]} did not become reachable within ${ROLLOUT_READY_TIMEOUT_SEC}s." >&2
-                return 1
-            fi
-            sleep "$ROLLOUT_READY_INTERVAL_SEC"
-        done
+        log "checking rollout server ${rollout_hosts[$idx]}:${rollout_ports[$idx]}"
+        rollout_ready "${rollout_hosts[$idx]}" "${rollout_ports[$idx]}"
     done
 }
 
@@ -454,21 +332,12 @@ log "swift=${SWIFT_BIN}"
 log "run_name=${run_name}"
 log "ckpt_root=${ckpt_root}"
 log "artifact_root=${artifact_root}"
-log "model_path=${model_path}"
-log "teacher_path=${teacher_path}"
-log "rollout_model_path=${rollout_model_path}"
+log "mode=grpo_only_no_teacher_no_sdpo"
 log "rendezvous_dir=${rendezvous_dir}"
 log "nnodes=${NNODES} nproc_per_node=${NPROC_PER_NODE} node_rank=${NODE_RANK}"
 log "pod_ip=${pod_ip} advertise_host=${advertise_host}"
 log "train_cuda=${TRAIN_CUDA_VISIBLE_DEVICES} rollout_cuda=${ROLLOUT_CUDA_VISIBLE_DEVICES}"
 log "per_device_train_batch_size=${PER_DEVICE_TRAIN_BATCH_SIZE} grad_acc=${GRADIENT_ACCUMULATION_STEPS} lr=${LR}"
-log "sdpo_lambda=${SDPO_LAMBDA} sdpo_target=${SDPO_TARGET} sdpo_hint_source=${SDPO_HINT_SOURCE} sdpo_sibling_select_metric=${SDPO_SIBLING_SELECT_METRIC} sdpo_sibling_fallback=${SDPO_SIBLING_FALLBACK} sdpo_teacher_refresh_mode=${SDPO_TEACHER_REFRESH_MODE:-fixed} sdpo_teacher_refresh_step=${SDPO_TEACHER_REFRESH_STEP} grpo_beta=${GRPO_BETA} num_generations=${NUM_GENERATIONS}"
-log "sdpo_teacher_refresh_metric warmup=${SDPO_TEACHER_REFRESH_WARMUP:-80} window=${SDPO_TEACHER_REFRESH_WINDOW:-50} check_interval=${SDPO_TEACHER_REFRESH_CHECK_INTERVAL:-10} min_iou_improve=${SDPO_TEACHER_REFRESH_MIN_IOU_IMPROVE:-0.01} max_failed=${SDPO_TEACHER_REFRESH_MAX_FAILED:-0.55} min_sdpo_loss=${SDPO_TEACHER_REFRESH_MIN_SDPO_LOSS:-0.02} max_kl=${SDPO_TEACHER_REFRESH_MAX_KL:-0.30} max_refreshes=${SDPO_TEACHER_REFRESH_MAX_REFRESHES:-1} cooldown_steps=${SDPO_TEACHER_REFRESH_COOLDOWN_STEPS:-0}"
-log "sdpo_teacher_refresh_metric_ewma short_window=${SDPO_TEACHER_REFRESH_SHORT_WINDOW:-20} long_window=${SDPO_TEACHER_REFRESH_LONG_WINDOW:-80} ewma_alpha=${SDPO_TEACHER_REFRESH_EWMA_ALPHA:-0.10} consecutive_checks=${SDPO_TEACHER_REFRESH_CONSECUTIVE_CHECKS:-2} min_short_long_iou_gain=${SDPO_TEACHER_REFRESH_MIN_SHORT_LONG_IOU_GAIN:-0.006} min_ewma_iou_gain=${SDPO_TEACHER_REFRESH_MIN_EWMA_IOU_GAIN:-0.008} max_iou05_drop=${SDPO_TEACHER_REFRESH_MAX_IOU05_DROP:-0.010}"
-log "opsd_mask_mode=${OPSD_MASK_MODE} opsd_hint_mode=${OPSD_HINT_MODE} opsd_ema_decay=${OPSD_EMA_DECAY} opsd_gaussian_sigma_ratio=${OPSD_GAUSSIAN_SIGMA_RATIO} opsd_jitter_ratio=${OPSD_JITTER_RATIO}"
-log "vllm_gpu_memory_util=${VLLM_GPU_MEMORY_UTIL} vllm_max_model_len=${VLLM_MAX_MODEL_LEN} vllm_max_num_seqs=${VLLM_MAX_NUM_SEQS:-unset} vllm_enforce_eager=${VLLM_ENFORCE_EAGER:-unset}"
-log "save_steps=${SAVE_STEPS} save_total_limit=${SAVE_TOTAL_LIMIT} save_only_model=${save_only_model}"
-log "tuner_type=${TUNER_TYPE}"
 log "cache_root=${cache_root}"
 log "torchinductor_cache=${TORCHINDUCTOR_CACHE_DIR}"
 log "triton_cache=${TRITON_CACHE_DIR}"
@@ -485,14 +354,6 @@ if ! is_model_checkpoint_dir "$model_path"; then
     find "$model_path" -maxdepth 1 -type f -printf '%s %p\n' 2>/dev/null | sort -n | tail -n 40 >&2 || true
     exit 1
 fi
-if ! is_model_checkpoint_dir "$teacher_path"; then
-    echo "ERROR: TEACHER_PATH is not a usable model checkpoint: ${teacher_path}" >&2
-    exit 1
-fi
-if ! is_model_checkpoint_dir "$rollout_model_path"; then
-    echo "ERROR: ROLLOUT_MODEL_PATH is not a usable model checkpoint: ${rollout_model_path}" >&2
-    exit 1
-fi
 if [ ! -f "$train_jsonl" ]; then
     echo "ERROR: train jsonl not found: ${train_jsonl}" >&2
     exit 1
@@ -502,15 +363,11 @@ if [ ! -f "$test_jsonl" ]; then
     exit 1
 fi
 
-cuda_probe_interval="${CUDA_READY_INTERVAL_SEC:-10}"
-cuda_probe_timeout="${CUDA_READY_TIMEOUT_SEC:-180}"
-cuda_probe_start="$(date +%s)"
-while true; do
-    if "$PYTHON_BIN" - <<'PY'
+"$PYTHON_BIN" - <<'PY'
 import os
 import torch
 
-prefix = "[4b-2node-worker]"
+prefix = "[4b-grpo-only-2node-worker]"
 print(f"{prefix} torch={torch.__version__}")
 print(f"{prefix} cuda_available={torch.cuda.is_available()}")
 print(f"{prefix} cuda_device_count={torch.cuda.device_count()}")
@@ -521,17 +378,6 @@ if not os.path.isfile(dataset):
     raise SystemExit(f"dataset not found: {dataset}")
 print(f"{prefix} dataset={dataset}")
 PY
-    then
-        break
-    fi
-    cuda_probe_now="$(date +%s)"
-    if [ $((cuda_probe_now - cuda_probe_start)) -gt "$cuda_probe_timeout" ]; then
-        echo "ERROR: CUDA did not become ready within ${cuda_probe_timeout}s." >&2
-        exit 1
-    fi
-    log "CUDA not ready yet; retrying in ${cuda_probe_interval}s"
-    sleep "$cuda_probe_interval"
-done
 
 "$PYTHON_BIN" -m py_compile \
     swift/rlhf_trainers/grpo_trainer.py \
@@ -542,22 +388,14 @@ done
 if rollout_ready 127.0.0.1 "$VLLM_SERVER_PORT"; then
     log "found existing local rollout server at 127.0.0.1:${VLLM_SERVER_PORT}"
 else
-    rollout_extra_args=()
-    if [ -n "${VLLM_MAX_NUM_SEQS:-}" ]; then
-        rollout_extra_args+=(--vllm_max_num_seqs "$VLLM_MAX_NUM_SEQS")
-    fi
-    if [ -n "${VLLM_ENFORCE_EAGER:-}" ]; then
-        rollout_extra_args+=(--vllm_enforce_eager "$VLLM_ENFORCE_EAGER")
-    fi
-    log "starting local rollout server on GPU ${ROLLOUT_CUDA_VISIBLE_DEVICES}, port ${VLLM_SERVER_PORT}, model ${rollout_model_path}"
+    log "starting local rollout server on GPU ${ROLLOUT_CUDA_VISIBLE_DEVICES}, port ${VLLM_SERVER_PORT}"
     CUDA_VISIBLE_DEVICES="${ROLLOUT_CUDA_VISIBLE_DEVICES}" \
     IMAGE_MAX_TOKEN_NUM="${IMAGE_MAX_TOKEN_NUM}" \
     "$SWIFT_BIN" rollout \
         --model_type qwen3_vl \
-        --model "$rollout_model_path" \
+        --model "$model_path" \
         --vllm_gpu_memory_utilization "$VLLM_GPU_MEMORY_UTIL" \
         --vllm_max_model_len "$VLLM_MAX_MODEL_LEN" \
-        "${rollout_extra_args[@]}" \
         --vllm_data_parallel_size 1 \
         --host 0.0.0.0 \
         --port "$VLLM_SERVER_PORT" &
@@ -592,14 +430,6 @@ if [ $((generation_batch_size % NUM_GENERATIONS)) -ne 0 ]; then
 fi
 log "GRPO generation_batch_size=${generation_batch_size}; num_generations=${NUM_GENERATIONS}"
 
-rlhf_vllm_extra_args=()
-if [ -n "${VLLM_MAX_NUM_SEQS:-}" ]; then
-    rlhf_vllm_extra_args+=(--vllm_max_num_seqs "$VLLM_MAX_NUM_SEQS")
-fi
-if [ -n "${VLLM_ENFORCE_EAGER:-}" ]; then
-    rlhf_vllm_extra_args+=(--vllm_enforce_eager "$VLLM_ENFORCE_EAGER")
-fi
-
 resume_args=()
 if [ "${ALLOW_RESUME:-false}" = "true" ]; then
     resume_checkpoint="${RESUME_FROM_CHECKPOINT:-}"
@@ -633,68 +463,24 @@ else
     log "resume disabled; starting from base model"
 fi
 
-set +e
-setsid env \
-    NNODES="$NNODES" \
-    NODE_RANK="$NODE_RANK" \
-    MASTER_ADDR="$MASTER_ADDR" \
-    MASTER_PORT="$MASTER_PORT" \
-    NPROC_PER_NODE="$NPROC_PER_NODE" \
-    IMAGE_MAX_TOKEN_NUM="$IMAGE_MAX_TOKEN_NUM" \
-    PYTHONFAULTHANDLER=1 \
-    PYTORCH_CUDA_ALLOC_CONF="${PYTORCH_CUDA_ALLOC_CONF:-expandable_segments:True}" \
-    CUDA_VISIBLE_DEVICES="${TRAIN_CUDA_VISIBLE_DEVICES}" \
-    "$SWIFT_BIN" rlhf \
+NNODES="$NNODES" \
+NODE_RANK="$NODE_RANK" \
+MASTER_ADDR="$MASTER_ADDR" \
+MASTER_PORT="$MASTER_PORT" \
+NPROC_PER_NODE="$NPROC_PER_NODE" \
+IMAGE_MAX_TOKEN_NUM="$IMAGE_MAX_TOKEN_NUM" \
+PYTHONFAULTHANDLER=1 \
+PYTORCH_CUDA_ALLOC_CONF="${PYTORCH_CUDA_ALLOC_CONF:-expandable_segments:True}" \
+CUDA_VISIBLE_DEVICES="${TRAIN_CUDA_VISIBLE_DEVICES}" \
+"$SWIFT_BIN" rlhf \
     "${resume_args[@]}" \
     --rlhf_type grpo \
-    --use_sdpo true \
-    --sdpo_lambda "$SDPO_LAMBDA" \
-    --sdpo_tau_good "$SDPO_TAU_GOOD" \
-    --sdpo_tau_fail "$SDPO_TAU_FAIL" \
-    --sdpo_delta "$SDPO_DELTA" \
-    --sdpo_only_failed true \
-    --sdpo_target "$SDPO_TARGET" \
-    --sdpo_hint_source "$SDPO_HINT_SOURCE" \
-    --sdpo_sibling_select_metric "$SDPO_SIBLING_SELECT_METRIC" \
-    --sdpo_sibling_fallback "$SDPO_SIBLING_FALLBACK" \
-    --sdpo_teacher_refresh_mode "${SDPO_TEACHER_REFRESH_MODE:-fixed}" \
-    --sdpo_teacher_refresh_step "$SDPO_TEACHER_REFRESH_STEP" \
-    --sdpo_teacher_refresh_warmup "${SDPO_TEACHER_REFRESH_WARMUP:-80}" \
-    --sdpo_teacher_refresh_window "${SDPO_TEACHER_REFRESH_WINDOW:-50}" \
-    --sdpo_teacher_refresh_check_interval "${SDPO_TEACHER_REFRESH_CHECK_INTERVAL:-10}" \
-    --sdpo_teacher_refresh_min_iou_improve "${SDPO_TEACHER_REFRESH_MIN_IOU_IMPROVE:-0.01}" \
-    --sdpo_teacher_refresh_max_failed "${SDPO_TEACHER_REFRESH_MAX_FAILED:-0.55}" \
-    --sdpo_teacher_refresh_min_sdpo_loss "${SDPO_TEACHER_REFRESH_MIN_SDPO_LOSS:-0.02}" \
-    --sdpo_teacher_refresh_max_kl "${SDPO_TEACHER_REFRESH_MAX_KL:-0.30}" \
-    --sdpo_teacher_refresh_short_window "${SDPO_TEACHER_REFRESH_SHORT_WINDOW:-20}" \
-    --sdpo_teacher_refresh_long_window "${SDPO_TEACHER_REFRESH_LONG_WINDOW:-80}" \
-    --sdpo_teacher_refresh_ewma_alpha "${SDPO_TEACHER_REFRESH_EWMA_ALPHA:-0.10}" \
-    --sdpo_teacher_refresh_consecutive_checks "${SDPO_TEACHER_REFRESH_CONSECUTIVE_CHECKS:-2}" \
-    --sdpo_teacher_refresh_min_short_long_iou_gain "${SDPO_TEACHER_REFRESH_MIN_SHORT_LONG_IOU_GAIN:-0.006}" \
-    --sdpo_teacher_refresh_min_ewma_iou_gain "${SDPO_TEACHER_REFRESH_MIN_EWMA_IOU_GAIN:-0.008}" \
-    --sdpo_teacher_refresh_max_iou05_drop "${SDPO_TEACHER_REFRESH_MAX_IOU05_DROP:-0.010}" \
-    --sdpo_teacher_refresh_max_refreshes "${SDPO_TEACHER_REFRESH_MAX_REFRESHES:-1}" \
-    --sdpo_teacher_refresh_cooldown_steps "${SDPO_TEACHER_REFRESH_COOLDOWN_STEPS:-0}" \
-    --opsd_mask_dir "$mask_dir" \
-    --opsd_token_weight_mode "$OPSD_TOKEN_WEIGHT_MODE" \
-    --opsd_non_digit_weight "$OPSD_NON_DIGIT_WEIGHT" \
-    --opsd_max_digit_len "$OPSD_MAX_DIGIT_LEN" \
-    --opsd_ema_decay "$OPSD_EMA_DECAY" \
-    --opsd_mask_mode "$OPSD_MASK_MODE" \
-    --opsd_zoom_ratio "$OPSD_ZOOM_RATIO" \
-    --opsd_min_area_frac "$OPSD_MIN_AREA_FRAC" \
-    --opsd_gaussian_sigma_ratio "$OPSD_GAUSSIAN_SIGMA_RATIO" \
-    --opsd_hint_mode "$OPSD_HINT_MODE" \
-    --opsd_hint_box_color "$OPSD_HINT_BOX_COLOR" \
-    --opsd_jitter_ratio "$OPSD_JITTER_RATIO" \
+    --use_sdpo false \
     --model "$model_path" \
     --model_type qwen3_vl \
     --ref_model "$model_path" \
     --ref_model_type qwen3_vl \
-    --teacher_model "$teacher_path" \
-    --teacher_model_type qwen3_vl \
-    --tuner_type "$TUNER_TYPE" \
-    --train_type "$TUNER_TYPE" \
+    --train_type full \
     --dataset "$train_jsonl" \
     --reward_funcs bbox-geometry \
     --num_generations "$NUM_GENERATIONS" \
@@ -721,8 +507,6 @@ setsid env \
     --dataloader_num_workers "$DATALOADER_NUM_WORKERS" \
     --dataset_num_proc "$DATASET_NUM_PROC" \
     --deepspeed "$DEEPSPEED_CONFIG" \
-    --teacher_deepspeed "$TEACHER_DEEPSPEED_CONFIG" \
-    --offload_teacher_model "$OFFLOAD_TEACHER_MODEL" \
     --attn_impl flash_attn \
     --use_vllm true \
     --vllm_mode server \
@@ -730,42 +514,22 @@ setsid env \
     --vllm_server_port "${rollout_ports[@]}" \
     --vllm_server_timeout "$ROLLOUT_READY_TIMEOUT_SEC" \
     --vllm_max_model_len "$VLLM_MAX_MODEL_LEN" \
-    --vllm_gpu_memory_utilization "$VLLM_GPU_MEMORY_UTIL" \
-    "${rlhf_vllm_extra_args[@]}" &
-train_pid=$!
-watch_remote_train_failure "$train_pid" &
-watcher_pid=$!
-wait "$train_pid"
-train_status=$?
-kill "$watcher_pid" 2>/dev/null || true
-wait "$watcher_pid" 2>/dev/null || true
-set -e
-
-if [ "$train_status" -ne 0 ]; then
-    log "training failed with status=${train_status}"
-    mark_phase "train_failed"
-    exit "$train_status"
-fi
+    --vllm_gpu_memory_utilization "$VLLM_GPU_MEMORY_UTIL"
 
 mark_phase "train_done"
-if ! wait_for_train_terminal_phase; then
-    mark_phase "train_failed"
-    exit 1
-fi
+wait_for_cluster_phase "train_done"
 cleanup_rollout
 rollout_pid=""
 
 if [ "$NODE_RANK" = "0" ]; then
     latest_ckpt="$(find_latest_checkpoint)" || {
         echo "ERROR: no checkpoint found under ${ckpt_root}/${run_name}" >&2
-        mark_phase "eval_failed"
         exit 1
     }
     log "latest_ckpt=${latest_ckpt}"
     if [ "${SKIP_EVAL:-false}" = "true" ]; then
         log "SKIP_EVAL=true; skip final greedy evaluation for ${latest_ckpt}"
     else
-        set +e
         CUDA_VISIBLE_DEVICES="${EVAL_CUDA_VISIBLE_DEVICES}" \
         IMAGE_MAX_TOKEN_NUM="$IMAGE_MAX_TOKEN_NUM" \
         "$PYTHON_BIN" tools/evaluation/eval_student.py \
@@ -778,34 +542,22 @@ if [ "$NODE_RANK" = "0" ]; then
             --eval_batch_size "$EVAL_BATCH_SIZE" \
             --max_new_tokens 128 \
             --seed 42
-        eval_status=$?
 
-        if [ "$eval_status" -eq 0 ]; then
-            "$PYTHON_BIN" - <<PY
+        "$PYTHON_BIN" - <<PY
 import json
 import os
 
 summary_path = os.path.join("${eval_out}", "$(basename "${latest_ckpt}")", "summary.json")
 with open(summary_path) as f:
     metrics = json.load(f)
-print("[4b-2node-worker] summary_path=" + summary_path)
-print("[4b-2node-worker] IoU@0.5=%.4f" % metrics["IoU@0.5"])
-print("[4b-2node-worker] mIoU=%.4f IoU@0.7=%.4f parse_rate=%.4f valid_rate=%.4f" % (
+print("[4b-grpo-only-2node-worker] summary_path=" + summary_path)
+print("[4b-grpo-only-2node-worker] IoU@0.5=%.4f" % metrics["IoU@0.5"])
+print("[4b-grpo-only-2node-worker] mIoU=%.4f IoU@0.7=%.4f parse_rate=%.4f valid_rate=%.4f" % (
     metrics["mIoU"], metrics["IoU@0.7"], metrics["parse_rate"], metrics["valid_rate"]))
 PY
-            eval_status=$?
-        fi
-        set -e
-        if [ "$eval_status" -ne 0 ]; then
-            log "final greedy evaluation failed with status=${eval_status}"
-            mark_phase "eval_failed"
-            exit "$eval_status"
-        fi
     fi
 fi
 
 mark_phase "eval_done"
-if ! wait_for_eval_terminal_phase; then
-    exit 1
-fi
+wait_for_cluster_phase "eval_done"
 log "completed"

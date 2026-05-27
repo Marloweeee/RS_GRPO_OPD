@@ -1,0 +1,799 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MRPD 顶会论文实验路线图</title>
+  <style>
+    :root {
+      --bg: #f6f8fb;
+      --panel: #ffffff;
+      --ink: #182233;
+      --muted: #5d697a;
+      --line: #d8e0ea;
+      --head: #101827;
+      --blue: #215f9c;
+      --blue-soft: #eaf3ff;
+      --green: #176b52;
+      --green-soft: #e9f8f2;
+      --amber: #8a5a12;
+      --amber-soft: #fff6e5;
+      --red: #9d332f;
+      --red-soft: #fff1ef;
+      --gray: #eef2f7;
+      --purple: #6a3fa0;
+      --purple-soft: #f1ebff;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: var(--bg);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans SC", "Microsoft YaHei", Arial, sans-serif;
+      line-height: 1.62;
+    }
+
+    header {
+      padding: 36px 28px 30px;
+      color: #f8fafc;
+      background: var(--head);
+    }
+
+    .wrap,
+    main {
+      max-width: 1560px;
+      margin: 0 auto;
+    }
+
+    main {
+      padding: 24px 24px 60px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 34px;
+      line-height: 1.16;
+      letter-spacing: 0;
+    }
+
+    h2 {
+      margin: 0 0 12px;
+      font-size: 23px;
+      line-height: 1.3;
+      letter-spacing: 0;
+    }
+
+    h3 {
+      margin: 18px 0 8px;
+      font-size: 17px;
+      letter-spacing: 0;
+    }
+
+    p { margin: 8px 0; }
+    ul { margin: 8px 0 0; padding-left: 22px; }
+    li { margin: 5px 0; }
+
+    code {
+      padding: 1px 5px;
+      border-radius: 4px;
+      background: var(--gray);
+      color: #111827;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+      font-size: 0.92em;
+      word-break: break-all;
+    }
+
+    section {
+      margin: 0 0 18px;
+      padding: 22px 24px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+    }
+
+    .lead {
+      max-width: 1180px;
+      margin-top: 12px;
+      color: #d7dde8;
+      font-size: 16px;
+    }
+
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 9px;
+      margin-top: 16px;
+    }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      min-height: 28px;
+      padding: 3px 9px;
+      border: 1px solid rgba(248, 250, 252, 0.24);
+      border-radius: 6px;
+      color: #e5e7eb;
+      background: rgba(255, 255, 255, 0.08);
+      font-size: 13px;
+    }
+
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .card {
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fbfdff;
+    }
+
+    .card .label {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .card .value {
+      margin-top: 4px;
+      font-size: 25px;
+      font-weight: 800;
+      line-height: 1.15;
+    }
+
+    .card .desc {
+      margin-top: 6px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .callout {
+      margin: 12px 0;
+      padding: 12px 14px;
+      border: 1px solid var(--line);
+      border-left: 4px solid var(--blue);
+      border-radius: 8px;
+      background: var(--blue-soft);
+    }
+
+    .callout.good {
+      border-left-color: var(--green);
+      background: var(--green-soft);
+    }
+
+    .callout.warn {
+      border-left-color: var(--amber);
+      background: var(--amber-soft);
+    }
+
+    .callout.risk {
+      border-left-color: var(--red);
+      background: var(--red-soft);
+    }
+
+    .callout.idea {
+      border-left-color: var(--purple);
+      background: var(--purple-soft);
+    }
+
+    .table-wrap {
+      width: 100%;
+      overflow-x: auto;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+    }
+
+    table {
+      width: 100%;
+      min-width: 1500px;
+      border-collapse: collapse;
+      background: var(--panel);
+    }
+
+    th,
+    td {
+      padding: 9px 10px;
+      border-right: 1px solid var(--line);
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+      font-size: 13px;
+    }
+
+    th {
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      color: #172033;
+      background: #eef3f9;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    th:last-child,
+    td:last-child { border-right: 0; }
+    tr:last-child td { border-bottom: 0; }
+
+    .num {
+      text-align: right;
+      white-space: nowrap;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      min-height: 24px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .p0 { color: #8b1d18; background: var(--red-soft); }
+    .p1 { color: #7a4a09; background: var(--amber-soft); }
+    .p2 { color: #155f49; background: var(--green-soft); }
+    .done { color: #155f49; background: var(--green-soft); }
+    .todo { color: #1f5d99; background: var(--blue-soft); }
+    .partial { color: #7a4a09; background: var(--amber-soft); }
+    .running { color: #6a3fa0; background: var(--purple-soft); }
+    .path { max-width: 420px; word-break: break-all; }
+    .muted { color: var(--muted); }
+
+    .toc {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .toc a {
+      display: block;
+      padding: 10px 12px;
+      color: var(--ink);
+      text-decoration: none;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fbfdff;
+    }
+
+    .toc a:hover { border-color: #a8bdd8; background: #f1f6fd; }
+
+    @media (max-width: 900px) {
+      main { padding: 18px 14px 44px; }
+      h1 { font-size: 28px; }
+      .cards,
+      .toc { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap">
+      <h1>MRPD 顶会论文实验路线图</h1>
+      <p class="lead">本文档将当前已经完成的实验和下一步必须补齐的实验统一整理成论文证据链。目标不是简单堆表格，而是让每个实验都回答一个审稿问题：方法是否有效、每个组件是否必要、为什么有效、是否稳定、是否可泛化、代价是否可接受。</p>
+      <div class="meta">
+        <span class="tag">更新日期：2026-05-27</span>
+        <span class="tag">任务：遥感目标定位 bbox grounding</span>
+        <span class="tag">主线：SFT → GRPO + OPSD / MRPD</span>
+        <span class="tag">指标：mIoU / IoU@0.5-0.9 / pass@8 / 统计显著性</span>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section>
+      <h2>0. 当前结论与证据缺口</h2>
+      <div class="cards">
+        <div class="card">
+          <div class="label">SFT-only test</div>
+          <div class="value">0.6809</div>
+          <div class="desc">mIoU；IoU@0.5 = 0.7696</div>
+        </div>
+        <div class="card">
+          <div class="label">SFT → GRPO-only test</div>
+          <div class="value">0.6962</div>
+          <div class="desc">mIoU；说明组内相对优化有效</div>
+        </div>
+        <div class="card">
+          <div class="label">SFT → MRPD EMA0.98 test</div>
+          <div class="value">0.7000</div>
+          <div class="desc">当前已评测最高 mIoU</div>
+        </div>
+        <div class="card">
+          <div class="label">SFT + gaussian hint best@8</div>
+          <div class="value">0.8251</div>
+          <div class="desc">说明多轨迹中存在显著更好 bbox</div>
+        </div>
+      </div>
+
+      <div class="callout good">
+        <p><strong>已形成的主线：</strong>SFT 先稳定 bbox 输出格式与基础语义定位；GRPO 通过组内相对优势提升好轨迹概率；OPSD/MRPD 用视觉提示教师纠偏低质量轨迹；教师刷新/EMA 决定教师指导是否滞后。当前 test 结果表明，SFT 后继续 GRPO 或 MRPD 都能明显超过 SFT-only。</p>
+      </div>
+
+      <div class="callout warn">
+        <p><strong>下一步最重要的缺口：</strong>当前主方法相对 GRPO-only 的提升幅度较小，因此论文必须补齐多 seed、paired bootstrap、pass@8 gap reduction、teacher-route 机制分析。否则方法容易被质疑为“GRPO 已经足够，OPSD/MRPD 只是工程堆叠”。</p>
+      </div>
+    </section>
+
+    <section>
+      <h2>1. 论文实验组织方式</h2>
+      <div class="toc">
+        <a href="#main">主实验：证明有效</a>
+        <a href="#p0">P0：投稿前必须补齐</a>
+        <a href="#p1">P1：机制与稳健性</a>
+        <a href="#p2">P2：泛化、成本与边界</a>
+      </div>
+
+      <h3>建议论文 claim</h3>
+      <p>MRPD 是面向遥感 grounding 的多轨迹相对偏好学习框架：它利用 rollout 组内的相对优势学习“选择更好 bbox”的策略，并用视觉提示增强教师对低质量轨迹进行选择性纠偏，从而把 best-of-N oracle 中暴露出的定位上限转化为单次 greedy 推理能力。</p>
+
+      <h3>实验必须构成四层证据</h3>
+      <ul>
+        <li><strong>主结果层：</strong>SFT-only、GRPO-only、OPSD-only、GRPO+OPSD/MRPD 在同一 test split 上公平比较。</li>
+        <li><strong>组件因果层：</strong>证明 GRPO、OPSD、hint、teacher refresh、EMA、路由阈值分别对应明确作用，而不是任意组合。</li>
+        <li><strong>机制解释层：</strong>证明 best@8 gap 真实存在，MRPD 缩小了 gap；证明 teacher 在 failed route 上更强。</li>
+        <li><strong>可信度层：</strong>多 seed、bootstrap 显著性、跨数据集、数据泄漏检查、成本与失败案例。</li>
+      </ul>
+    </section>
+
+    <section id="main">
+      <h2>2. 已完成主结果与当前状态</h2>
+      <p>这些实验已经可以支撑第一版主表，但还需要用多 seed 和显著性检验补强可信度。</p>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>方法</th>
+              <th>初始化</th>
+              <th>SFT</th>
+              <th>GRPO</th>
+              <th>OPSD/MRPD</th>
+              <th>hint / teacher</th>
+              <th>mIoU</th>
+              <th>IoU@0.5</th>
+              <th>IoU@0.6</th>
+              <th>IoU@0.7</th>
+              <th>IoU@0.8</th>
+              <th>IoU@0.9</th>
+              <th>状态</th>
+              <th>论文用途</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>SFT-only 4B</td>
+              <td>Qwen3-VL-4B 原始权重</td>
+              <td>是</td><td>否</td><td>否</td><td>无</td>
+              <td class="num">0.6809</td><td class="num">0.7696</td><td class="num">0.7156</td><td class="num">0.6400</td><td class="num">0.5260</td><td class="num">0.3424</td>
+              <td><span class="pill done">已完成</span></td>
+              <td>主基线，证明 SFT warm start 后的基础能力。</td>
+            </tr>
+            <tr>
+              <td>SFT → OPSD-only gaussian</td>
+              <td>SFT checkpoint</td>
+              <td>是</td><td>否</td><td>是</td><td>gaussian，教师提示蒸馏</td>
+              <td class="num">0.6833</td><td class="num">0.7708</td><td class="num">0.7167</td><td class="num">0.6438</td><td class="num">0.5338</td><td class="num">0.3396</td>
+              <td><span class="pill done">已完成</span></td>
+              <td>证明仅靠 OPSD 单独收益有限，需要与 GRPO 结合。</td>
+            </tr>
+            <tr>
+              <td>SFT → GRPO-only</td>
+              <td>SFT checkpoint</td>
+              <td>是</td><td>是</td><td>否</td><td>无教师提示</td>
+              <td class="num">0.6962</td><td class="num">0.7914</td><td class="num">0.7369</td><td class="num">0.6619</td><td class="num">0.5484</td><td class="num">0.3608</td>
+              <td><span class="pill done">已完成</span></td>
+              <td>证明 GRPO 是主要增益来源之一，也是完整方法的强基线。</td>
+            </tr>
+            <tr>
+              <td>SFT → MRPD gaussian metric refresh</td>
+              <td>SFT checkpoint</td>
+              <td>是</td><td>是</td><td>是</td><td>gaussian，metric/window refresh</td>
+              <td class="num">0.6990</td><td class="num">0.7912</td><td class="num">0.7369</td><td class="num">0.6665</td><td class="num">0.5530</td><td class="num">0.3577</td>
+              <td><span class="pill done">已完成</span></td>
+              <td>当前主方法之一；需要多 seed 验证相对 GRPO-only 的差异。</td>
+            </tr>
+            <tr>
+              <td>SFT → MRPD EMA0.98 gaussian</td>
+              <td>SFT checkpoint</td>
+              <td>是</td><td>是</td><td>是</td><td>gaussian，teacher EMA=0.98</td>
+              <td class="num"><strong>0.7000</strong></td><td class="num"><strong>0.7923</strong></td><td class="num"><strong>0.7392</strong></td><td class="num">0.6636</td><td class="num">0.5533</td><td class="num">0.3588</td>
+              <td><span class="pill done">已完成</span></td>
+              <td>当前已评测最高 mIoU；需要确认是否稳定优于 metric refresh。</td>
+            </tr>
+            <tr>
+              <td>SFT → MRPD no-refresh gaussian</td>
+              <td>SFT checkpoint</td>
+              <td>是</td><td>是</td><td>是</td><td>gaussian，teacher 固定</td>
+              <td class="num">0.6981</td><td class="num">0.7889</td><td class="num">0.7351</td><td class="num">0.6668</td><td class="num">0.5536</td><td class="num">0.3628</td>
+              <td><span class="pill done">已完成</span></td>
+              <td>teacher refresh 对照；显示不刷新也很强，需要机制分析。</td>
+            </tr>
+            <tr>
+              <td>SFT → MRPD fixed step-80 gaussian</td>
+              <td>SFT checkpoint</td>
+              <td>是</td><td>是</td><td>是</td><td>gaussian，step80 同步一次 teacher</td>
+              <td class="num">0.6987</td><td class="num">0.7903</td><td class="num">0.7386</td><td class="num">0.6613</td><td class="num">0.5564</td><td class="num">0.3554</td>
+              <td><span class="pill done">已完成</span></td>
+              <td>固定刷新基线；用于对比 metric-triggered 策略。</td>
+            </tr>
+            <tr>
+              <td>RSVG-DIOR SFT-only</td>
+              <td>Qwen3-VL-4B 原始权重</td>
+              <td>是</td><td>否</td><td>否</td><td>无</td>
+              <td class="num">0.6841</td><td class="num">0.7712</td><td class="num">0.7297</td><td class="num">0.6601</td><td class="num">0.5481</td><td class="num">0.3632</td>
+              <td><span class="pill done">已完成</span></td>
+              <td>跨数据集第一步；后续需要 RSVG 上的 GRPO-only 与 MRPD。</td>
+            </tr>
+            <tr>
+              <td>RSVG-DIOR SFT → MRPD</td>
+              <td>RSVG SFT checkpoint</td>
+              <td>是</td><td>是</td><td>是</td><td>gaussian，metric refresh</td>
+              <td class="num">待出</td><td class="num">待出</td><td class="num">待出</td><td class="num">待出</td><td class="num">待出</td><td class="num">待出</td>
+              <td><span class="pill running">运行中</span></td>
+              <td>验证方法是否能迁移到完整 object/ref 标注数据集。</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="p0">
+      <h2>3. P0：投稿前必须补齐的实验</h2>
+      <p>P0 是论文能否站住的核心证据。这里的任务应该优先执行，且尽量用统一脚本、统一 test/val split、统一记录格式。</p>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>优先级</th>
+              <th>实验</th>
+              <th>当前状态</th>
+              <th>具体设置</th>
+              <th>需要输出</th>
+              <th>为什么必须做</th>
+              <th>建议下一步</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><span class="pill p0">P0</span></td>
+              <td>主表统一复核</td>
+              <td><span class="pill partial">结果已有，需整理</span></td>
+              <td>SFT-only、OPSD-only、GRPO-only、MRPD metric refresh、MRPD EMA0.98、no refresh、step80 refresh。</td>
+              <td>统一表格，包含 test/val、mIoU、IoU@0.5-0.9、parse_rate、valid_rate、ckpt 路径、log 路径。</td>
+              <td>主表是论文第一锚点；当前结果分散在多个日志和汇总页中。</td>
+              <td>把 <code>0-SummaryOfExp.html</code> 的已完成结果同步进论文表格草稿。</td>
+            </tr>
+            <tr>
+              <td><span class="pill p0">P0</span></td>
+              <td>多 seed 可靠性</td>
+              <td><span class="pill todo">待跑</span></td>
+              <td>至少对 SFT→GRPO-only、SFT→MRPD metric refresh、SFT→MRPD EMA0.98 各补 2 个 seed；保留当前结果作为 seed-1。</td>
+              <td>mean±std，最好同时给 95% CI；训练日志和 final ckpt。</td>
+              <td>RL 训练方差会被审稿人重点质疑，尤其当前 MRPD 相对 GRPO-only 的差距较小。</td>
+              <td>优先跑 metric refresh 和 EMA0.98 的额外 seed；资源不足时先补 test-only 评测。</td>
+            </tr>
+            <tr>
+              <td><span class="pill p0">P0</span></td>
+              <td>paired bootstrap 显著性检验</td>
+              <td><span class="pill todo">待做，CPU 即可</span></td>
+              <td>基于 per-sample IoU，比较 SFT-only vs GRPO-only、GRPO-only vs MRPD、no refresh vs EMA/metric refresh。</td>
+              <td>每组差值的 95% CI、p-value、胜率统计。</td>
+              <td>当前提升幅度不大时，统计显著性比单个均值更有说服力。</td>
+              <td>先检查 eval 是否保存 per-sample 预测和 IoU；没有就补一个离线统计脚本。</td>
+            </tr>
+            <tr>
+              <td><span class="pill p0">P0</span></td>
+              <td>best-of-8 oracle gap reduction</td>
+              <td><span class="pill partial">SFT 已测，主方法待补</span></td>
+              <td>SFT ckpt、GRPO-only ckpt、MRPD metric/EMA ckpt，分别做 no-hint pass@8 和 gaussian-hint pass@8。</td>
+              <td>greedy mIoU、first@8、best@8、gap、gap reduction、IoU@0.5-0.9。</td>
+              <td>这是 MRPD 的核心动机：多轨迹里有更好 bbox，训练要把 oracle 上限转化为单次能力。</td>
+              <td>优先测 GRPO-only 和 MRPD EMA0.98 的 pass@8。</td>
+            </tr>
+            <tr>
+              <td><span class="pill p0">P0</span></td>
+              <td>teacher-route 机制分析</td>
+              <td><span class="pill todo">待做</span></td>
+              <td>离线或训练日志统计 route_good、route_failed、route_ambiguous；计算每类 route 中 student IoU、teacher IoU、teacher-student gap。</td>
+              <td>route 分布表、teacher 优于 student 的比例、failed route 的平均提升。</td>
+              <td>证明 OPSD/MRPD 不是普通 KD，而是在低质量轨迹上用更强 teacher 纠偏。</td>
+              <td>先从已有 training log 提取 route 比例，再补小规模离线 teacher/student 对比。</td>
+            </tr>
+            <tr>
+              <td><span class="pill p0">P0</span></td>
+              <td>RSVG-DIOR image-level split 检查</td>
+              <td><span class="pill todo">待做</span></td>
+              <td>检查 <code>rsvg_train.jsonl</code>、<code>rsvg_val.jsonl</code>、<code>rsvg_test.jsonl</code> 是否存在同一 image 跨 split。</td>
+              <td>每个 split 的 image 数、ref 数、重复 image 数；如有泄漏，生成 image-level 新 split。</td>
+              <td>RSVG-DIOR 每张图有多个 object/ref，若按 ref 随机划分会造成图像泄漏，是顶会审稿高风险点。</td>
+              <td>立即做 CPU 检查；如存在泄漏，后续 RSVG 结果必须标注为 preliminary 或重划分。</td>
+            </tr>
+            <tr>
+              <td><span class="pill p0">P0</span></td>
+              <td>RSVG-DIOR 完整链条</td>
+              <td><span class="pill running">SFT→MRPD 运行中</span></td>
+              <td>RSVG SFT-only、RSVG SFT→GRPO-only、RSVG SFT→MRPD；最好同样补 val/test。</td>
+              <td>RSVG test 主表，包含 mIoU 和 IoU@0.5-0.9。</td>
+              <td>证明方法不是只对 rrsisd 的单 object/ref 子集有效。</td>
+              <td>等待 MRPD 完成并评测；随后补 RSVG GRPO-only。</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="p1">
+      <h2>4. P1：机制解释与稳健性实验</h2>
+      <p>P1 用来回答“为什么有效”和“设计是否合理”。这些实验不一定全部多 seed，但应该覆盖关键变量。</p>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>优先级</th>
+              <th>实验类别</th>
+              <th>当前状态</th>
+              <th>已完成/待补设置</th>
+              <th>指标</th>
+              <th>论文中要说明的因果</th>
+              <th>执行建议</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><span class="pill p1">P1</span></td>
+              <td>hint 模式训练消融</td>
+              <td><span class="pill done">主消融已完成</span></td>
+              <td>已完成 gaussian、zoom_in、jitter_box、soft_window、no_hint。待补：box_outline 或 point_hint 可选。</td>
+              <td>test/val mIoU，IoU@0.5-0.9，训练稳定性。</td>
+              <td>视觉提示质量会影响 teacher 纠偏能力；no_hint 低于带 hint 可证明 teacher 视觉增强有价值。</td>
+              <td>不急着扩展新模式，先把已有结果整理成 Table 3。</td>
+            </tr>
+            <tr>
+              <td><span class="pill p1">P1</span></td>
+              <td>hint 强度参数消融</td>
+              <td><span class="pill todo">待跑</span></td>
+              <td>gaussian sigma/扩散半径 2-3 档；zoom_in crop scale 2-3 档；jitter_box 扰动幅度 2 档。</td>
+              <td>mIoU，IoU@0.7-0.9，teacher first quality。</td>
+              <td>证明视觉提示不是某个偶然超参带来的，而存在合理稳定区间。</td>
+              <td>优先只做 gaussian 和 zoom_in 的参数点，避免实验爆炸。</td>
+            </tr>
+            <tr>
+              <td><span class="pill p1">P1</span></td>
+              <td>teacher refresh 策略对照</td>
+              <td><span class="pill done">核心对照已完成</span></td>
+              <td>已完成 no refresh、step80、metric/window refresh、EMA0.98。待补：teacher-only refresh vs teacher+ref refresh。</td>
+              <td>test/val 指标，refresh step，KL，训练曲线。</td>
+              <td>教师更新应提高指导上限，但 ref 作为 KL 锚点不宜随意同步；可解释为什么只刷新 teacher 更稳。</td>
+              <td>补一个 teacher+ref 同步对照即可，若效果差可作为负面结果诚实呈现。</td>
+            </tr>
+            <tr>
+              <td><span class="pill p1">P1</span></td>
+              <td>OPSD 路由阈值与 loss weight</td>
+              <td><span class="pill todo">待跑</span></td>
+              <td>only_failed、failed+ambiguous、all_samples；tau 宽松/默认/严格；OPSD weight 小/中/大。</td>
+              <td>route 比例、mIoU、IoU@0.8/0.9、KL、loss 曲线。</td>
+              <td>选择性蒸馏应避免好样本被 teacher 拉回，同时在失败样本上提供纠偏。</td>
+              <td>先做 3 组最小矩阵：only_failed、默认、all_samples。</td>
+            </tr>
+            <tr>
+              <td><span class="pill p1">P1</span></td>
+              <td>rollout 数量 N</td>
+              <td><span class="pill todo">待跑</span></td>
+              <td>num_generations=2、4、8；有资源再做 16。</td>
+              <td>mIoU、best@N、训练速度、GPU-hours、显存占用。</td>
+              <td>N=8 是否是性能与成本的折中；多轨迹收益是否递减。</td>
+              <td>至少补 N=4，和当前 N=8 对比；N=2 可快速跑。</td>
+            </tr>
+            <tr>
+              <td><span class="pill p1">P1</span></td>
+              <td>KL / beta 消融</td>
+              <td><span class="pill todo">待跑</span></td>
+              <td>beta=0.02、0.04、0.08 或当前默认附近三档。</td>
+              <td>mIoU，KL，reward，parse/valid rate，高 IoU 阈值。</td>
+              <td>证明收益不是靠过度偏离 SFT 分布换来的短期 reward。</td>
+              <td>作为附录消融，优先单 seed。</td>
+            </tr>
+            <tr>
+              <td><span class="pill p1">P1</span></td>
+              <td>训练 epoch 与过拟合</td>
+              <td><span class="pill done">已有 2 epoch 结果</span></td>
+              <td>已有 1e→extra epoch test mIoU 0.6967，低于 1 epoch 主线；val/train 也已测。</td>
+              <td>每 50 step test/val，train-val gap，最终 test。</td>
+              <td>说明继续训练不一定更好，1 epoch 附近可能是更合理的停止点。</td>
+              <td>把已有曲线整理成训练动态图；无需立刻重跑。</td>
+            </tr>
+            <tr>
+              <td><span class="pill p1">P1</span></td>
+              <td>错误类型分桶分析</td>
+              <td><span class="pill todo">待做，CPU 即可</span></td>
+              <td>按 bbox 面积、长宽比、类别、文本长度、目标靠边程度、同类目标密度分桶。</td>
+              <td>每桶 mIoU、IoU@0.5、MRPD 相对 SFT/GRPO 的提升。</td>
+              <td>说明方法到底改善遥感 grounding 的哪些难点，而不是只给平均数。</td>
+              <td>优先做面积三桶、小目标和密集目标分析。</td>
+            </tr>
+            <tr>
+              <td><span class="pill p1">P1</span></td>
+              <td>可视化案例与失败案例</td>
+              <td><span class="pill todo">待做</span></td>
+              <td>SFT 错 MRPD 对；GRPO-only 粗 MRPD 准；MRPD 仍失败；best@8 中存在正确轨迹但 greedy 错。</td>
+              <td>GT bbox、SFT bbox、GRPO bbox、MRPD bbox、best@8 bbox。</td>
+              <td>给读者直觉，展示方法改善目标混淆、小目标、边界精修等场景。</td>
+              <td>每类 3-5 张图；必须包含失败案例避免过度包装。</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="p2">
+      <h2>5. P2：扩展、成本与边界实验</h2>
+      <p>P2 用于增强论文完整度。它们不一定决定论文是否成立，但会显著提升可接受性和可复现性。</p>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>优先级</th>
+              <th>实验类别</th>
+              <th>当前状态</th>
+              <th>设置</th>
+              <th>输出</th>
+              <th>价值</th>
+              <th>执行建议</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><span class="pill p2">P2</span></td>
+              <td>模型规模扩展</td>
+              <td><span class="pill partial">8B 有旧结果，未形成公平表</span></td>
+              <td>4B 与 8B：SFT-only、GRPO-only、MRPD。</td>
+              <td>性能、GPU-hours、显存、训练时长。</td>
+              <td>证明 MRPD 不只对 4B 特定模型有效。</td>
+              <td>资源紧张时 8B 放附录；主文聚焦 4B。</td>
+            </tr>
+            <tr>
+              <td><span class="pill p2">P2</span></td>
+              <td>zero-shot / 原始模型基线</td>
+              <td><span class="pill todo">待补</span></td>
+              <td>Qwen3-VL-4B 原始权重直接 test；可加 prompt 模板约束。</td>
+              <td>mIoU，parse_rate，valid_rate。</td>
+              <td>说明 SFT warm start 的必要性，也给读者一个完整起点。</td>
+              <td>只需评测，无需训练。</td>
+            </tr>
+            <tr>
+              <td><span class="pill p2">P2</span></td>
+              <td>不同训练数据规模</td>
+              <td><span class="pill todo">待跑</span></td>
+              <td>25%、50%、100% train，比较 SFT-only 与 SFT→MRPD。</td>
+              <td>数据效率曲线。</td>
+              <td>说明 MRPD 在低数据场景是否更有价值。</td>
+              <td>先做 50% 一个点；如果趋势明显再补 25%。</td>
+            </tr>
+            <tr>
+              <td><span class="pill p2">P2</span></td>
+              <td>train+val 训练影响</td>
+              <td><span class="pill partial">已有尝试，需整理</span></td>
+              <td>train-only vs train+val，最终只看 test。</td>
+              <td>test mIoU、IoU@0.5-0.9。</td>
+              <td>说明更多标注是否提升性能，同时避免把 val 当最终调参依据。</td>
+              <td>整理已有结果，谨慎放附录。</td>
+            </tr>
+            <tr>
+              <td><span class="pill p2">P2</span></td>
+              <td>训练与部署成本</td>
+              <td><span class="pill todo">待整理</span></td>
+              <td>SFT、GRPO-only、OPSD-only、MRPD、pass@8 eval 的 GPU-hours。</td>
+              <td>GPU-hours、samples/s、训练时长、eval 时长、部署推理延迟。</td>
+              <td>强调训练时使用多模型/rollout，但部署仍是单模型 greedy，不需要 pass@8。</td>
+              <td>从 rjob 日志和 tmux 日志提取，形成附录表。</td>
+            </tr>
+            <tr>
+              <td><span class="pill p2">P2</span></td>
+              <td>prompt / 输出格式稳健性</td>
+              <td><span class="pill todo">待补</span></td>
+              <td>标准 prompt、简短 prompt、带类别 prompt、无类别 prompt。</td>
+              <td>parse_rate、valid_rate、mIoU。</td>
+              <td>说明方法不是依赖某个脆弱 prompt 模板。</td>
+              <td>作为小规模附录实验即可。</td>
+            </tr>
+            <tr>
+              <td><span class="pill p2">P2</span></td>
+              <td>跨数据集迁移</td>
+              <td><span class="pill todo">谨慎待做</span></td>
+              <td>rrsisd train → RSVG test；RSVG train → rrsisd test。</td>
+              <td>cross-dataset mIoU、类别分桶。</td>
+              <td>如果 image-level split 无泄漏，可作为泛化证据；如果有重叠，要谨慎解释。</td>
+              <td>先做 split 检查，再决定是否执行。</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section>
+      <h2>6. 建议执行顺序</h2>
+      <div class="callout">
+        <p><strong>最优先顺序：</strong>先做不需要 GPU 的统计与数据检查，再补最能增强论文可信度的 GPU 实验。不要先跑大量新超参，先把现有强结果变成可被审稿人相信的证据。</p>
+      </div>
+      <ol>
+        <li>CPU 任务：RSVG-DIOR image-level split 检查；整理主表；准备 paired bootstrap 所需 per-sample IoU。</li>
+        <li>评测任务：GRPO-only 与 MRPD EMA/metric 的 pass@8，补 best-of-8 gap reduction。</li>
+        <li>训练任务：MRPD metric refresh 与 EMA0.98 的额外 seeds；必要时补 GRPO-only seed。</li>
+        <li>机制任务：route/teacher gap 统计，failed route 中 teacher 是否优于 student。</li>
+        <li>泛化任务：等待 RSVG-DIOR MRPD 完成；补 RSVG-DIOR GRPO-only。</li>
+        <li>附录任务：rollout N、OPSD 阈值、hint 强度、KL/beta、成本和失败案例。</li>
+      </ol>
+    </section>
+
+    <section>
+      <h2>7. 每个实验必须记录的字段</h2>
+      <ul>
+        <li><strong>训练配置：</strong>base model、SFT ckpt、teacher ckpt、ref ckpt、train/val/test jsonl、epoch、max_steps、batch size、gradient accumulation、num_generations、learning rate、warmup、beta、temperature、top_p、top_k。</li>
+        <li><strong>MRPD/OPSD 配置：</strong>hint mode、mask mode、tau_good、tau_fail、only_failed、OPSD loss weight、teacher refresh mode、refresh step、EMA decay、是否同步 ref。</li>
+        <li><strong>指标：</strong>mIoU、IoU@0.5/0.6/0.7/0.8/0.9、parse_rate、valid_rate、best@8、first@8、gap reduction、route 比例、KL、reward。</li>
+        <li><strong>可靠性：</strong>seed、mean±std、paired bootstrap CI、p-value、是否有异常重启或保存失败。</li>
+        <li><strong>产物路径：</strong>checkpoint、training log、eval summary、per-sample result、可视化目录、rjob 名称和运行资源。</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>8. 审稿风险与对应实验</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>审稿风险</th>
+              <th>需要的证据</th>
+              <th>当前情况</th>
+              <th>处理优先级</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>OPSD/MRPD 是否真的超过 GRPO-only？</td>
+              <td>GRPO-only vs MRPD 的多 seed、paired bootstrap、route 机制分析。</td>
+              <td>单次 test 已有，但差距不够大，必须补可靠性。</td>
+              <td><span class="pill p0">P0</span></td>
+            </tr>
+            <tr>
+              <td>提升是否只是 SFT 带来的？</td>
+              <td>SFT-only、OPSD-only、GRPO-only、MRPD 主表。</td>
+              <td>主表核心结果已基本完成。</td>
+              <td><span class="pill p0">P0</span></td>
+            </tr>
+            <tr>
+              <td>best-of-8 动机是否真的转化为 greedy 能力？</td>
+              <td>SFT/GRPO/MRPD 的 pass@8 和 gap reduction。</td>
+              <td>SFT pass@8 已有，主方法待补。</td>
+              <td><span class="pill p0">P0</span></td>
+            </tr>
+            <tr>
+              <td>RSVG-DIOR 是否存在图像泄漏？</td>
+              <td>image-level split 检查或重新划分。</td>
+              <td>尚未系统检查。</td>
+              <td><span class="pill p0">P0</span></td>
+            </tr>
+            <tr>
+              <td>方法是否只是工程堆叠？</td>
+              <td>每个组件对应一个失败模式：SFT 稳格式，GRPO 学选择，OPSD 修失败，refresh/EMA 控制 teacher 滞后。</td>
+              <td>需要 route/teacher gap 与消融文字解释。</td>
+              <td><span class="pill p1">P1</span></td>
+            </tr>
+            <tr>
+              <td>方法成本是否过高？</td>
+              <td>训练 GPU-hours 与部署 greedy 延迟。</td>
+              <td>日志中有信息，但尚未整理。</td>
+              <td><span class="pill p2">P2</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

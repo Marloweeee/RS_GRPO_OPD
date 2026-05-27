@@ -1,0 +1,503 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>全量数据 GRPO-only 验证实验计划</title>
+  <style>
+    :root {
+      --bg: #f5f7fb;
+      --panel: #ffffff;
+      --text: #172033;
+      --muted: #5f6b7a;
+      --line: #d8dee9;
+      --blue: #195a9b;
+      --blue-soft: #e8f1fb;
+      --green: #0f766e;
+      --green-soft: #ecfdf5;
+      --orange: #9a5b00;
+      --orange-soft: #fff7ed;
+      --red: #b42318;
+      --red-soft: #fef3f2;
+      --code-bg: #111827;
+      --code: #e5e7eb;
+      --shadow: 0 10px 28px rgba(16, 24, 40, 0.08);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif;
+      line-height: 1.68;
+    }
+
+    header {
+      background: #0f172a;
+      color: #f8fafc;
+      padding: 40px 24px 34px;
+    }
+
+    main,
+    .wrap {
+      max-width: 1120px;
+      margin: 0 auto;
+    }
+
+    main {
+      padding: 28px 24px 56px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(30px, 4vw, 46px);
+      line-height: 1.16;
+      letter-spacing: 0;
+    }
+
+    .subtitle {
+      max-width: 920px;
+      margin: 16px 0 0;
+      color: #d1d5db;
+      font-size: 17px;
+    }
+
+    section {
+      margin: 0 0 18px;
+      padding: 24px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+    }
+
+    h2 {
+      margin: 0 0 14px;
+      font-size: 24px;
+      line-height: 1.25;
+      letter-spacing: 0;
+    }
+
+    h3 {
+      margin: 22px 0 10px;
+      font-size: 18px;
+      letter-spacing: 0;
+    }
+
+    p {
+      margin: 10px 0;
+    }
+
+    ul,
+    ol {
+      margin: 10px 0 0;
+      padding-left: 22px;
+    }
+
+    li {
+      margin: 6px 0;
+    }
+
+    code {
+      padding: 1px 5px;
+      border-radius: 4px;
+      background: #eef2f7;
+      color: #111827;
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+      font-size: 0.94em;
+    }
+
+    pre {
+      overflow-x: auto;
+      margin: 12px 0;
+      padding: 16px;
+      border-radius: 8px;
+      background: var(--code-bg);
+      color: var(--code);
+      line-height: 1.5;
+      font-size: 14px;
+    }
+
+    pre code {
+      padding: 0;
+      background: transparent;
+      color: inherit;
+      font-size: inherit;
+    }
+
+    table {
+      width: 100%;
+      margin: 12px 0;
+      border-collapse: collapse;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+    }
+
+    th,
+    td {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background: #f1f5f9;
+      font-weight: 700;
+    }
+
+    tr:last-child td {
+      border-bottom: 0;
+    }
+
+    .callout {
+      margin: 14px 0;
+      padding: 14px 16px;
+      border: 1px solid var(--line);
+      border-left: 4px solid var(--blue);
+      border-radius: 8px;
+      background: var(--blue-soft);
+    }
+
+    .callout.ok {
+      border-left-color: var(--green);
+      background: var(--green-soft);
+    }
+
+    .callout.warn {
+      border-left-color: var(--orange);
+      background: var(--orange-soft);
+    }
+
+    .callout.danger {
+      border-left-color: var(--red);
+      background: var(--red-soft);
+    }
+
+    .tag {
+      display: inline-block;
+      margin: 0 6px 6px 0;
+      padding: 3px 8px;
+      border-radius: 999px;
+      background: #e2e8f0;
+      color: #334155;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+      margin-top: 12px;
+    }
+
+    .metric {
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fbfdff;
+    }
+
+    .metric strong {
+      display: block;
+      margin-bottom: 4px;
+      font-size: 15px;
+    }
+
+    @media (max-width: 820px) {
+      .grid {
+        grid-template-columns: 1fr;
+      }
+
+      table {
+        font-size: 14px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap">
+      <h1>全量数据 GRPO-only 验证实验计划</h1>
+      <p class="subtitle">
+        目的：在已经验证“只用 OPD 不如 GRPO+OPD”的基础上，补齐“只用 GRPO”的关键对照组，
+        判断最终收益到底来自组内强化学习本身，还是来自 OPD/teacher 分布校正，或者二者叠加。
+      </p>
+    </div>
+  </header>
+
+  <main>
+    <section>
+      <h2>1. 实验问题</h2>
+      <p>
+        当前证据链还缺一个纯 GRPO baseline。我们已有或计划已有三类结果：
+      </p>
+      <table>
+        <thead>
+          <tr>
+            <th>实验组</th>
+            <th>训练信号</th>
+            <th>回答的问题</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>OPD-only</td>
+            <td>teacher visual hint / distillation，不做组内 RL</td>
+            <td>单纯靠 teacher hint 能否带来足够提升？</td>
+          </tr>
+          <tr>
+            <td>GRPO-only</td>
+            <td>8 rollouts + bbox geometry reward + GRPO advantage，不做 teacher/OPD</td>
+            <td>只靠组内强化学习，模型能学到多少 bbox 选择能力？</td>
+          </tr>
+          <tr>
+            <td>GRPO+OPD / GRPO+SDPO</td>
+            <td>GRPO 主目标 + 低质量样本 teacher 分布校正</td>
+            <td>teacher/OPD 是否补足 GRPO 对坏样本学习不足的问题？</td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="callout">
+        <strong>核心判断：</strong>如果 GRPO-only 明显弱于 GRPO+OPD，说明 teacher/OPD 对低质量轨迹的分布约束是必要的；
+        如果 GRPO-only 接近 GRPO+OPD，则说明主要收益来自 8-rollout 组内优化，OPD 的边际收益有限。
+      </div>
+    </section>
+
+    <section>
+      <h2>2. 变量控制</h2>
+      <p>本实验只移除 SDPO/OPD teacher 分支，其余条件尽量与全量 GRPO+SDPO 对照保持一致。</p>
+      <table>
+        <thead>
+          <tr>
+            <th>维度</th>
+            <th>GRPO-only 设置</th>
+            <th>控制理由</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Base model</td>
+            <td><code>/mnt/jfs/copilot/lhb/checkpoint/opensource/Qwen3-VL-4B-Instruct</code></td>
+            <td>从同一个 4B base 出发，避免 warm-start 差异。</td>
+          </tr>
+          <tr>
+            <td>训练集</td>
+            <td><code>/data/codes/gui_grounding/data/rs_full/rs_train.jsonl</code></td>
+            <td>使用全量数据，不用 smoke 或 subset。</td>
+          </tr>
+          <tr>
+            <td>测试集</td>
+            <td><code>/data/codes/gui_grounding/data/rs_full/rs_test.jsonl</code></td>
+            <td>与前面全量实验保持同一测试分布。</td>
+          </tr>
+          <tr>
+            <td>Rollout 数</td>
+            <td><code>num_generations=8</code></td>
+            <td>保持“一次 rollout 8 个 bbox”的设定。</td>
+          </tr>
+          <tr>
+            <td>Reward</td>
+            <td><code>bbox-geometry</code></td>
+            <td>只用几何 reward 优化 bbox，不引入 teacher。</td>
+          </tr>
+          <tr>
+            <td>SDPO/OPD</td>
+            <td><code>--use_sdpo false</code>，不传 <code>teacher_model</code>，不建 <code>opsd_mask_dir</code></td>
+            <td>确保这是纯 GRPO 对照，而不是弱化版 GRPO+SDPO。</td>
+          </tr>
+          <tr>
+            <td>Batch / LR</td>
+            <td><code>2 nodes × 7 GPUs × bsz4 × grad_acc2 = generation_batch_size 112</code>，<code>lr=2e-6</code></td>
+            <td>沿用两节点 4B 全量训练配置，减少训练效率变量。</td>
+          </tr>
+          <tr>
+            <td>评估</td>
+            <td>训练结束后对最新 checkpoint 跑 greedy 测试集评估</td>
+            <td>先看单次采样真实部署性能，再按需补 best-of-8 oracle。</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>3. 已准备的脚本</h2>
+      <p>本次只新增验证脚本，不修改现有 GRPO+SDPO 训练入口，避免污染当前工作流。</p>
+      <table>
+        <thead>
+          <tr>
+            <th>脚本</th>
+            <th>作用</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>tools/training/run_qwen3_4b_base_rsfull_grpo_only_2node_worker.sh</code></td>
+            <td>两节点 worker。每个节点 7 卡训练、1 卡本地 rollout server；运行纯 GRPO；训练结束后 rank0 自动评估最新 checkpoint。</td>
+          </tr>
+          <tr>
+            <td><code>tools/training/launch_qwen3_4b_base_rsfull_grpo_only_2node_rjob.sh</code></td>
+            <td>rjob launcher。默认使用 <code>gui_agent</code>，日志写到 <code>/data/codes/gui_grounding/data/logs</code>，checkpoint 写到 <code>/mnt</code>。</td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="callout ok">
+        <strong>脚本隔离点：</strong>run name 使用 <code>rsfull_grpo_only</code>，rjob name 使用 <code>q4b-grpoonly</code>，
+        不会覆盖当前 GRPO+SDPO、两阶段、midrefresh 或 4090 README 工作流。
+      </div>
+    </section>
+
+    <section>
+      <h2>4. 待确认后的执行命令</h2>
+      <p>确认计划无误后，再新开 tmux 会话执行。当前阶段不要直接运行。</p>
+      <pre><code>tmux new -s qwen3_4b_rsfull_grpo_only
+
+cd /data/codes/gui_grounding/GUI-SD-code-main
+
+RJOB_GROUP=gui_agent \
+RJOB_CHARGED_GROUP=gui_agent \
+BASE_MODEL_PATH=/mnt/jfs/copilot/lhb/checkpoint/opensource/Qwen3-VL-4B-Instruct \
+TRAIN_JSONL=/data/codes/gui_grounding/data/rs_full/rs_train.jsonl \
+TEST_JSONL=/data/codes/gui_grounding/data/rs_full/rs_test.jsonl \
+CKPT_ROOT=/mnt/jfs/copilot/lhb/checkpoint/rs/rs-sd \
+ARTIFACT_ROOT=/mnt/jfs/copilot/lhb/artifacts/rs/rs-sd \
+bash tools/training/launch_qwen3_4b_base_rsfull_grpo_only_2node_rjob.sh</code></pre>
+      <p>默认输出：</p>
+      <pre><code>主日志:
+/data/codes/gui_grounding/data/logs/q4b-grpoonly-2n-*.rjob.log
+
+checkpoint:
+/mnt/jfs/copilot/lhb/checkpoint/rs/rs-sd/gui-sd-qwen3-4b-base_rsfull_grpo_only_2node_bsz4_gacc2_lr2e6_e1-*/v*/checkpoint-*
+
+评估:
+/mnt/jfs/copilot/lhb/artifacts/rs/rs-sd/eval/gui-sd-qwen3-4b-base_rsfull_grpo_only_2node_bsz4_gacc2_lr2e6_e1-*/checkpoint-*/summary.json</code></pre>
+    </section>
+
+    <section>
+      <h2>5. 结果记录指标</h2>
+      <div class="grid">
+        <div class="metric">
+          <strong>主指标</strong>
+          <span><code>IoU@0.5</code>：最直接对齐前面全量实验比较。</span>
+        </div>
+        <div class="metric">
+          <strong>辅助指标</strong>
+          <span><code>mIoU</code>、<code>IoU@0.7</code>：观察定位精度是否整体提升。</span>
+        </div>
+        <div class="metric">
+          <strong>格式稳定性</strong>
+          <span><code>parse_rate</code>、<code>valid_rate</code>：判断 GRPO 是否破坏 bbox 输出格式。</span>
+        </div>
+      </div>
+      <p>建议训练完成后记录：</p>
+      <pre><code>cat /mnt/jfs/copilot/lhb/artifacts/rs/rs-sd/eval/&lt;run_name&gt;/checkpoint-*/summary.json</code></pre>
+      <p>如果 GRPO-only greedy 指标较低，但 best-of-8 oracle 较高，说明模型会采到好框，但还没有把好框概率集中到单次输出；这正是 OPD/teacher 分布校正可能发挥作用的地方。</p>
+    </section>
+
+    <section>
+      <h2>6. 结果判读</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>现象</th>
+            <th>解释</th>
+            <th>下一步</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>GRPO-only ≈ GRPO+OPD</td>
+            <td>主要收益来自 8-rollout 组内优化，teacher 校正边际小。</td>
+            <td>优先优化 GRPO reward、采样温度、num_generations、训练步数。</td>
+          </tr>
+          <tr>
+            <td>GRPO-only 明显低于 GRPO+OPD</td>
+            <td>OPD/teacher 对失败轨迹有实质指导作用，能帮助模型把概率质量转向正确 bbox。</td>
+            <td>继续做 selective teacher、teacher/ref refresh、失败样本路由阈值消融。</td>
+          </tr>
+          <tr>
+            <td>GRPO-only 高于 GRPO+OPD</td>
+            <td>teacher 分布可能过强或不稳定，干扰了 GRPO 的 reward 优化。</td>
+            <td>降低 <code>sdpo_lambda</code>，仅对低 IoU 样本启用 teacher，或改用更保守的 KL top-k。</td>
+          </tr>
+          <tr>
+            <td>GRPO-only parse/valid 下降</td>
+            <td>纯 RL 可能牺牲输出格式稳定性。</td>
+            <td>增加格式 reward 或保留轻量 SFT/teacher 格式约束。</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>7. 风险与防污染措施</h2>
+      <ul>
+        <li>不复用现有 GRPO+SDPO run name，避免覆盖历史 checkpoint。</li>
+        <li>不修改现有 worker，只新增 <code>grpo_only</code> worker 和 launcher。</li>
+        <li>不在当前 shell 直接执行大任务；确认后使用 tmux 新会话。</li>
+        <li>checkpoint 和评估结果全部写到 <code>/mnt/jfs/copilot/lhb</code>，不写本地仓库。</li>
+        <li>日志写到 <code>/data/codes/gui_grounding/data/logs</code>，便于后续补充到实验 HTML。</li>
+      </ul>
+      <div class="callout warn">
+        <strong>当前状态：</strong>脚本已准备并通过 shell 语法检查，但尚未提交运行。等待确认后再执行。
+      </div>
+    </section>
+
+    <section>
+      <h2>8. 最终对比表模板</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>方法</th>
+            <th>Base</th>
+            <th>Train data</th>
+            <th>IoU@0.5</th>
+            <th>mIoU</th>
+            <th>IoU@0.7</th>
+            <th>parse / valid</th>
+            <th>结论</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>OPD-only</td>
+            <td>待补</td>
+            <td>full</td>
+            <td>待填</td>
+            <td>待填</td>
+            <td>待填</td>
+            <td>待填</td>
+            <td>已知弱于 GRPO+OPD</td>
+          </tr>
+          <tr>
+            <td>GRPO-only</td>
+            <td>Qwen3-VL-4B-Instruct</td>
+            <td>full</td>
+            <td>待运行</td>
+            <td>待运行</td>
+            <td>待运行</td>
+            <td>待运行</td>
+            <td>本次验证</td>
+          </tr>
+          <tr>
+            <td>GRPO+OPD / SDPO</td>
+            <td>Qwen3-VL-4B-Instruct</td>
+            <td>full</td>
+            <td>待补已有结果</td>
+            <td>待补已有结果</td>
+            <td>待补已有结果</td>
+            <td>待补已有结果</td>
+            <td>当前主方法</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+  </main>
+</body>
+</html>

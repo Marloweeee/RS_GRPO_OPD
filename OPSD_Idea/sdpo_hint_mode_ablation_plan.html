@@ -1,0 +1,614 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GRPO+SDPO 不同视觉提示模式消融实验计划</title>
+  <style>
+    :root {
+      --bg: #f6f8fb;
+      --panel: #ffffff;
+      --ink: #172033;
+      --muted: #5d6878;
+      --line: #d8e0eb;
+      --head: #102033;
+      --accent: #1f6f78;
+      --accent-soft: #e7f6f8;
+      --green: #176b52;
+      --green-soft: #eaf8f2;
+      --amber: #8a5a12;
+      --amber-soft: #fff6e5;
+      --red: #9e2f28;
+      --red-soft: #fff0ef;
+      --gray-soft: #eef2f7;
+      --shadow: 0 10px 26px rgba(15, 23, 42, 0.08);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: var(--bg);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans SC", "Microsoft YaHei", Arial, sans-serif;
+      line-height: 1.62;
+    }
+
+    header {
+      padding: 40px 24px 34px;
+      background: var(--head);
+      color: #f8fafc;
+    }
+
+    main,
+    .wrap {
+      max-width: 1260px;
+      margin: 0 auto;
+    }
+
+    main {
+      padding: 28px 24px 64px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(29px, 4vw, 43px);
+      line-height: 1.16;
+      letter-spacing: 0;
+    }
+
+    h2 {
+      margin: 0 0 14px;
+      font-size: 23px;
+      line-height: 1.3;
+      letter-spacing: 0;
+    }
+
+    h3 {
+      margin: 20px 0 8px;
+      font-size: 18px;
+      letter-spacing: 0;
+    }
+
+    p { margin: 9px 0; }
+
+    ul,
+    ol {
+      margin: 10px 0 0;
+      padding-left: 22px;
+    }
+
+    li { margin: 6px 0; }
+
+    code {
+      padding: 1px 5px;
+      border-radius: 4px;
+      background: var(--gray-soft);
+      color: #111827;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+      font-size: 0.92em;
+      word-break: break-all;
+    }
+
+    section {
+      margin: 0 0 18px;
+      padding: 22px 24px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+    }
+
+    .lead {
+      max-width: 980px;
+      margin-top: 14px;
+      color: #d1d5db;
+      font-size: 17px;
+    }
+
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 18px;
+    }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      min-height: 30px;
+      padding: 4px 10px;
+      border: 1px solid rgba(248, 250, 252, 0.22);
+      border-radius: 6px;
+      color: #e5e7eb;
+      background: rgba(255, 255, 255, 0.08);
+      font-size: 14px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .card {
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fbfdff;
+    }
+
+    .card .label {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .card .value {
+      margin-top: 5px;
+      font-size: 24px;
+      font-weight: 800;
+      line-height: 1.2;
+    }
+
+    .card .desc {
+      margin-top: 6px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .callout {
+      margin: 13px 0;
+      padding: 13px 15px;
+      border: 1px solid var(--line);
+      border-left: 4px solid var(--accent);
+      border-radius: 8px;
+      background: var(--accent-soft);
+    }
+
+    .callout.success {
+      border-left-color: var(--green);
+      background: var(--green-soft);
+    }
+
+    .callout.warn {
+      border-left-color: var(--amber);
+      background: var(--amber-soft);
+    }
+
+    .callout.risk {
+      border-left-color: var(--red);
+      background: var(--red-soft);
+    }
+
+    .table-wrap {
+      width: 100%;
+      overflow-x: auto;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+    }
+
+    table {
+      width: 100%;
+      min-width: 1180px;
+      border-collapse: collapse;
+      background: var(--panel);
+    }
+
+    th,
+    td {
+      padding: 10px 11px;
+      border-bottom: 1px solid var(--line);
+      border-right: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+      font-size: 14px;
+    }
+
+    th:last-child,
+    td:last-child { border-right: 0; }
+    tr:last-child td { border-bottom: 0; }
+
+    th {
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      background: #eef3f9;
+      font-weight: 750;
+      white-space: nowrap;
+    }
+
+    .num {
+      text-align: right;
+      white-space: nowrap;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .small {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .status {
+      display: inline-flex;
+      align-items: center;
+      min-height: 24px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: var(--gray-soft);
+      color: #273449;
+      font-size: 12px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .status.core {
+      border-color: #7bb7bb;
+      background: var(--accent-soft);
+      color: var(--accent);
+    }
+
+    .status.optional {
+      border-color: #d8b675;
+      background: var(--amber-soft);
+      color: var(--amber);
+    }
+
+    @media (max-width: 920px) {
+      main { padding: 22px 14px 48px; }
+      header { padding: 32px 16px 28px; }
+      .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+
+    @media (max-width: 560px) {
+      .grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap">
+      <h1>GRPO+SDPO 不同视觉提示模式消融实验计划</h1>
+      <p class="lead">目标是在全量遥感目标定位数据上，固定 GRPO 与 SDPO 的训练策略，仅改变 SDPO teacher 侧视觉提示形态，验证 <code>gaussian</code>、<code>soft_window</code>、<code>jitter_box</code>、<code>zoom_in</code> 对最终 greedy student 与 best-of-8 上限的影响。</p>
+      <div class="meta">
+        <span class="tag">计划日期：2026-05-22</span>
+        <span class="tag">模型：Qwen3-VL-4B-Instruct</span>
+        <span class="tag">训练：GRPO + SDPO</span>
+        <span class="tag">变量：OPSD_MASK_MODE</span>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section>
+      <h2>核心结论先验</h2>
+      <div class="grid">
+        <div class="card">
+          <div class="label">实验主问题</div>
+          <div class="value">提示强度</div>
+          <div class="desc">teacher 看到的视觉提示越强，KD 信号可能越准，但也可能和 student 部署输入产生更大的分布差异。</div>
+        </div>
+        <div class="card">
+          <div class="label">当前代码口径</div>
+          <div class="value">mask mode</div>
+          <div class="desc">这四个模式在代码中是 <code>opsd_mask_mode</code>，不是 <code>opsd_hint_mode</code>；实验固定 <code>opsd_hint_mode=hint</code>。</div>
+        </div>
+        <div class="card">
+          <div class="label">主要指标</div>
+          <div class="value">IoU@0.5</div>
+          <div class="desc">以全量测试集 greedy student 的 <code>IoU@0.5</code> 为主，补充 <code>mIoU</code> 与 <code>IoU@0.6-0.9</code>。</div>
+        </div>
+        <div class="card">
+          <div class="label">上限指标</div>
+          <div class="value">best-of-8</div>
+          <div class="desc">对最优 1-2 个模式追加 best-of-8 oracle，判断候选空间是否随提示模式变好。</div>
+        </div>
+      </div>
+
+      <div class="callout warn">
+        <strong>执行前置检查：</strong>当前 4B GRPO+SDPO worker 已支持 <code>OPSD_MASK_MODE</code>、<code>OPSD_JITTER_RATIO</code>、<code>OPSD_HINT_BOX_COLOR</code> 等参数，但现有 launcher 没有显式透传这些变量到 rjob。正式执行前需要新增一个专用 ablation launcher，或修改 launcher 的 <code>--set-env</code> 列表，确保每个 rjob 真正使用对应模式，避免所有实验都退回 worker 默认的 <code>gaussian</code>。
+      </div>
+    </section>
+
+    <section>
+      <h2>实验假设</h2>
+      <ul>
+        <li><strong>H1：</strong><code>gaussian</code> 和 <code>soft_window</code> 都能给 teacher 提供连续空间先验，可能比硬框更稳定；其中 <code>soft_window</code> 不画框，泄漏更少，若性能接近或超过 <code>gaussian</code>，说明 SDPO 不依赖精确框线提示。</li>
+        <li><strong>H2：</strong><code>jitter_box</code> 用抖动框给 teacher 近似区域，可能降低对 GT 框线的过拟合，让 teacher 指导更接近 rollout 中的错误修正场景；但抖动过大可能降低 teacher 的定位质量。</li>
+        <li><strong>H3：</strong><code>zoom_in</code> 给 teacher 最强的局部可见性，可能提升短期 KD 信号；但黑掉上下文会造成 teacher/student 输入分布差异，可能影响 student 单次输出泛化。</li>
+        <li><strong>H4：</strong>如果某种提示模式的 greedy 指标没有明显提高，但 best-of-8 oracle 明显提高，说明它主要改善候选空间而不是单次选择能力，后续应结合选择器或更强的组内蒸馏策略。</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>固定实验条件</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>类别</th>
+              <th>固定设置</th>
+              <th>理由</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>基础模型</td>
+              <td><code>/mnt/jfs/copilot/lhb/checkpoint/opensource/Qwen3-VL-4B-Instruct</code></td>
+              <td>使用 4B 从头训练，成本低于 8B，且已有 GRPO-only、OPD-only、GRPO+SDPO 结果可作为参照。</td>
+            </tr>
+            <tr>
+              <td>训练数据</td>
+              <td><code>/data/codes/gui_grounding/data/rs_full/rs_train.jsonl</code></td>
+              <td>使用全量训练集，避免小样本 smoke 结果误导最终结论。</td>
+            </tr>
+            <tr>
+              <td>测试数据</td>
+              <td><code>/data/codes/gui_grounding/data/rs_full/rs_test.jsonl</code>，<code>n=3481</code></td>
+              <td>和现有汇总表保持一致。</td>
+            </tr>
+            <tr>
+              <td>训练策略</td>
+              <td><code>rlhf_type=grpo</code>，<code>use_sdpo=true</code>，<code>num_generations=8</code>，<code>num_iterations=1</code></td>
+              <td>保持 GRPO 组内采样与 SDPO teacher 指导同时存在，只改变 teacher 视觉提示。</td>
+            </tr>
+            <tr>
+              <td>SDPO 超参</td>
+              <td><code>sdpo_lambda=0.25</code>，<code>sdpo_tau_good=0.5</code>，<code>sdpo_tau_fail=0.3</code>，<code>sdpo_delta=0.5</code>，<code>sdpo_only_failed=true</code>，<code>sdpo_target=rollout</code></td>
+              <td>沿用当前最主要的 4B GRPO+SDPO 设置，保证消融变量单一。</td>
+            </tr>
+            <tr>
+              <td>优化超参</td>
+              <td><code>lr=2e-6</code>，<code>per_device_train_batch_size=4</code>，<code>gradient_accumulation_steps=2</code>，<code>warmup_ratio=0.03</code>，<code>num_train_epochs=1</code></td>
+              <td>复用已有 4B 双机单阶段训练配置，保持显存利用和训练稳定性。</td>
+            </tr>
+            <tr>
+              <td>提示文本</td>
+              <td><code>opsd_hint_mode=hint</code></td>
+              <td>代码会根据 <code>opsd_mask_mode</code> 自动生成对应文本，例如 soft window 使用 brighter region，jitter box 使用 magenta box。</td>
+            </tr>
+            <tr>
+              <td>输出位置</td>
+              <td>checkpoint 写到 <code>/mnt/jfs/copilot/lhb/checkpoint/rs/rs-sd</code>，日志写到 <code>/data/codes/gui_grounding/data/logs</code></td>
+              <td>避免本地磁盘被 checkpoint 占满，并保留本地可快速查看的 rjob 日志。</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section>
+      <h2>核心消融矩阵</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>编号</th>
+              <th>模式</th>
+              <th>关键参数</th>
+              <th>teacher 看到什么</th>
+              <th>预期优点</th>
+              <th>主要风险</th>
+              <th>执行优先级</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="num">A</td>
+              <td><code>gaussian</code></td>
+              <td><code>OPSD_MASK_MODE=gaussian</code><br><code>OPSD_GAUSSIAN_SIGMA_RATIO=1.5</code></td>
+              <td>目标框附近保留亮度，离框越远越暗，同时画提示框。</td>
+              <td>空间提示强、teacher 容易给出高质量分布，是当前默认强基线。</td>
+              <td>框线过强，可能泄漏精确 GT，使 teacher/student gap 变大。</td>
+              <td><span class="status core">核心</span></td>
+            </tr>
+            <tr>
+              <td class="num">B</td>
+              <td><code>soft_window</code></td>
+              <td><code>OPSD_MASK_MODE=soft_window</code><br><code>OPSD_GAUSSIAN_SIGMA_RATIO=1.5</code></td>
+              <td>目标区域亮、周围暗，但不画框；文本提示目标在 brighter region。</td>
+              <td>连续空间先验保留，同时减少精确框线泄漏，可能更适合 bbox 蒸馏。</td>
+              <td>提示变弱后 teacher 纠错能力可能下降，SDPO loss 质量下降。</td>
+              <td><span class="status core">核心</span></td>
+            </tr>
+            <tr>
+              <td class="num">C</td>
+              <td><code>jitter_box</code></td>
+              <td><code>OPSD_MASK_MODE=jitter_box</code><br><code>OPSD_JITTER_RATIO=0.2</code><br><code>OPSD_HINT_BOX_COLOR=magenta</code></td>
+              <td>原图上画一个相对 GT 边界抖动的品红框；文本提示目标大致在框内。</td>
+              <td>减少精确 GT 泄漏，模拟不确定视觉提示，可能更利于 student 学会选择正确 bbox。</td>
+              <td>抖动随机性带来训练噪声；如果框偏移过大，teacher 分布会变差。</td>
+              <td><span class="status core">核心</span></td>
+            </tr>
+            <tr>
+              <td class="num">D</td>
+              <td><code>zoom_in</code></td>
+              <td><code>OPSD_MASK_MODE=zoom_in</code></td>
+              <td>只保留以目标中心为中心的一块区域，其他区域变黑，并画提示框。</td>
+              <td>局部目标最突出，teacher 在小目标场景下可能更稳定。</td>
+              <td>上下文被破坏，teacher 输入和 student 原图输入差异最大，可能导致蒸馏偏移。</td>
+              <td><span class="status core">核心</span></td>
+            </tr>
+            <tr>
+              <td class="num">E</td>
+              <td><code>no_mask</code> / <code>hint_mode=none</code></td>
+              <td><code>OPSD_MASK_MODE=no_mask</code> 或 <code>OPSD_HINT_MODE=none</code></td>
+              <td>teacher 基本看原图，弱化或移除视觉提示。</td>
+              <td>可作为负对照，判断 SDPO 的收益是否主要来自视觉提示。</td>
+              <td>不是本轮核心需求，可能增加训练成本。</td>
+              <td><span class="status optional">可选</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section>
+      <h2>执行流程</h2>
+      <ol>
+        <li><strong>准备专用 ablation 脚本。</strong>基于 <code>tools/training/launch_qwen3_4b_base_rsfull_grpo_sdpo_2node_rjob.sh</code> 和 <code>tools/training/run_qwen3_4b_base_rsfull_grpo_sdpo_2node_worker.sh</code>，新增独立脚本，不污染现有训练入口。launcher 必须显式透传 <code>OPSD_MASK_MODE</code>、<code>OPSD_HINT_MODE</code>、<code>OPSD_GAUSSIAN_SIGMA_RATIO</code>、<code>OPSD_JITTER_RATIO</code>、<code>OPSD_HINT_BOX_COLOR</code>、<code>SDPO_*</code>、<code>GRPO_BETA</code> 等变量。</li>
+        <li><strong>做短步 smoke。</strong>每个模式先用 <code>MAX_STEPS=20</code> 或 <code>MAX_STEPS=40</code> 跑一次，检查日志中打印的 <code>opsd_mask_mode</code>、SDPO route 指标、mask cache 文件是否符合预期。smoke 输出放到 <code>/data/codes/gui_grounding/data/logs/tmp</code>。</li>
+        <li><strong>全量训练。</strong>四个核心模式全部从同一个 4B base 初始化，使用全量训练集跑 1 epoch。优先并发 2 个 rjob，避免一次占用过多机器；若 <code>gui_agent</code> 不足，则切到 <code>aos</code>。</li>
+        <li><strong>全量 greedy 评估。</strong>每个模式训练完成后，取最终 checkpoint 和倒数第三个 checkpoint 分别评估 <code>IoU@0.5/0.6/0.7/0.8/0.9</code>，避免最后保存点异常造成误判。</li>
+        <li><strong>best-of-8 评估。</strong>对 greedy 排名前 2 的模式，追加 <code>num_rollouts=8</code>、<code>temperature=0.7</code>、<code>top_p=0.95</code> 的 best-of-8 oracle 评估；如第三名和第二名差距小于 0.003，也纳入 best-of-8。</li>
+        <li><strong>结果归档。</strong>把每个实验的 checkpoint 路径、rjob 日志、summary、IoU sweep、best-of-8 结果补充到 <code>rs_full_model_metrics_summary.html</code>，并在本计划文件中追加执行结果表。</li>
+      </ol>
+    </section>
+
+    <section>
+      <h2>推荐运行命名</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>模式</th>
+              <th>RUN_NAME 建议</th>
+              <th>RJOB_NAME 建议</th>
+              <th>日志建议</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>gaussian</code></td>
+              <td><code>gui-sd-qwen3-4b-rsfull_grpo_sdpo_hint_gaussian_e1-${timestamp}</code></td>
+              <td><code>qwen3-4b-sdpo-gaussian-2n-${timestamp}</code></td>
+              <td><code>/data/codes/gui_grounding/data/logs/qwen3-4b-sdpo-gaussian-2n-${timestamp}.rjob.log</code></td>
+            </tr>
+            <tr>
+              <td><code>soft_window</code></td>
+              <td><code>gui-sd-qwen3-4b-rsfull_grpo_sdpo_hint_soft_window_e1-${timestamp}</code></td>
+              <td><code>qwen3-4b-sdpo-softwin-2n-${timestamp}</code></td>
+              <td><code>/data/codes/gui_grounding/data/logs/qwen3-4b-sdpo-softwin-2n-${timestamp}.rjob.log</code></td>
+            </tr>
+            <tr>
+              <td><code>jitter_box</code></td>
+              <td><code>gui-sd-qwen3-4b-rsfull_grpo_sdpo_hint_jitter_box_e1-${timestamp}</code></td>
+              <td><code>qwen3-4b-sdpo-jitter-2n-${timestamp}</code></td>
+              <td><code>/data/codes/gui_grounding/data/logs/qwen3-4b-sdpo-jitter-2n-${timestamp}.rjob.log</code></td>
+            </tr>
+            <tr>
+              <td><code>zoom_in</code></td>
+              <td><code>gui-sd-qwen3-4b-rsfull_grpo_sdpo_hint_zoom_in_e1-${timestamp}</code></td>
+              <td><code>qwen3-4b-sdpo-zoomin-2n-${timestamp}</code></td>
+              <td><code>/data/codes/gui_grounding/data/logs/qwen3-4b-sdpo-zoomin-2n-${timestamp}.rjob.log</code></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section>
+      <h2>评估与判定规则</h2>
+      <ul>
+        <li><strong>主判据：</strong>全量测试集 greedy student 的 <code>IoU@0.5</code>。若某模式相比当前 4B GRPO+SDPO 单阶段或两阶段基线提升超过 <code>0.003</code>，视为值得继续放大验证。</li>
+        <li><strong>稳健性判据：</strong>同时查看 <code>mIoU</code>、<code>IoU@0.7</code>、<code>IoU@0.8</code>。如果只提升 <code>IoU@0.5</code> 而高阈值下降，说明可能只是粗定位变好，精细 bbox 不一定变好。</li>
+        <li><strong>采样上限判据：</strong>best-of-8 oracle 的 <code>IoU@0.5</code> 与 greedy 的 gap。gap 越大，说明模型能采到好框但单次选择不足；gap 越小，说明策略分布更集中。</li>
+        <li><strong>训练诊断：</strong>记录 <code>sdpo/route_failed</code>、<code>sdpo/route_good</code>、<code>sdpo/iou_mean</code>、<code>sdpo/loss</code>。如果某模式 greedy 低但 teacher route 指标好，优先检查 teacher/student 输入 gap；如果 route 本身差，说明提示不够强或不稳定。</li>
+        <li><strong>失败处理：</strong>如果某个模式训练中断，优先评估已保存的倒数第三个 checkpoint；如果没有有效 checkpoint，再重跑该模式，不把不完整结果混入主表。</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>预期结果解释</h2>
+      <div class="callout success">
+        <strong>如果 <code>soft_window</code> 最好：</strong>说明 SDPO 更需要“区域级软提示”而不是精确框线，后续应围绕 sigma、亮度衰减和无框提示继续搜索。
+      </div>
+      <div class="callout success">
+        <strong>如果 <code>jitter_box</code> 最好：</strong>说明“有噪声的近似 teacher hint”比精确 GT hint 更适合让 student 学会纠错，后续可做 <code>jitter_ratio=0.1/0.2/0.3</code> 扩展实验。
+      </div>
+      <div class="callout warn">
+        <strong>如果 <code>gaussian</code> 或 <code>zoom_in</code> 最好：</strong>说明当前模型仍依赖较强 teacher 视觉先验；后续需要检查 best-of-8 gap，判断是否继续加强蒸馏，还是引入选择器把采样上限转化为单次性能。
+      </div>
+      <div class="callout risk">
+        <strong>如果四个模式都接近 GRPO-only：</strong>说明当前 SDPO loss 或 teacher/ref 刷新机制可能没有充分生效，应优先排查 SDPO mask 是否进入 teacher 输入、<code>sdpo_sequence_mask</code> 是否覆盖失败样本、teacher KL 权重是否过弱。
+      </div>
+    </section>
+
+    <section>
+      <h2>执行清单</h2>
+      <ul>
+        <li>新增或修正专用 ablation launcher，确保 <code>OPSD_MASK_MODE</code> 等变量被 rjob 显式接收。</li>
+        <li>worker 日志中增加关键配置打印：<code>OPSD_MASK_MODE</code>、<code>OPSD_HINT_MODE</code>、<code>SDPO_LAMBDA</code>、<code>SDPO_TARGET</code>、<code>NUM_GENERATIONS</code>、<code>LR</code>。</li>
+        <li>先跑四个模式的 smoke，确认 mask cache 中样例图片符合预期。</li>
+        <li>通过 tmux 新会话提交正式 rjob；长任务不在当前窗口直接运行。</li>
+        <li>全量训练完成后，统一跑 greedy IoU sweep；再对最优模式跑 best-of-8 oracle。</li>
+        <li>将最终结果补入 <code>rs_full_model_metrics_summary.html</code> 和本文件的结果区。</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>结果记录区</h2>
+      <p class="small">当前仅为执行计划，尚未启动训练。待确认后执行，并在此处补充实际 checkpoint、日志路径和指标。</p>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>模式</th>
+              <th>Checkpoint</th>
+              <th class="num">mIoU</th>
+              <th class="num">IoU@0.5</th>
+              <th class="num">IoU@0.6</th>
+              <th class="num">IoU@0.7</th>
+              <th class="num">IoU@0.8</th>
+              <th class="num">IoU@0.9</th>
+              <th class="num">best-of-8 IoU@0.5</th>
+              <th>日志 / 备注</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>gaussian</code></td>
+              <td>待执行</td>
+              <td class="num">-</td>
+              <td class="num">-</td>
+              <td class="num">-</td>
+              <td class="num">-</td>
+              <td class="num">-</td>
+              <td class="num">-</td>
+              <td class="num">-</td>
+              <td>待补充</td>
+            </tr>
+            <tr>
+              <td><code>soft_window</code></td>
+              <td>待执行</td>
+              <td class="num">-</td>
+              <td class="num">-</td>
+              <td class="num">-</td>
+              <td class="num">-</td>
+              <td class="num">-</td>
+              <td class="num">-</td>
+              <td class="num">-</td>
+              <td>待补充</td>
+            </tr>
+            <tr>
+              <td><code>jitter_box</code></td>
+              <td>待执行</td>
+              <td class="num">-</td>
+              <td class="num">-</td>
+              <td class="num">-</td>
+              <td class="num">-</td>
+              <td class="num">-</td>
+              <td class="num">-</td>
+              <td class="num">-</td>
+              <td>待补充</td>
+            </tr>
+            <tr>
+              <td><code>zoom_in</code></td>
+              <td>待执行</td>
+              <td class="num">-</td>
+              <td class="num">-</td>
+              <td class="num">-</td>
+              <td class="num">-</td>
+              <td class="num">-</td>
+              <td class="num">-</td>
+              <td class="num">-</td>
+              <td>待补充</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

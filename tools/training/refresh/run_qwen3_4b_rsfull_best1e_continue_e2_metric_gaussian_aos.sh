@@ -1,0 +1,187 @@
+#!/usr/bin/env bash
+# Continue the current best 1-epoch Qwen3-VL-4B GRPO+OPSD gaussian run for
+# one extra epoch, then evaluate every 50-step checkpoint on rs_test.
+#
+# Resource shape requested by the user:
+#   training: 2 replicas on aos, each replica 8 GPU / 64 CPU / 600G memory.
+#   evaluation: after training releases GPUs, one 8-GPU aos job evaluates the
+#               50-step checkpoint curve with tensor parallel size 8.
+set -euo pipefail
+
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+repo_root="$(cd "${script_dir}/../../.." && pwd)"
+cd "$repo_root"
+
+timestamp="${RUN_TIMESTAMP:-$(date +%Y%m%d-%H%M%S)}"
+source_ckpt="${SOURCE_CKPT:-/mnt/jfs/copilot/lhb/checkpoint/rs/rs-sd/gui-sd-qwen3-4b-rsfull_grpo_sdpo_teacher_refresh_metric_gaussian_e1-20260524-103053/v0-20260524-103512/checkpoint-870}"
+experiment_slug="${EXPERIMENT_SLUG:-best1e-cont-e2-metric-gaussian}"
+run_name="${RUN_NAME:-gui-sd-qwen3-4b-rsfull_grpo_opsd_best1e_continue_e2_metric_gaussian_${timestamp}}"
+rjob_name="${RJOB_NAME:-q4b-best1e-cont-e2-gauss-${timestamp}}"
+log_root="${LOG_ROOT:-/data/codes/gui_grounding/data/logs}"
+train_log="${TRAIN_RJOB_LOG_PATH:-${log_root}/training/${rjob_name}.rjob.log}"
+eval_root="${EVAL_ROOT:-${log_root}/eval/${run_name}_test_every50}"
+eval_rjob_name="${EVAL_RJOB_NAME:-q4b-best1e-e2-test50-${timestamp}}"
+eval_log="${EVAL_RJOB_LOG_PATH:-${log_root}/eval/${eval_rjob_name}.rjob.log}"
+ckpt_root="${CKPT_ROOT:-/mnt/jfs/copilot/lhb/checkpoint/rs/rs-sd}"
+
+mkdir -p "${log_root}/training" "$eval_root"
+
+export RUN_TIMESTAMP="$timestamp"
+export EXPERIMENT_SLUG="$experiment_slug"
+export RUN_NAME="$run_name"
+export RJOB_NAME="$rjob_name"
+export RJOB_LOG_PATH="$train_log"
+export WORKER_SCRIPT="${WORKER_SCRIPT:-${repo_root}/tools/training/run_qwen3_4b_base_rsfull_grpo_sdpo_2node_worker.sh}"
+
+export RJOB_GROUP="${RJOB_GROUP:-aos}"
+export RJOB_CHARGED_GROUP="${RJOB_CHARGED_GROUP:-aos}"
+export RJOB_CPU="${RJOB_CPU:-64}"
+export RJOB_GPU="${RJOB_GPU:-8}"
+export RJOB_MEMORY="${RJOB_MEMORY:-600000}"
+export RJOB_REPLICA="${RJOB_REPLICA:-2}"
+export RJOB_REPLICA_RESTART="${RJOB_REPLICA_RESTART:-never}"
+export RJOB_BACKOFF_LIMIT="${RJOB_BACKOFF_LIMIT:-1}"
+export RJOB_MAX_WAIT_DURATION="${RJOB_MAX_WAIT_DURATION:-18h0m0s}"
+export RJOB_POSITIVE_TAGS="${RJOB_POSITIVE_TAGS:-feature/gpfs=yes}"
+
+# Student, teacher, ref, and rollout engine all initialize from the same
+# 1-epoch checkpoint. In the current worker, --ref_model follows MODEL_PATH.
+export BASE_MODEL_PATH="$source_ckpt"
+export MODEL_PATH="$source_ckpt"
+export TEACHER_PATH="$source_ckpt"
+export ROLLOUT_MODEL_PATH="$source_ckpt"
+export CKPT_ROOT="$ckpt_root"
+export ARTIFACT_ROOT="${ARTIFACT_ROOT:-/mnt/jfs/copilot/lhb/artifacts/rs/rs-sd}"
+export TRAIN_JSONL="${TRAIN_JSONL:-/data/codes/gui_grounding/data/rs_full/rs_train.jsonl}"
+export TEST_JSONL="${TEST_JSONL:-/data/codes/gui_grounding/data/rs_full/rs_test.jsonl}"
+
+export NNODES="${NNODES:-2}"
+export NPROC_PER_NODE="${NPROC_PER_NODE:-7}"
+export TRAIN_CUDA_VISIBLE_DEVICES="${TRAIN_CUDA_VISIBLE_DEVICES:-0,1,2,3,4,5,6}"
+export ROLLOUT_CUDA_VISIBLE_DEVICES="${ROLLOUT_CUDA_VISIBLE_DEVICES:-7}"
+export VLLM_SERVER_PORT="${VLLM_SERVER_PORT:-8592}"
+export MASTER_PORT="${MASTER_PORT:-29800}"
+export ROLLOUT_READY_TIMEOUT_SEC="${ROLLOUT_READY_TIMEOUT_SEC:-900}"
+export RENDEZVOUS_TIMEOUT_SEC="${RENDEZVOUS_TIMEOUT_SEC:-1200}"
+
+# One additional epoch from the best 1-epoch checkpoint, with lower LR and
+# frequent checkpointing so the test curve is not lost if the tail fails.
+export NUM_TRAIN_EPOCHS="${NUM_TRAIN_EPOCHS:-1}"
+export MAX_STEPS="${MAX_STEPS:--1}"
+export SAVE_STEPS="${SAVE_STEPS:-50}"
+export SAVE_TOTAL_LIMIT="${SAVE_TOTAL_LIMIT:-30}"
+export SAVE_ONLY_MODEL="${SAVE_ONLY_MODEL:-true}"
+export ALLOW_RESUME="${ALLOW_RESUME:-false}"
+export AUTO_RESUME="${AUTO_RESUME:-false}"
+export SKIP_EVAL="${SKIP_EVAL:-true}"
+export STAGE2_SKIP_EVAL="${STAGE2_SKIP_EVAL:-true}"
+
+export PER_DEVICE_TRAIN_BATCH_SIZE="${PER_DEVICE_TRAIN_BATCH_SIZE:-4}"
+export GRADIENT_ACCUMULATION_STEPS="${GRADIENT_ACCUMULATION_STEPS:-2}"
+export LR="${LR:-1e-6}"
+export WARMUP_RATIO="${WARMUP_RATIO:-0.01}"
+export NUM_GENERATIONS="${NUM_GENERATIONS:-8}"
+export NUM_ITERATIONS="${NUM_ITERATIONS:-1}"
+export MAX_LENGTH="${MAX_LENGTH:-20000}"
+export MAX_COMPLETION_LENGTH="${MAX_COMPLETION_LENGTH:-64}"
+export DEEPSPEED_CONFIG="${DEEPSPEED_CONFIG:-zero2}"
+export TEACHER_DEEPSPEED_CONFIG="${TEACHER_DEEPSPEED_CONFIG:-zero3}"
+export OFFLOAD_TEACHER_MODEL="${OFFLOAD_TEACHER_MODEL:-false}"
+
+export SDPO_LAMBDA="${SDPO_LAMBDA:-0.25}"
+export SDPO_TAU_GOOD="${SDPO_TAU_GOOD:-0.5}"
+export SDPO_TAU_FAIL="${SDPO_TAU_FAIL:-0.3}"
+export SDPO_DELTA="${SDPO_DELTA:-0.5}"
+export SDPO_TARGET="${SDPO_TARGET:-rollout}"
+export SDPO_TEACHER_REFRESH_MODE="${SDPO_TEACHER_REFRESH_MODE:-metric}"
+export SDPO_TEACHER_REFRESH_STEP="${SDPO_TEACHER_REFRESH_STEP:--1}"
+export SDPO_TEACHER_REFRESH_WARMUP="${SDPO_TEACHER_REFRESH_WARMUP:-80}"
+export SDPO_TEACHER_REFRESH_WINDOW="${SDPO_TEACHER_REFRESH_WINDOW:-50}"
+export SDPO_TEACHER_REFRESH_CHECK_INTERVAL="${SDPO_TEACHER_REFRESH_CHECK_INTERVAL:-10}"
+export SDPO_TEACHER_REFRESH_MIN_IOU_IMPROVE="${SDPO_TEACHER_REFRESH_MIN_IOU_IMPROVE:-0.01}"
+export SDPO_TEACHER_REFRESH_MAX_FAILED="${SDPO_TEACHER_REFRESH_MAX_FAILED:-0.55}"
+export SDPO_TEACHER_REFRESH_MIN_SDPO_LOSS="${SDPO_TEACHER_REFRESH_MIN_SDPO_LOSS:-0.02}"
+export SDPO_TEACHER_REFRESH_MAX_KL="${SDPO_TEACHER_REFRESH_MAX_KL:-0.30}"
+
+export OPSD_MASK_MODE="${OPSD_MASK_MODE:-gaussian}"
+export OPSD_HINT_MODE="${OPSD_HINT_MODE:-hint}"
+export OPSD_TOKEN_WEIGHT_MODE="${OPSD_TOKEN_WEIGHT_MODE:-uniform-entropy}"
+export OPSD_NON_DIGIT_WEIGHT="${OPSD_NON_DIGIT_WEIGHT:-0.05}"
+export OPSD_MAX_DIGIT_LEN="${OPSD_MAX_DIGIT_LEN:-3}"
+export OPSD_EMA_DECAY="${OPSD_EMA_DECAY:-0.0}"
+export OPSD_ZOOM_RATIO="${OPSD_ZOOM_RATIO:-2.0}"
+export OPSD_MIN_AREA_FRAC="${OPSD_MIN_AREA_FRAC:-0.1}"
+export OPSD_GAUSSIAN_SIGMA_RATIO="${OPSD_GAUSSIAN_SIGMA_RATIO:-1.5}"
+export OPSD_HINT_BOX_COLOR="${OPSD_HINT_BOX_COLOR:-magenta}"
+export OPSD_JITTER_RATIO="${OPSD_JITTER_RATIO:-0.2}"
+
+export GRPO_BETA="${GRPO_BETA:-0.04}"
+export ROLLOUT_TEMPERATURE="${ROLLOUT_TEMPERATURE:-0.7}"
+export TOP_P="${TOP_P:-0.95}"
+export TOP_K="${TOP_K:-50}"
+export VLLM_GPU_MEMORY_UTIL="${VLLM_GPU_MEMORY_UTIL:-0.82}"
+export VLLM_MAX_MODEL_LEN="${VLLM_MAX_MODEL_LEN:-20000}"
+unset VLLM_MAX_NUM_SEQS
+unset VLLM_ENFORCE_EAGER
+
+echo "[best1e-cont] timestamp=${timestamp}"
+echo "[best1e-cont] source_ckpt=${source_ckpt}"
+echo "[best1e-cont] run_name=${run_name}"
+echo "[best1e-cont] train_log=${train_log}"
+echo "[best1e-cont] eval_root=${eval_root}"
+echo "[best1e-cont] eval_log=${eval_log}"
+
+bash "${repo_root}/tools/training/launch_qwen3_4b_rsfull_grpo_sdpo_2node_experiment_rjob.sh"
+
+echo "[best1e-cont] launching test evaluation for every 50-step checkpoint"
+eval_worker="${repo_root}/tools/evaluation/run_test_every50_ckpt_eval_worker.sh"
+chmod +x "$eval_worker"
+{
+    brainctl launch \
+        --cpu "${EVAL_RJOB_CPU:-64}" \
+        --gpu "${EVAL_RJOB_GPU:-8}" \
+        --memory "${EVAL_RJOB_MEMORY:-600000}" \
+        --group "${EVAL_RJOB_GROUP:-aos}" \
+        --charged-group="${EVAL_RJOB_CHARGED_GROUP:-aos}" \
+        --private-machine=group \
+        --mount=juicefs+s3://oss.i.shaipower.com/tkj-jfs:/mnt/jfs/copilot \
+        --positive-tags "${EVAL_RJOB_POSITIVE_TAGS:-feature/gpfs=yes}" \
+        --predict-only
+
+    brainctl launch \
+        --name "$eval_rjob_name" \
+        --replica-restart=never \
+        --backoff-limit 1 \
+        --max-wait-duration "${EVAL_RJOB_MAX_WAIT_DURATION:-2h0m0s}" \
+        --cpu "${EVAL_RJOB_CPU:-64}" \
+        --gpu "${EVAL_RJOB_GPU:-8}" \
+        --memory="${EVAL_RJOB_MEMORY:-600000}" \
+        --group "${EVAL_RJOB_GROUP:-aos}" \
+        --charged-group="${EVAL_RJOB_CHARGED_GROUP:-aos}" \
+        --private-machine=group \
+        --mount=juicefs+s3://oss.i.shaipower.com/tkj-jfs:/mnt/jfs/copilot \
+        --positive-tags "${EVAL_RJOB_POSITIVE_TAGS:-feature/gpfs=yes}" \
+        --set-env "REPO_ROOT=${repo_root}" \
+        --set-env "GUI_SD_ENV_ROOT=${GUI_SD_ENV_ROOT:-/data/codes/gui_grounding/conda_envs/GUI-SD}" \
+        --set-env "RUN_NAME=${run_name}" \
+        --set-env "CKPT_ROOT=${ckpt_root}" \
+        --set-env "TEST_JSONL=${TEST_JSONL}" \
+        --set-env "OUT_ROOT=${eval_root}" \
+        --set-env "STEP_INTERVAL=50" \
+        --set-env "EVAL_CUDA_VISIBLE_DEVICES=${EVAL_CUDA_VISIBLE_DEVICES:-0,1,2,3,4,5,6,7}" \
+        --set-env "TP=${EVAL_TP:-8}" \
+        --set-env "MAX_MODEL_LEN=${EVAL_MAX_MODEL_LEN:-12000}" \
+        --set-env "GPU_MEM_UTIL=${EVAL_GPU_MEM_UTIL:-0.88}" \
+        --set-env "EVAL_BATCH_SIZE=${EVAL_BATCH_SIZE:-512}" \
+        --set-env "MAX_NEW_TOKENS=${EVAL_MAX_NEW_TOKENS:-128}" \
+        --set-env "NUM_ROLLOUTS=${EVAL_NUM_ROLLOUTS:-1}" \
+        --set-env "ROLLOUT_TEMPERATURE=${EVAL_ROLLOUT_TEMPERATURE:-0.0}" \
+        --set-env "TOP_P=${EVAL_TOP_P:-0.95}" \
+        -- bash "$eval_worker"
+} 2>&1 | tee "$eval_log"
+
+echo "[best1e-cont] completed"
+echo "[best1e-cont] train_log=${train_log}"
+echo "[best1e-cont] eval_log=${eval_log}"
+echo "[best1e-cont] eval_summary_json=${eval_root}/test_every50_summary.json"
+echo "[best1e-cont] eval_summary_html=${eval_root}/test_every50_summary.html"

@@ -200,9 +200,7 @@ def main():
         sp_kwargs.update({'n': args.num_rollouts, 'top_p': args.top_p})
     sp = SamplingParams(**sp_kwargs)
 
-    t0 = time.time()
-    reqs = []
-    for s in samples:
+    def build_request(s):
         img = Image.open(s['image']).convert('RGB')
         messages = [
             {'role': 'system', 'content': SYSTEM_PROMPT},
@@ -213,15 +211,22 @@ def main():
         ]
         prompt = processor.apply_chat_template(
             messages, add_generation_prompt=True, tokenize=False)
-        reqs.append({'prompt': prompt, 'multi_modal_data': {'image': img}})
+        return {'prompt': prompt, 'multi_modal_data': {'image': img}}
+
+    t0 = time.time()
 
     if args.eval_batch_size and args.eval_batch_size > 0:
         outputs = []
-        for start in range(0, len(reqs), args.eval_batch_size):
-            end = min(start + args.eval_batch_size, len(reqs))
-            print(f'[eval_student] generate batch {start}:{end} / {len(reqs)}', flush=True)
-            outputs.extend(llm.generate(reqs[start:end], sampling_params=sp))
+        for start in range(0, len(samples), args.eval_batch_size):
+            end = min(start + args.eval_batch_size, len(samples))
+            print(f'[eval_student] prepare batch {start}:{end} / {len(samples)}', flush=True)
+            reqs = [build_request(s) for s in samples[start:end]]
+            print(f'[eval_student] generate batch {start}:{end} / {len(samples)}', flush=True)
+            outputs.extend(llm.generate(reqs, sampling_params=sp))
+            for req in reqs:
+                req['multi_modal_data']['image'].close()
     else:
+        reqs = [build_request(s) for s in samples]
         outputs = llm.generate(reqs, sampling_params=sp)
 
     ious, parse_ok = [], 0
