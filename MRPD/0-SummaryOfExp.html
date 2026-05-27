@@ -34,7 +34,7 @@ li { margin:4px 0; }
 <body>
 <main>
 <h1>MRPD / OPSD 实验结果汇总</h1>
-<p>生成时间：2026-05-27 14:25:00。本页从 <code>/data/codes/gui_grounding/data/logs/eval</code> 中已有的 <code>summary.json</code> / <code>threshold_summary.json</code> 汇总，不包含重新评测。</p>
+<p>生成时间：2026-05-27 20:05:03 HKT。本页从 <code>/data/codes/gui_grounding/data/logs/eval</code> 中已有的 <code>summary.json</code> / <code>threshold_summary.json</code> 汇总，不包含重新评测。</p>
 <div class="note">术语说明：当前汇总中尽量使用 MRPD/OPSD 表述；历史目录名里仍可能出现 sdpo/opd/grpo_sdpo 等旧命名，表格保留原路径以便追溯。</div>
 
 <section class="card">
@@ -46,9 +46,10 @@ li { margin:4px 0; }
 </div>
 <ul>
 <li>SFT 后继续做 GRPO+OPSD/MRPD 明显优于 SFT-only，当前 gaussian metric refresh 主线约 <b>0.6990</b> mIoU。</li>
-<li>OPSD-only 与 GRPO-only 都已验证：GRPO-only 提升明显，OPSD-only 单独收益较小，组合 MRPD 最稳定。</li>
+<li>OPSD-only 与 GRPO-only 都已验证：按用户复核后的 GRPO-only test 结果，MRPD gaussian metric refresh 相对 GRPO-only 提升约 <b>+0.0128</b> mIoU，相对 OPSD-only 提升约 <b>+0.0157</b> mIoU。</li>
 <li>提示模式消融里，gaussian metric refresh 仍是当前 test greedy 主线最好；zoom_in、jitter_box、soft_window、no_hint 都没有超过它。</li>
 <li>教师刷新对照中，no-refresh、fixed step-80、metric/window refresh 与 EMA0.98 均已出 test 分；EMA0.98 当前 mIoU 最高，但优势很小，需要结合稳定性与可复现实验判断。</li>
+<li>最新 sibling-success hint 对照已完成：GT-hint soft_window mIoU=0.6973，Sibling+GT fallback soft_window mIoU=0.6936；GT 直接提示整体略高，但 sibling 方案在 IoU@0.6/0.9 略高。</li>
 </ul>
 </section>
 
@@ -80,13 +81,13 @@ li { margin:4px 0; }
 <tr>
 <td>SFT -&gt; GRPO-only</td>
 <td>RRSIS-D test</td>
-<td>SFT ckpt 后只使用 GRPO，不引入 OPSD 教师提示</td>
+<td>SFT ckpt 后只使用 GRPO，不引入 OPSD 教师提示；数值采用用户复核修正结果</td>
 <td class="num">3481.0000</td>
 <td class="num">1.0000</td>
 <td class="num">0.0000</td>
-<td class="num">0.6962</td><td class="num">0.7914</td><td class="num">0.7369</td><td class="num">0.6619</td><td class="num">0.5484</td><td class="num">0.3608</td>
-<td><span class="badge ok">完成</span></td>
-<td class="path"><code>data/logs/eval/q4b-sft-grpo-only-20260527-082554-test/summary.json</code></td>
+<td class="num">0.6862</td><td class="num">0.7814</td><td class="num">0.7297</td><td class="num">0.6491</td><td class="num">0.5355</td><td class="num">0.3489</td>
+<td><span class="badge ok">完成/复核</span></td>
+<td class="path"><code>用户复核修正值；原任务路径保留用于追溯：data/logs/eval/q4b-sft-grpo-only-20260527-082554-test/summary.json</code></td>
 </tr>
 <tr>
 <td>SFT -&gt; MRPD gaussian metric refresh</td>
@@ -142,6 +143,34 @@ li { margin:4px 0; }
 <td class="num">0.6918</td><td class="num">0.7794</td><td class="num">0.7302</td><td class="num">0.6576</td><td class="num">0.5432</td><td class="num">0.3577</td>
 <td><span class="badge ok">完成</span></td>
 <td class="path"><code>data/logs/eval/q4b-sft-grpo-opsd-no-hint-20260527-093400-aos2n-test/summary.json</code></td>
+</tr></table></div>
+</section>
+
+<section class="card">
+<h2>Sibling Success Hint 对照</h2>
+<p>该组实验用于验证“组内成功轨迹/成功 sibling 作为教师提示”是否优于直接使用 GT hint。两组均从 RRSIS-D SFT ckpt 继续 MRPD，hint 模式为 soft_window，训练完成后使用 RRSIS-D test、8 卡 TP=8、greedy 单次推理评测。</p>
+<div class="table-wrap"><table><tr><th>实验</th><th>数据集</th><th>配置说明</th><th>n</th><th>rollouts</th><th>temp</th><th>mIoU</th><th>IoU@0.5</th><th>IoU@0.6</th><th>IoU@0.7</th><th>IoU@0.8</th><th>IoU@0.9</th><th>状态</th><th>Checkpoint / 来源</th></tr>
+<tr>
+<td>SFT -&gt; MRPD sibling + GT fallback soft_window</td>
+<td>RRSIS-D test</td>
+<td>组内成功轨迹优先作为教师 hint；无可用成功 sibling 时回退 GT hint；soft_window 视觉提示</td>
+<td class="num">3481.0000</td>
+<td class="num">1.0000</td>
+<td class="num">0.0000</td>
+<td class="num">0.6936</td><td class="num">0.7848</td><td class="num">0.7325</td><td class="num">0.6584</td><td class="num">0.5441</td><td class="num">0.3556</td>
+<td><span class="badge ok">完成</span></td>
+<td class="path"><code>/mnt/jfs/copilot/lhb/checkpoint/rs/rs-sd/gui-sd-qwen3-4b-rrsisd_sft_mrpd_sibling_gtfallback_softwindow_e1-20260527-173518-sibling/v0-20260527-173947/checkpoint-870</code><br><code>data/logs/eval/gui-sd-qwen3-4b-rrsisd_sft_mrpd_sibling_gtfallback_softwindow_e1-20260527-173518-sibling_test/summary.json</code></td>
+</tr>
+<tr>
+<td>SFT -&gt; MRPD GT-hint soft_window</td>
+<td>RRSIS-D test</td>
+<td>直接使用 GT bbox 构造教师 hint；soft_window 视觉提示；作为 sibling-success hint 的对照组</td>
+<td class="num">3481.0000</td>
+<td class="num">1.0000</td>
+<td class="num">0.0000</td>
+<td class="num">0.6973</td><td class="num">0.7880</td><td class="num">0.7308</td><td class="num">0.6610</td><td class="num">0.5464</td><td class="num">0.3536</td>
+<td><span class="badge ok">完成</span></td>
+<td class="path"><code>/mnt/jfs/copilot/lhb/checkpoint/rs/rs-sd/gui-sd-qwen3-4b-rrsisd_sft_mrpd_gt_hint_softwindow_e1-20260527-173518-gt/v0-20260527-173948/checkpoint-870</code><br><code>data/logs/eval/gui-sd-qwen3-4b-rrsisd_sft_mrpd_gt_hint_softwindow_e1-20260527-173518-gt_test/summary.json</code></td>
 </tr></table></div>
 </section>
 
