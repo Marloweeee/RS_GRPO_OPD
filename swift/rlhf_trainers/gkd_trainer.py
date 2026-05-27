@@ -268,8 +268,6 @@ class GKDTrainer(RolloutTrainerMixin, SwiftMixin, HFGKDTrainer):
             return (loss, outputs_student)
         else:
             return loss
-    
-
 
     def _prepare_batch_inputs(self, inputs: list, encode_prompt_only: bool = False) -> Dict[str, torch.Tensor]:
         """Prepare batch inputs for training.
@@ -288,11 +286,10 @@ class GKDTrainer(RolloutTrainerMixin, SwiftMixin, HFGKDTrainer):
         mode = 'transformers' if encode_prompt_only else 'train'
         with self._template_context(template, mode=mode):
             for data in inputs:
-                # org 
+                # org
                 if 'response_token_ids' in data and data['response_token_ids']:
                     data['messages'] = replace_assistant_response_with_ids(data['messages'], data['response_token_ids'])
 
-        
                 if encode_prompt_only:
                     # Remove response content for prompt-only encoding
                     messages = data.get('messages', [])
@@ -305,7 +302,6 @@ class GKDTrainer(RolloutTrainerMixin, SwiftMixin, HFGKDTrainer):
             batch_encoded = to_device(template.data_collator(batch_encoded_inputs), self.model.device)
 
         return batch_encoded
-
 
     # Code borrowed from huggingface/trl
     @profiling_decorator

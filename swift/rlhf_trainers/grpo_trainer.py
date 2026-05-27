@@ -19,7 +19,6 @@ import asyncio
 import atexit
 import concurrent.futures
 import inspect
-import json
 import math
 import os
 import random
@@ -29,6 +28,7 @@ from contextlib import contextmanager, nullcontext
 from copy import copy, deepcopy
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
+import json
 import numpy as np
 import torch
 import torch.distributed as dist
@@ -48,11 +48,11 @@ from trl.trainer.grpo_trainer import RepeatSampler, nanmax, nanmin, nanstd
 from trl.trainer.utils import selective_log_softmax
 
 from swift.dataset import RowPreprocessor
-from swift.template.vision_utils import load_image
 from swift.infer_engine import TransformersEngine
 from swift.rewards import orms, rm_plugins
 from swift.sequence_parallel import GatherLoss, sequence_parallel
 from swift.template import Template, TemplateInputs
+from swift.template.vision_utils import load_image
 from swift.trainers import SwiftMixin, disable_gradient_checkpointing
 from swift.utils import (JsonlWriter, get_cu_seqlens_from_position_ids, get_logger, is_swanlab_available,
                          is_wandb_available, remove_response, seed_worker, shutdown_event_loop_in_daemon,
@@ -60,9 +60,9 @@ from swift.utils import (JsonlWriter, get_cu_seqlens_from_position_ids, get_logg
 from .arguments import GRPOConfig
 from .rollout_mixin import DataType, RolloutTrainerMixin
 from .utils import (_ForwardRedirection, compute_chord_loss, get_even_process_data, identity_data_collator,
-                    load_pil_img, make_chord_sft_dataset, pad_logps_back_to_batch, patch_save_last_checkpoint,
-                    prepare_deepspeed as prepare_teacher_deepspeed,
-                    profiling_context, profiling_decorator, replace_assistant_response_with_ids)
+                    load_pil_img, make_chord_sft_dataset, pad_logps_back_to_batch, patch_save_last_checkpoint)
+from .utils import prepare_deepspeed as prepare_teacher_deepspeed
+from .utils import profiling_context, profiling_decorator, replace_assistant_response_with_ids
 
 try:
     from trl.trainer.utils import entropy_from_logits
@@ -277,8 +277,8 @@ class GRPOTrainer(RolloutTrainerMixin, SwiftMixin, HFGRPOTrainer):
         local_valid = not any(record[key] is None for key in required)
         metric_keys = ['iou_mean', 'iou_at_05', 'route_failed', 'sdpo_loss', 'kl']
         metric_values = [1.0 if local_valid else 0.0]
-        metric_values.extend(float(record[key]) if local_valid and record[key] is not None else 0.0
-                             for key in metric_keys)
+        metric_values.extend(
+            float(record[key]) if local_valid and record[key] is not None else 0.0 for key in metric_keys)
         metric_tensor = torch.tensor(metric_values, dtype=torch.float64, device=self.accelerator.device)
         if dist.is_available() and dist.is_initialized():
             dist.all_reduce(metric_tensor, op=dist.ReduceOp.SUM)
@@ -313,8 +313,9 @@ class GRPOTrainer(RolloutTrainerMixin, SwiftMixin, HFGRPOTrainer):
 
     def _broadcast_sdpo_refresh_decision(self, should_refresh: bool) -> bool:
         if dist.is_available() and dist.is_initialized():
-            decision_tensor = torch.tensor(
-                [1 if should_refresh else 0], dtype=torch.int64, device=self.accelerator.device)
+            decision_tensor = torch.tensor([1 if should_refresh else 0],
+                                           dtype=torch.int64,
+                                           device=self.accelerator.device)
             dist.broadcast(decision_tensor, src=0)
             should_refresh = bool(decision_tensor.item())
         return should_refresh
@@ -358,34 +359,26 @@ class GRPOTrainer(RolloutTrainerMixin, SwiftMixin, HFGRPOTrainer):
                 'kl': float(ewma.get('kl', long['kl'])),
                 'step': step,
             }
-            logger.info(
-                'SDPO teacher metric-ewma baseline established at '
-                f'global_step={step}: {self._sdpo_refresh_ewma_baseline}')
+            logger.info('SDPO teacher metric-ewma baseline established at '
+                        f'global_step={step}: {self._sdpo_refresh_ewma_baseline}')
 
-        min_short_long_gain = float(
-            getattr(self.args, 'sdpo_teacher_refresh_min_short_long_iou_gain', 0.006) or 0.0)
+        min_short_long_gain = float(getattr(self.args, 'sdpo_teacher_refresh_min_short_long_iou_gain', 0.006) or 0.0)
         min_ewma_gain = float(getattr(self.args, 'sdpo_teacher_refresh_min_ewma_iou_gain', 0.008) or 0.0)
         max_iou05_drop = float(getattr(self.args, 'sdpo_teacher_refresh_max_iou05_drop', 0.010) or 0.0)
         max_failed = float(getattr(self.args, 'sdpo_teacher_refresh_max_failed', 0.55) or 1.0)
         min_sdpo_loss = float(getattr(self.args, 'sdpo_teacher_refresh_min_sdpo_loss', 0.02) or 0.0)
         max_kl = float(getattr(self.args, 'sdpo_teacher_refresh_max_kl', 0.30) or 1e9)
-        consecutive_required = max(
-            1, int(getattr(self.args, 'sdpo_teacher_refresh_consecutive_checks', 2) or 2))
+        consecutive_required = max(1, int(getattr(self.args, 'sdpo_teacher_refresh_consecutive_checks', 2) or 2))
 
         short_long_iou_gain = short['iou_mean'] - long['iou_mean']
         ewma_iou_gain = float(ewma.get('iou_mean', short['iou_mean'])) - self._sdpo_refresh_ewma_baseline['iou_mean']
         iou05_delta = short['iou_at_05'] - long['iou_at_05']
 
         quality_gain = (
-            short_long_iou_gain >= min_short_long_gain
-            and ewma_iou_gain >= min_ewma_gain
-            and iou05_delta >= -max_iou05_drop
-        )
+            short_long_iou_gain >= min_short_long_gain and ewma_iou_gain >= min_ewma_gain
+            and iou05_delta >= -max_iou05_drop)
         stability_guard = (
-            short['route_failed'] <= max_failed
-            and short['sdpo_loss'] >= min_sdpo_loss
-            and short['kl'] <= max_kl
-        )
+            short['route_failed'] <= max_failed and short['sdpo_loss'] >= min_sdpo_loss and short['kl'] <= max_kl)
         should_count = quality_gain and stability_guard
         if should_count:
             self._sdpo_refresh_consecutive_hits += 1
@@ -393,18 +386,17 @@ class GRPOTrainer(RolloutTrainerMixin, SwiftMixin, HFGRPOTrainer):
             self._sdpo_refresh_consecutive_hits = 0
         should_refresh = self._sdpo_refresh_consecutive_hits >= consecutive_required
 
-        logger.info(
-            'SDPO teacher metric-ewma refresh check at '
-            f'global_step={step}: short={short}, long={long}, ewma={ewma}, '
-            f'baseline={self._sdpo_refresh_ewma_baseline}, '
-            f'short_long_iou_gain={short_long_iou_gain:.6f}, '
-            f'ewma_iou_gain={ewma_iou_gain:.6f}, iou05_delta={iou05_delta:.6f}, '
-            f'quality_gain={quality_gain}, stability_guard={stability_guard}, '
-            f'consecutive_hits={self._sdpo_refresh_consecutive_hits}/{consecutive_required}, '
-            f'thresholds={{"min_short_long_iou_gain": {min_short_long_gain}, '
-            f'"min_ewma_iou_gain": {min_ewma_gain}, "max_iou05_drop": {max_iou05_drop}, '
-            f'"max_failed": {max_failed}, "min_sdpo_loss": {min_sdpo_loss}, "max_kl": {max_kl}}}, '
-            f'should_refresh={should_refresh}')
+        logger.info('SDPO teacher metric-ewma refresh check at '
+                    f'global_step={step}: short={short}, long={long}, ewma={ewma}, '
+                    f'baseline={self._sdpo_refresh_ewma_baseline}, '
+                    f'short_long_iou_gain={short_long_iou_gain:.6f}, '
+                    f'ewma_iou_gain={ewma_iou_gain:.6f}, iou05_delta={iou05_delta:.6f}, '
+                    f'quality_gain={quality_gain}, stability_guard={stability_guard}, '
+                    f'consecutive_hits={self._sdpo_refresh_consecutive_hits}/{consecutive_required}, '
+                    f'thresholds={{"min_short_long_iou_gain": {min_short_long_gain}, '
+                    f'"min_ewma_iou_gain": {min_ewma_gain}, "max_iou05_drop": {max_iou05_drop}, '
+                    f'"max_failed": {max_failed}, "min_sdpo_loss": {min_sdpo_loss}, "max_kl": {max_kl}}}, '
+                    f'should_refresh={should_refresh}')
         self._metrics['train']['sdpo/teacher_refresh_short_long_iou_gain'].append(short_long_iou_gain)
         self._metrics['train']['sdpo/teacher_refresh_ewma_iou_gain'].append(ewma_iou_gain)
         self._metrics['train']['sdpo/teacher_refresh_iou05_delta'].append(iou05_delta)
@@ -414,10 +406,9 @@ class GRPOTrainer(RolloutTrainerMixin, SwiftMixin, HFGRPOTrainer):
         if not should_refresh:
             return
         self._refresh_sdpo_teacher_from_student(
-            reason=(
-                f'metric_ewma step={step} short_long_iou_gain={short_long_iou_gain:.6f} '
-                f'ewma_iou_gain={ewma_iou_gain:.6f} iou05_delta={iou05_delta:.6f} '
-                f'consecutive_hits={self._sdpo_refresh_consecutive_hits}/{consecutive_required}'))
+            reason=(f'metric_ewma step={step} short_long_iou_gain={short_long_iou_gain:.6f} '
+                    f'ewma_iou_gain={ewma_iou_gain:.6f} iou05_delta={iou05_delta:.6f} '
+                    f'consecutive_hits={self._sdpo_refresh_consecutive_hits}/{consecutive_required}'))
 
     def _maybe_refresh_sdpo_teacher_by_metrics(self) -> None:
         if self._sdpo_refresh_limit_reached():
@@ -438,9 +429,8 @@ class GRPOTrainer(RolloutTrainerMixin, SwiftMixin, HFGRPOTrainer):
                 'kl': self._mean_metric(history, 'kl'),
                 'step': step,
             }
-            logger.info(
-                'SDPO teacher metric-refresh baseline established at '
-                f'global_step={step}: {self._sdpo_refresh_baseline}')
+            logger.info('SDPO teacher metric-refresh baseline established at '
+                        f'global_step={step}: {self._sdpo_refresh_baseline}')
         if step < warmup or step % check_interval != 0:
             return
 
@@ -458,18 +448,14 @@ class GRPOTrainer(RolloutTrainerMixin, SwiftMixin, HFGRPOTrainer):
 
         iou_gain = current['iou_mean'] - self._sdpo_refresh_baseline['iou_mean']
         should_refresh = (
-            iou_gain >= min_iou_improve
-            and current['route_failed'] <= max_failed
-            and current['sdpo_loss'] >= min_sdpo_loss
-            and current['kl'] <= max_kl
-        )
-        logger.info(
-            'SDPO teacher metric-refresh check at '
-            f'global_step={step}: current={current}, '
-            f'baseline={self._sdpo_refresh_baseline}, iou_gain={iou_gain:.6f}, '
-            f'thresholds={{"min_iou_improve": {min_iou_improve}, '
-            f'"max_failed": {max_failed}, "min_sdpo_loss": {min_sdpo_loss}, "max_kl": {max_kl}}}, '
-            f'should_refresh={should_refresh}')
+            iou_gain >= min_iou_improve and current['route_failed'] <= max_failed
+            and current['sdpo_loss'] >= min_sdpo_loss and current['kl'] <= max_kl)
+        logger.info('SDPO teacher metric-refresh check at '
+                    f'global_step={step}: current={current}, '
+                    f'baseline={self._sdpo_refresh_baseline}, iou_gain={iou_gain:.6f}, '
+                    f'thresholds={{"min_iou_improve": {min_iou_improve}, '
+                    f'"max_failed": {max_failed}, "min_sdpo_loss": {min_sdpo_loss}, "max_kl": {max_kl}}}, '
+                    f'should_refresh={should_refresh}')
         self._metrics['train']['sdpo/teacher_refresh_iou_gain'].append(iou_gain)
         should_refresh = self._broadcast_sdpo_refresh_decision(should_refresh)
         if not should_refresh:
@@ -487,9 +473,13 @@ class GRPOTrainer(RolloutTrainerMixin, SwiftMixin, HFGRPOTrainer):
             else nullcontext()
         if self.is_teacher_ds3:
             import deepspeed
-            gather_context = lambda params: deepspeed.zero.GatheredParameters(params, modifier_rank=0)
+
+            def gather_context(params):
+                return deepspeed.zero.GatheredParameters(params, modifier_rank=0)
         else:
-            gather_context = lambda params: nullcontext()
+
+            def gather_context(params):
+                return nullcontext()
 
         with load_context:
             student_model = self.accelerator.unwrap_model(self.model)
@@ -507,8 +497,8 @@ class GRPOTrainer(RolloutTrainerMixin, SwiftMixin, HFGRPOTrainer):
                         if teacher_param.shape != student_param.shape:
                             skipped += 1
                             continue
-                        teacher_param.data.copy_(student_param.data.to(device=teacher_param.device,
-                                                                        dtype=teacher_param.dtype))
+                        teacher_param.data.copy_(
+                            student_param.data.to(device=teacher_param.device, dtype=teacher_param.dtype))
                         copied += 1
             self.teacher_model.eval()
 
@@ -519,9 +509,8 @@ class GRPOTrainer(RolloutTrainerMixin, SwiftMixin, HFGRPOTrainer):
         next_count = int(getattr(self, '_sdpo_teacher_refresh_count', 0)) + 1
         max_refreshes = int(getattr(self.args, 'sdpo_teacher_refresh_max_refreshes', 1) or 1)
         reason_text = f'; reason={reason}' if reason else ''
-        logger.info(
-            f'SDPO teacher refreshed from student at global_step={step}; refresh_count={next_count}; '
-            f'max_refreshes={max_refreshes}; copied={copied}; skipped={skipped}{reason_text}')
+        logger.info(f'SDPO teacher refreshed from student at global_step={step}; refresh_count={next_count}; '
+                    f'max_refreshes={max_refreshes}; copied={copied}; skipped={skipped}{reason_text}')
         self._reset_sdpo_refresh_trackers_after_refresh(step)
         self._metrics['train']['sdpo/teacher_refreshed'].append(1.0)
         self._metrics['train']['sdpo/teacher_refresh_step'].append(float(step))
@@ -543,9 +532,13 @@ class GRPOTrainer(RolloutTrainerMixin, SwiftMixin, HFGRPOTrainer):
             else nullcontext()
         if self.is_teacher_ds3:
             import deepspeed
-            gather_context = lambda params: deepspeed.zero.GatheredParameters(params, modifier_rank=0)
+
+            def gather_context(params):
+                return deepspeed.zero.GatheredParameters(params, modifier_rank=0)
         else:
-            gather_context = lambda params: nullcontext()
+
+            def gather_context(params):
+                return nullcontext()
 
         with load_context:
             student_model = self.accelerator.unwrap_model(self.model)
@@ -752,7 +745,7 @@ class GRPOTrainer(RolloutTrainerMixin, SwiftMixin, HFGRPOTrainer):
                 continue
             group_rewards = [g['_sdpo_reward'] for g in group]
             group_mean = sum(group_rewards) / len(group_rewards)
-            group_std = math.sqrt(sum((r - group_mean) ** 2 for r in group_rewards) / len(group_rewards))
+            group_std = math.sqrt(sum((r - group_mean)**2 for r in group_rewards) / len(group_rewards))
             denom = group_std + 1e-6
             for data in group:
                 adv = (data['_sdpo_reward'] - group_mean) / denom
@@ -807,10 +800,8 @@ class GRPOTrainer(RolloutTrainerMixin, SwiftMixin, HFGRPOTrainer):
         if hint_source == 'gt':
             return None
         candidates = [
-            data for data in group
-            if data.get('_sdpo_route') == 'good'
-            and data.get('_sdpo_valid_box') and data.get('_sdpo_iou', 0.0) >= self.args.sdpo_tau_good
-            and data.get('_sdpo_pred_bbox') is not None
+            data for data in group if data.get('_sdpo_route') == 'good' and data.get('_sdpo_valid_box')
+            and data.get('_sdpo_iou', 0.0) >= self.args.sdpo_tau_good and data.get('_sdpo_pred_bbox') is not None
         ]
         if not candidates:
             return None
@@ -871,10 +862,7 @@ class GRPOTrainer(RolloutTrainerMixin, SwiftMixin, HFGRPOTrainer):
         pred_bbox = extract_bbox(completion)
         if pred_bbox == 'no bbox':
             return 0.0, False, None
-        valid_box = (
-            0 <= pred_bbox[0] < pred_bbox[2] <= 1000
-            and 0 <= pred_bbox[1] < pred_bbox[3] <= 1000
-        )
+        valid_box = (0 <= pred_bbox[0] < pred_bbox[2] <= 1000 and 0 <= pred_bbox[1] < pred_bbox[3] <= 1000)
         if not valid_box:
             return 0.0, False, pred_bbox
         try:
@@ -902,7 +890,8 @@ class GRPOTrainer(RolloutTrainerMixin, SwiftMixin, HFGRPOTrainer):
                 0.0 if route == 'good' or data.get('_sdpo_hint_source_type') == 'skip' else 1.0
                 for route, data in zip(routes, batch)
             ]
-        batch_encoded['sdpo_sequence_mask'] = torch.tensor(mask_values, dtype=torch.float32, device=self.accelerator.device)
+        batch_encoded['sdpo_sequence_mask'] = torch.tensor(
+            mask_values, dtype=torch.float32, device=self.accelerator.device)
         batch_encoded['_sdpo_origin_batch'] = [deepcopy(data) for data in batch]
 
     @profiling_decorator
@@ -1957,9 +1946,11 @@ class GRPOTrainer(RolloutTrainerMixin, SwiftMixin, HFGRPOTrainer):
             if student_inputs['labels'].numel() == 0:
                 student_inputs = self._prepare_sdpo_student_inputs(origin_batch)
                 teacher_inputs = self._prepare_sdpo_teacher_inputs(origin_batch)
-                seq_mask = torch.zeros(student_inputs['labels'].shape[0], dtype=torch.float32, device=self.accelerator.device)
+                seq_mask = torch.zeros(
+                    student_inputs['labels'].shape[0], dtype=torch.float32, device=self.accelerator.device)
             else:
-                seq_mask = torch.ones(student_inputs['labels'].shape[0], dtype=torch.float32, device=self.accelerator.device)
+                seq_mask = torch.ones(
+                    student_inputs['labels'].shape[0], dtype=torch.float32, device=self.accelerator.device)
         else:
             student_inputs = self._prepare_sdpo_student_inputs(origin_batch)
             teacher_inputs = self._prepare_sdpo_teacher_inputs(origin_batch)
@@ -1968,18 +1959,17 @@ class GRPOTrainer(RolloutTrainerMixin, SwiftMixin, HFGRPOTrainer):
         student_logits = inputs.get('_sdpo_student_logits')
         if student_logits is None:
             if self.is_deepspeed_enabled:
-                raise RuntimeError(
-                    'GRPO+SDPO requires cached student logits under DeepSpeed. '
-                    'The main GRPO forward did not expose `_sdpo_student_logits`, '
-                    'and a second student forward would break ZeRO gradient reduction.')
+                raise RuntimeError('GRPO+SDPO requires cached student logits under DeepSpeed. '
+                                   'The main GRPO forward did not expose `_sdpo_student_logits`, '
+                                   'and a second student forward would break ZeRO gradient reduction.')
             student_model_inputs = self._prepare_sdpo_model_inputs(student_inputs)
             student_outputs = model(**student_model_inputs)
             student_logits = student_outputs.logits[:, :-1, :]
 
         load_context = self.load_teacher_model_context() if getattr(self.args, 'offload_teacher_model', False) \
             else nullcontext()
-        with torch.no_grad(), load_context, disable_gradient_checkpointing(
-                self.teacher_model, self.args.gradient_checkpointing_kwargs):
+        with torch.no_grad(), load_context, disable_gradient_checkpointing(self.teacher_model,
+                                                                           self.args.gradient_checkpointing_kwargs):
             teacher_outputs = self.teacher_model(**teacher_model_inputs)
         teacher_logits = teacher_outputs.logits[:, :-1, :]
 
@@ -2094,7 +2084,8 @@ class GRPOTrainer(RolloutTrainerMixin, SwiftMixin, HFGRPOTrainer):
     def _replace_sdpo_response_with_ids(data):
         if 'response_token_ids' in data and data['response_token_ids']:
             loss_mask = data.get('response_loss_mask')
-            data['messages'] = replace_assistant_response_with_ids(data['messages'], data['response_token_ids'], loss_mask)
+            data['messages'] = replace_assistant_response_with_ids(data['messages'], data['response_token_ids'],
+                                                                   loss_mask)
 
     def _prepare_sdpo_gt_inputs(self, origin_batch: DataType):
         student_encoded = []
@@ -2118,8 +2109,8 @@ class GRPOTrainer(RolloutTrainerMixin, SwiftMixin, HFGRPOTrainer):
     def _make_sdpo_teacher_data(self, data):
         teacher_data = deepcopy(data)
         for key in [
-                '_sdpo_route', '_sdpo_iou', '_sdpo_valid_box', '_sdpo_pred_bbox', '_sdpo_reward',
-                '_sdpo_advantage', '_sdpo_routing_metrics'
+                '_sdpo_route', '_sdpo_iou', '_sdpo_valid_box', '_sdpo_pred_bbox', '_sdpo_reward', '_sdpo_advantage',
+                '_sdpo_routing_metrics'
         ]:
             teacher_data.pop(key, None)
         hint_source_type = teacher_data.get('_sdpo_hint_source_type', 'gt')
@@ -2298,7 +2289,7 @@ class GRPOTrainer(RolloutTrainerMixin, SwiftMixin, HFGRPOTrainer):
         x1, y1, x2, y2 = map(int, hint_bbox)
         sample_id = data.get('sample_id') or data.get('ref_id') or str(abs(hash(image_path)))
         hint_source = data.get('_sdpo_hint_source_type', 'gt')
-        suffix = f"{hint_source}_{sample_id}_{os.path.basename(image_path)}"
+        suffix = f'{hint_source}_{sample_id}_{os.path.basename(image_path)}'
         save_path = os.path.join(self.args.opsd_mask_dir, suffix)
         os.makedirs(os.path.dirname(save_path), exist_ok=True)
 
@@ -2338,8 +2329,8 @@ class GRPOTrainer(RolloutTrainerMixin, SwiftMixin, HFGRPOTrainer):
             ys = np.arange(H)[:, None]
             dx = np.maximum(x1 - xs, 0) + np.maximum(xs - x2, 0)
             dy = np.maximum(y1 - ys, 0) + np.maximum(ys - y2, 0)
-            dist = np.sqrt(dx.astype(np.float64) ** 2 + dy.astype(np.float64) ** 2)
-            alpha = np.exp(-dist ** 2 / (2 * sigma ** 2)).astype(np.float32)[:, :, None]
+            dist = np.sqrt(dx.astype(np.float64)**2 + dy.astype(np.float64)**2)
+            alpha = np.exp(-dist**2 / (2 * sigma**2)).astype(np.float32)[:, :, None]
             res = Image.fromarray((img_arr * alpha).astype(np.uint8))
             if mask_mode == 'soft_window':
                 draw_box = None
@@ -3226,10 +3217,8 @@ class GRPOTrainer(RolloutTrainerMixin, SwiftMixin, HFGRPOTrainer):
         chunk_size=512,
         weights=None,
     ):
-        student_logits = torch.nan_to_num(
-            student_logits.float(), nan=0.0, posinf=1e4, neginf=-1e4) / temperature
-        teacher_logits = torch.nan_to_num(
-            teacher_logits.float(), nan=0.0, posinf=1e4, neginf=-1e4) / temperature
+        student_logits = torch.nan_to_num(student_logits.float(), nan=0.0, posinf=1e4, neginf=-1e4) / temperature
+        teacher_logits = torch.nan_to_num(teacher_logits.float(), nan=0.0, posinf=1e4, neginf=-1e4) / temperature
 
         if labels is not None:
             mask = labels != -100
@@ -3715,9 +3704,8 @@ class GRPOTrainer(RolloutTrainerMixin, SwiftMixin, HFGRPOTrainer):
             k: v
             for k, v in inputs.items() if k not in [
                 'logits_to_keep', 'completion_mask', 'ref_per_token_logps', 'advantages', 'old_per_token_logps',
-                'truncated_mask', 'seq_lengths', 'num_items_in_batch', 'rollout_per_token_logps',
-                'rollout_is_weights', 'sdpo_sequence_mask', '_sdpo_origin_batch', '_sdpo_student_logits',
-                '_origin_data'
+                'truncated_mask', 'seq_lengths', 'num_items_in_batch', 'rollout_per_token_logps', 'rollout_is_weights',
+                'sdpo_sequence_mask', '_sdpo_origin_batch', '_sdpo_student_logits', '_origin_data'
             ]
         }
 

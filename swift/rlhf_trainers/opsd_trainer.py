@@ -1,5 +1,6 @@
 # Copyright (c) ModelScope Contributors. All rights reserved.
 import inspect
+import math
 import os
 import random
 from collections import defaultdict, deque
@@ -7,14 +8,16 @@ from contextlib import contextmanager, nullcontext
 from copy import deepcopy
 from enum import Enum
 from typing import Dict, Optional, Union
-import json 
 
+import json
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import trl
 from accelerate.utils import gather_object, is_peft_model
 from packaging import version
+from PIL import Image, ImageDraw, ImageFilter
 from transformers import PreTrainedModel
 from trl import GKDTrainer as HFGKDTrainer
 from trl import SFTTrainer as HFSFTTrainer
@@ -27,9 +30,6 @@ from swift.utils import (JsonlWriter, get_logger, is_swanlab_available, is_wandb
 from .rollout_mixin import DataType, RolloutTrainerMixin
 from .utils import (get_gather_if_zero3_context, identity_data_collator, prepare_deepspeed, profiling_context,
                     profiling_decorator)
-import math
-import numpy as np
-from PIL import Image, ImageDraw, ImageFilter
 
 try:
     from liger_kernel.chunked_loss import LigerFusedLinearJSDLoss
@@ -98,7 +98,7 @@ class OPSDTrainer(RolloutTrainerMixin, SwiftMixin, HFGKDTrainer):
         # Initialize EMA for teacher model
         self.ema_decay = getattr(args, 'opsd_ema_decay', 0.0)
         if self.ema_decay > 0:
-            logger.info(f"EMA enabled for teacher model with decay={self.ema_decay}")
+            logger.info(f'EMA enabled for teacher model with decay={self.ema_decay}')
 
         # Initialize rollout infrastructure for vLLM support
         self.prepare_rollout()
@@ -159,15 +159,14 @@ class OPSDTrainer(RolloutTrainerMixin, SwiftMixin, HFGKDTrainer):
         inputs['position_ids'] = new_position_ids
         return generated_tokens, new_attention_mask, new_labels
 
-
     @profiling_decorator
     def compute_loss(self, model, inputs, return_outputs=False, num_items_in_batch=None):
         # 取出两套 inputs
-        student_inputs = inputs["student_inputs"]
-        teacher_inputs = inputs["teacher_inputs"]
+        student_inputs = inputs['student_inputs']
+        teacher_inputs = inputs['teacher_inputs']
 
-        data_source = inputs.pop('_data_source', DataSource.DATASET) # 注意这里你可能需要在上一步把 _data_source 放进字典外层
-        
+        data_source = inputs.pop('_data_source', DataSource.DATASET)  # 注意这里你可能需要在上一步把 _data_source 放进字典外层
+
         # 分离出给模型 Forward 的参数
         student_model_inputs = {k: v for k, v in student_inputs.items() if k not in {'prompt', 'labels'}}
         teacher_model_inputs = {k: v for k, v in teacher_inputs.items() if k not in {'prompt', 'labels'}}
@@ -179,18 +178,19 @@ class OPSDTrainer(RolloutTrainerMixin, SwiftMixin, HFGKDTrainer):
             # 如果 teacher 也需要，类似处理 teacher_inputs
 
         if self.use_liger_gkd_loss:
-            assert False 
+            assert False
         else:
             # Standard loss computation
             if self.args.sft_alpha > 0:
                 student_model_inputs['labels'] = student_inputs['labels']
-            
+
             # 【修改点 2：分别传入对应的 inputs】
             outputs_student = model(**student_model_inputs)
             student_model_inputs.pop('labels', None)
 
             load_context = self.load_teacher_model_context() if self.args.offload_teacher_model else nullcontext()
-            with torch.no_grad(), load_context, disable_gradient_checkpointing(self.teacher_model, self.args.gradient_checkpointing_kwargs):
+            with torch.no_grad(), load_context, disable_gradient_checkpointing(self.teacher_model,
+                                                                               self.args.gradient_checkpointing_kwargs):
                 outputs_teacher = self.teacher_model(**teacher_model_inputs)
 
             # 【危险区域：对齐 Logits】
@@ -198,7 +198,7 @@ class OPSDTrainer(RolloutTrainerMixin, SwiftMixin, HFGKDTrainer):
             # 你需要依靠 labels == -100 的 mask 把前面不一致的 prompt 截掉，只保留生成的 Response 部分进行 KL 散度计算。
             shifted_student_labels = torch.roll(student_inputs['labels'], shifts=-1, dims=1)
             shifted_teacher_labels = torch.roll(teacher_inputs['labels'], shifts=-1, dims=1)
-            
+
             mask_student = shifted_student_labels != -100
             mask_teacher = shifted_teacher_labels != -100
 
@@ -215,12 +215,13 @@ class OPSDTrainer(RolloutTrainerMixin, SwiftMixin, HFGKDTrainer):
             #   "linear-entropy"   — 数字位 N-k × teacher confidence
             # =========================================================
             if not hasattr(self, '_digit_tokens'):
-                self._digit_tokens = set(self.template.tokenizer.encode(str(i), add_special_tokens=False)[-1] for i in range(10))
-            
+                self._digit_tokens = set(
+                    self.template.tokenizer.encode(str(i), add_special_tokens=False)[-1] for i in range(10))
+
             weight_mode = getattr(self.args, 'opsd_token_weight_mode', 'linear')
             non_digit_w = getattr(self.args, 'opsd_non_digit_weight', 1.0)
             max_digit_len = getattr(self.args, 'opsd_max_digit_len', 0)  # 0=不限制
-            
+
             # Step 1: 计算 position-aware 基础权重
             if 'linear' in weight_mode:
                 weights = torch.full_like(shifted_student_labels, non_digit_w, dtype=torch.float32)
@@ -241,20 +242,20 @@ class OPSDTrainer(RolloutTrainerMixin, SwiftMixin, HFGKDTrainer):
                                 # 从末尾开始计算：最后一位权重=1，倒数第二位=2，...
                                 # 超过 effective_N 的高位统一用 effective_N
                                 pos_from_end = N - k  # N, N-1, ..., 2, 1
-                                weights[b, i+k] = float(min(pos_from_end, effective_N))
+                                weights[b, i + k] = float(min(pos_from_end, effective_N))
                             i = j
                         else:
                             i += 1
             else:
                 # uniform
                 weights = torch.ones_like(shifted_student_labels, dtype=torch.float32)
-            
+
             # 取出有效部分的 weights (形状对齐 mask_student)
             valid_weights = weights[mask_student]
-            
+
             # Step 2: entropy 模式额外乘以 teacher confidence (归一化到0-1)
             # 注意：teacher 和 student 序列长度不同，所以必须先提取 teacher 有效部分再算 entropy
-            if 'entropy'  in weight_mode:
+            if 'entropy' in weight_mode:
                 # 先取出 teacher 有效 response 部分的 logits [N_valid, V]
                 valid_teacher_logits = outputs_teacher.logits[mask_teacher]
                 teacher_probs = F.softmax(valid_teacher_logits, dim=-1)  # [N_valid, V]
@@ -276,7 +277,7 @@ class OPSDTrainer(RolloutTrainerMixin, SwiftMixin, HFGKDTrainer):
                 student_logits=shifted_student_logits,
                 teacher_logits=shifted_teacher_logits,
                 beta=self.beta,
-                weights=valid_weights, # <--- 传入权重参数
+                weights=valid_weights,  # <--- 传入权重参数
             )
             # Add SFT loss if enabled (skip for student-generated responses)
             if self.args.sft_alpha > 0 and data_source != DataSource.STUDENT:
@@ -294,7 +295,7 @@ class OPSDTrainer(RolloutTrainerMixin, SwiftMixin, HFGKDTrainer):
                         mask_teacher=mask_teacher,
                     )
                 except Exception as _e:
-                    logger.warning(f"[opsd monitor] skipped due to: {_e!r}")
+                    logger.warning(f'[opsd monitor] skipped due to: {_e!r}')
 
         # Return loss
         if return_outputs:
@@ -327,7 +328,7 @@ class OPSDTrainer(RolloutTrainerMixin, SwiftMixin, HFGKDTrainer):
             digit_mask = mask_teacher & digit_pos_mask
 
             if digit_mask.any():
-                t_logits = outputs_teacher.logits[digit_mask]            # [N, V]
+                t_logits = outputs_teacher.logits[digit_mask]  # [N, V]
                 t_probs = F.softmax(t_logits, dim=-1)
                 t_entropy = -(t_probs * torch.log(t_probs + 1e-8)).sum(dim=-1)
                 gt_labels = shifted_teacher_labels[digit_mask].long().clamp_min(0)
@@ -363,13 +364,13 @@ class OPSDTrainer(RolloutTrainerMixin, SwiftMixin, HFGKDTrainer):
 
         image_path = data['images'][0]['path']
         x1, y1, x2, y2 = map(int, data['solution']['arguments']['coordinate'])
-        
+
         save_path = os.path.join(self.args.opsd_mask_dir, f"{data['sample_id']}_{os.path.basename(image_path)}")
         os.makedirs(os.path.dirname(save_path), exist_ok=True)
-        
+
         img = load_image(image_path)
         W, H = img.size
-        
+
         mask_mode = getattr(self.args, 'opsd_mask_mode', 'zoom_in')
         cx, cy = (x1 + x2) // 2, (y1 + y2) // 2
         bbox_w, bbox_h = x2 - x1, y2 - y1
@@ -379,7 +380,7 @@ class OPSDTrainer(RolloutTrainerMixin, SwiftMixin, HFGKDTrainer):
 
         if mask_mode == 'zoom_in':
             # 固定裁剪 W/2 × H/2 区域
-            res = Image.new("RGB", (W, H), "black") 
+            res = Image.new('RGB', (W, H), 'black')
             crop_x1 = max(0, cx - W // 4)
             crop_y1 = max(0, cy - H // 4)
             crop_x2 = min(W, cx + W // 4)
@@ -392,23 +393,23 @@ class OPSDTrainer(RolloutTrainerMixin, SwiftMixin, HFGKDTrainer):
             # 方案B：基于bbox自适应缩放 + 最小面积保底
             zoom_ratio = getattr(self.args, 'opsd_zoom_ratio', 2.0)
             min_area_frac = getattr(self.args, 'opsd_min_area_frac', 0.1)
-            
+
             # 以bbox尺寸为基准向外扩展
             pad_w = int(bbox_w * zoom_ratio)
             pad_h = int(bbox_h * zoom_ratio)
-            
+
             # 保底：至少暴露原图的 min_area_frac 面积
             min_half_w = int(W * math.sqrt(min_area_frac) / 2)
             min_half_h = int(H * math.sqrt(min_area_frac) / 2)
             pad_w = max(pad_w, min_half_w)
             pad_h = max(pad_h, min_half_h)
-            
+
             crop_x1 = max(0, cx - pad_w)
             crop_y1 = max(0, cy - pad_h)
             crop_x2 = min(W, cx + pad_w)
             crop_y2 = min(H, cy + pad_h)
-            
-            res = Image.new("RGB", (W, H), "black")
+
+            res = Image.new('RGB', (W, H), 'black')
             if crop_x1 < crop_x2 and crop_y1 < crop_y2:
                 crop_box = (crop_x1, crop_y1, crop_x2, crop_y2)
                 res.paste(img.crop(crop_box), (crop_x1, crop_y1))
@@ -422,21 +423,21 @@ class OPSDTrainer(RolloutTrainerMixin, SwiftMixin, HFGKDTrainer):
             # 保底：sigma至少为图像短边 * sqrt(min_area_frac)，防止小目标衰减过快
             min_sigma = min(W, H) * math.sqrt(min_area_frac)
             sigma = max(sigma, min_sigma)
-            
+
             img_arr = np.array(img, dtype=np.float32)
-            
+
             # 计算每个像素到bbox的最短距离（bbox内部距离为0）
             xs = np.arange(W)[None, :]  # (1, W)
             ys = np.arange(H)[:, None]  # (H, 1)
-            
+
             dx = np.maximum(x1 - xs, 0) + np.maximum(xs - x2, 0)  # (H, W)
             dy = np.maximum(y1 - ys, 0) + np.maximum(ys - y2, 0)  # (H, W)
             dist = np.sqrt(dx.astype(np.float64)**2 + dy.astype(np.float64)**2)
-            
+
             # 高斯衰减：bbox内部alpha=1，外部随距离指数衰减
             alpha = np.exp(-dist**2 / (2 * sigma**2)).astype(np.float32)
             alpha = alpha[:, :, None]  # (H, W, 1) 用于广播到RGB三通道
-            
+
             res_arr = (img_arr * alpha).astype(np.uint8)
             res = Image.fromarray(res_arr)
 
@@ -458,8 +459,8 @@ class OPSDTrainer(RolloutTrainerMixin, SwiftMixin, HFGKDTrainer):
             ys = np.arange(H)[:, None]
             dx = np.maximum(x1 - xs, 0) + np.maximum(xs - x2, 0)
             dy = np.maximum(y1 - ys, 0) + np.maximum(ys - y2, 0)
-            dist = np.sqrt(dx.astype(np.float64) ** 2 + dy.astype(np.float64) ** 2)
-            alpha = np.exp(-dist ** 2 / (2 * sigma ** 2)).astype(np.float32)
+            dist = np.sqrt(dx.astype(np.float64)**2 + dy.astype(np.float64)**2)
+            alpha = np.exp(-dist**2 / (2 * sigma**2)).astype(np.float32)
             alpha = alpha[:, :, None]
             res_arr = (img_arr * alpha).astype(np.uint8)
             res = Image.fromarray(res_arr)
@@ -482,7 +483,7 @@ class OPSDTrainer(RolloutTrainerMixin, SwiftMixin, HFGKDTrainer):
         else:
             # original: 直接使用原图 + 画bbox
             res = img.copy()
-        
+
         # 统一画框：颜色/坐标由各 mask 分支决定；draw_box=None 时不画
         if draw_box is not None:
             bx1, by1, bx2, by2, color = draw_box
@@ -497,7 +498,6 @@ class OPSDTrainer(RolloutTrainerMixin, SwiftMixin, HFGKDTrainer):
 
         return save_path
 
- 
     def _prepare_batch_inputs(self, inputs: list, encode_prompt_only: bool = False) -> Dict[str, torch.Tensor]:
         # inputs: 一个 batch 的原始样本列表，每个元素是 dict(messages, images, solution, ...)
         # encode_prompt_only=True  → 只编码 prompt（给 generate 用，after rollout 再补 response）
@@ -508,7 +508,7 @@ class OPSDTrainer(RolloutTrainerMixin, SwiftMixin, HFGKDTrainer):
 
         template = self.template  # swift 多模态对话模板：负责 chat template 拼接、图像编码、padding
         student_encoded_inputs = []  # 收集 student 这一路的编码结果
-        teacher_encoded_inputs = [] # 新增：Teacher 的输入容器（OPSD 关键：两路分开）
+        teacher_encoded_inputs = []  # 新增：Teacher 的输入容器（OPSD 关键：两路分开）
 
         mode = 'transformers' if encode_prompt_only else 'train'
         # 'transformers' 模式：为 generate 服务，labels 全 -100（不算 loss）
@@ -521,8 +521,10 @@ class OPSDTrainer(RolloutTrainerMixin, SwiftMixin, HFGKDTrainer):
                 if 'response_token_ids' in student_data and student_data['response_token_ids']:
                     # 上游（vLLM rollout）已把 response 以 token_ids 形式给过来 → 直接塞回 messages
                     # 避免重新 tokenize 文本引入误差，保证 student/teacher response token 完全一致
-                    student_data['messages'] = replace_assistant_response_with_ids(student_data['messages'], student_data['response_token_ids'])
-                if encode_prompt_only and student_data.get('messages') and student_data['messages'][-1].get('role') == 'assistant':
+                    student_data['messages'] = replace_assistant_response_with_ids(student_data['messages'],
+                                                                                   student_data['response_token_ids'])
+                if encode_prompt_only and student_data.get('messages') and student_data['messages'][-1].get(
+                        'role') == 'assistant':
                     # prompt-only 模式：清空 assistant 内容，让 template 只编码到 "<|assistant|>" 前缀
                     # 后面交给 model.generate() 续写
                     student_data['messages'][-1]['content'] = None
@@ -539,7 +541,7 @@ class OPSDTrainer(RolloutTrainerMixin, SwiftMixin, HFGKDTrainer):
                 #   'hint' → 图上画绿色 GT 框 + 文本加 "Hint: green rectangle ..."
                 #   'gt'   → 在 hint 基础上，prompt 里直接拼 GT 的 tool_call（最强 oracle）
                 if 'messages' in teacher_data:
-                    assert teacher_data['messages'][1]['role'] == "user"
+                    assert teacher_data['messages'][1]['role'] == 'user'
                     # 约定：messages[0] 是 system，messages[1] 是 user（承载图像和指令）
                     # 后面所有 hint 改造都改的是 user 这条消息
 
@@ -550,12 +552,12 @@ class OPSDTrainer(RolloutTrainerMixin, SwiftMixin, HFGKDTrainer):
                         # 根据 mask_mode 选择匹配的 hint 文本，避免和图像内容矛盾
                         cur_mask_mode = getattr(self.args, 'opsd_mask_mode', 'zoom_in')
                         if cur_mask_mode == 'soft_window':
-                            hint_text = " Hint: The target is in the brighter (un-dimmed) region of the image."
+                            hint_text = ' Hint: The target is in the brighter (un-dimmed) region of the image.'
                         elif cur_mask_mode == 'jitter_box':
                             cur_color = getattr(self.args, 'opsd_hint_box_color', 'magenta')
-                            hint_text = f" Hint: The target is approximately within the {cur_color} box."
+                            hint_text = f' Hint: The target is approximately within the {cur_color} box.'
                         else:
-                            hint_text = " Hint: The answer is located within the green rectangle."
+                            hint_text = ' Hint: The answer is located within the green rectangle.'
                         teacher_data['messages'][1]['content'] += hint_text
                         mask_img_path = self.mask_processor(teacher_data)
                         # mask_processor 生成"难度降低版"图片：
@@ -584,13 +586,14 @@ class OPSDTrainer(RolloutTrainerMixin, SwiftMixin, HFGKDTrainer):
                         norm_cx = (norm_bbox[0] + norm_bbox[2]) // 2
                         norm_cy = (norm_bbox[1] + norm_bbox[3]) // 2
                         # 取归一化中心点，作为 click 的目标坐标
-                        gt_tool_call = f'<tool_call>\n{{"name": "computer_use", "arguments": {{"action": "left_click", "coordinate": [{norm_cx}, {norm_cy}]}}}}\n</tool_call>'
+                        gt_tool_call = ('<tool_call>\n'
+                                        f'{{"name": "computer_use", "arguments": {{"action": "left_click", '
+                                        f'"coordinate": [{norm_cx}, {norm_cy}]}}}}\n'
+                                        '</tool_call>')
                         # 拼出模型训练时使用的 tool_call 字符串格式 → teacher 看到的是"标准答案该长这样"
                         user_text = teacher_data['messages'][1]['content']
-                        teacher_data['messages'][1]['content'] = (
-                            f"{user_text}\n\n"
-                            f"The correct answer: {gt_tool_call}"
-                        )
+                        teacher_data['messages'][1]['content'] = (f'{user_text}\n\n'
+                                                                  f'The correct answer: {gt_tool_call}')
                         # 在 user prompt 末尾把答案明文拼进去
                         # 这样 teacher 几乎可以"照抄"输出，得到的 logits 分布质量极高
 
@@ -603,8 +606,10 @@ class OPSDTrainer(RolloutTrainerMixin, SwiftMixin, HFGKDTrainer):
                 if 'response_token_ids' in teacher_data and teacher_data['response_token_ids']:
                     # 关键：teacher 的 response 段必须用和 student 一模一样的 token_ids
                     # 这是后面能在 response 段做 GJSD 对齐的前提（token 必须对齐才能比较 logits）
-                    teacher_data['messages'] = replace_assistant_response_with_ids(teacher_data['messages'], teacher_data['response_token_ids'])
-                if encode_prompt_only and teacher_data.get('messages') and teacher_data['messages'][-1].get('role') == 'assistant':
+                    teacher_data['messages'] = replace_assistant_response_with_ids(teacher_data['messages'],
+                                                                                   teacher_data['response_token_ids'])
+                if encode_prompt_only and teacher_data.get('messages') and teacher_data['messages'][-1].get(
+                        'role') == 'assistant':
                     # 同 student 的逻辑：prompt-only 模式下清空 assistant 内容
                     teacher_data['messages'][-1]['content'] = None
                 teacher_encoded = template.encode(teacher_data, return_length=True)
@@ -645,10 +650,9 @@ class OPSDTrainer(RolloutTrainerMixin, SwiftMixin, HFGKDTrainer):
         # 上层（compute_loss）拿到这两个，分别走 student.forward 和 teacher.forward，
         # 再用 mask 抽 response 段做 token-加权 GJSD
         return {
-            "student_inputs": student_batch,   # 给 student 模型 forward 用
-            "teacher_inputs": teacher_batch    # 给 teacher 模型 forward 用
+            'student_inputs': student_batch,  # 给 student 模型 forward 用
+            'teacher_inputs': teacher_batch  # 给 teacher 模型 forward 用
         }
-
 
     # Code borrowed from huggingface/trl
     @profiling_decorator
@@ -760,9 +764,13 @@ class OPSDTrainer(RolloutTrainerMixin, SwiftMixin, HFGKDTrainer):
         # If teacher uses DeepSpeed ZeRO3, need to gather full parameters
         if self.is_teacher_ds3:
             import deepspeed
-            gather_context = lambda params: deepspeed.zero.GatheredParameters(params, modifier_rank=0)
+
+            def gather_context(params):
+                return deepspeed.zero.GatheredParameters(params, modifier_rank=0)
         else:
-            gather_context = lambda params: nullcontext()
+
+            def gather_context(params):
+                return nullcontext()
 
         with load_context:
             student_model = self.accelerator.unwrap_model(self.model)
@@ -776,7 +784,8 @@ class OPSDTrainer(RolloutTrainerMixin, SwiftMixin, HFGKDTrainer):
                     with gather_context([teacher_param]):
                         # Only rank 0 modifies under ZeRO3; for ZeRO2/non-DS all ranks update
                         if not self.is_teacher_ds3 or self.accelerator.is_main_process:
-                            teacher_param.data.mul_(decay).add_(student_param.data.to(teacher_param.device), alpha=1.0 - decay)
+                            teacher_param.data.mul_(decay).add_(
+                                student_param.data.to(teacher_param.device), alpha=1.0 - decay)
 
     def prediction_step(self, model, inputs, *args, **kwargs):
         # Prediction uses full messages
@@ -854,16 +863,15 @@ class OPSDTrainer(RolloutTrainerMixin, SwiftMixin, HFGKDTrainer):
             )
             self.use_liger_gkd_loss = True
 
-
     @staticmethod
     def generalized_jsd_loss(
-        student_logits,
-        teacher_logits,
-        labels=None,
-        beta=0.5,
-        temperature=1.0,
-        chunk_size=512,
-        weights=None, # <--- 新增参数
+            student_logits,
+            teacher_logits,
+            labels=None,
+            beta=0.5,
+            temperature=1.0,
+            chunk_size=512,
+            weights=None,  # <--- 新增参数
     ):
         # Apply temperature scaling
         student_logits = student_logits / temperature
@@ -876,14 +884,14 @@ class OPSDTrainer(RolloutTrainerMixin, SwiftMixin, HFGKDTrainer):
             teacher_logits = teacher_logits[mask]
             num_valid = mask.sum()
             if weights is not None:
-                weights = weights[mask] # <--- 新增
+                weights = weights[mask]  # <--- 新增
         else:
             # Flatten to [num_tokens, vocab_size]
             student_logits = student_logits.view(-1, student_logits.size(-1))
             teacher_logits = teacher_logits.view(-1, teacher_logits.size(-1))
             num_valid = student_logits.size(0)
             if weights is not None:
-                weights = weights.view(-1) # <--- 新增
+                weights = weights.view(-1)  # <--- 新增
 
         if num_valid == 0:
             return student_logits.new_zeros(())
@@ -943,7 +951,6 @@ class OPSDTrainer(RolloutTrainerMixin, SwiftMixin, HFGKDTrainer):
             del jsd_chunk, s_log_probs, t_log_probs
 
         return total_loss / num_valid
-        
 
     def _prepare_logging(self):
         """Initialize logging components for on-policy rollout tracking."""

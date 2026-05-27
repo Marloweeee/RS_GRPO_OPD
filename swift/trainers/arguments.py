@@ -199,20 +199,27 @@ class TrainArgumentsMixin:
     use_flash_ckpt: bool = False
 
     # add
-    opsd_mask_dir: str = "cache/opd_cache"
-    opsd_mask_mode: str = "zoom_in"  # "zoom_in"/"adaptive"/"gaussian"/"original"/"no_mask"(GUI 原始) | "soft_window"(A: 高斯衰减+不画框，bbox 任务用) | "jitter_box"(C: 抖动框做模糊提示)
+    opsd_mask_dir: str = 'cache/opd_cache'
+    # "zoom_in"/"adaptive"/"gaussian"/"original"/"no_mask"(GUI 原始)
+    # "soft_window"(A: 高斯衰减+不画框，bbox 任务用) | "jitter_box"(C: 抖动框做模糊提示)
+    opsd_mask_mode: str = 'zoom_in'
     opsd_zoom_ratio: float = 2.0  # adaptive模式: 裁剪区域 = bbox向外扩展zoom_ratio倍
     opsd_min_area_frac: float = 0.1  # adaptive模式: 最小可见面积占原图比例 (保底)
     opsd_gaussian_sigma_ratio: float = 1.5  # gaussian模式: sigma = max(bbox_w, bbox_h) * sigma_ratio
     opsd_jitter_ratio: float = 0.2  # jitter_box 模式: 每条边随机扰动 ±ratio * bbox_size
-    opsd_hint_box_color: str = "magenta"  # jitter_box / 通用提示框颜色 (避开 RS 植被绿)
-    opsd_token_weight_mode: str = "linear"  # "uniform": 全1.0; "linear": 数字N-k(百3十2个1); "uniform-entropy": 全1.0×teacher_confidence; "linear-entropy": 数字N-k×teacher_confidence
+    opsd_hint_box_color: str = 'magenta'  # jitter_box / 通用提示框颜色 (避开 RS 植被绿)
+    # "uniform": 全1.0; "linear": 数字N-k(百3十2个1)
+    # "uniform-entropy": 全1.0×teacher_confidence; "linear-entropy": 数字N-k×teacher_confidence
+    opsd_token_weight_mode: str = 'linear'
     opsd_non_digit_weight: float = 1.0  # 非数字token的权重
-    opsd_max_digit_len: int = 0  # linear模式下数字串的最大有效长度，超过此长度的数字串权重会被截断。0=不限制(默认); 3=适用于norm1000坐标(Qwen3-VL); 4=适用于绝对像素坐标(Qwen2.5-VL)
-    opsd_hint_mode: str = "hint"  # "none": 不加hint，teacher输入与student一致; "hint": 加遮罩图+hint文本; "gt": 在 hint 基础上 prompt 里直接给 GT 答案
-    opsd_ema_decay: float = 0.0  # EMA decay for teacher model. 0=disabled(fixed teacher), 0.999=slow update, 0.99=fast update
+    # linear模式下数字串的最大有效长度，超过此长度的数字串权重会被截断。
+    # 0=不限制(默认); 3=适用于norm1000坐标(Qwen3-VL); 4=适用于绝对像素坐标(Qwen2.5-VL)
+    opsd_max_digit_len: int = 0
+    # "none": 不加hint，teacher输入与student一致; "hint": 加遮罩图+hint文本; "gt": 在 hint 基础上 prompt 里直接给 GT 答案
+    opsd_hint_mode: str = 'hint'
+    # EMA decay for teacher model. 0=disabled(fixed teacher), 0.999=slow update, 0.99=fast update
+    opsd_ema_decay: float = 0.0
     opsd_monitor_teacher: bool = False  # 训练时记录 teacher 数字 token 熵 / 置信度 / IoU (略增开销，用于诊断 hint 强度)
-    opsd_ema_decay: float = 0.0  # EMA decay for teacher model. 0=disabled(fixed teacher), 0.999=slow update, 0.99=fast update
 
     @staticmethod
     def _patch_liger_kernel():

@@ -87,13 +87,10 @@ class OPSDConfig(RolloutTrainerArgumentsMixin, TrainArgumentsMixin, HfGKDConfig)
     max_completion_length: int = 512
     log_completions: bool = False
 
-
-
     def __post_init__(self):
         RolloutTrainerArgumentsMixin.__post_init__(self)
         TrainArgumentsMixin.__post_init__(self)
         HfGKDConfig.__post_init__(self)
-
 
 
 @dataclass

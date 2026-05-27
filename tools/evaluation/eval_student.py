@@ -14,24 +14,28 @@ System / user / assistant 模板严格对齐 convert_rrsisd_to_jsonl.py 的训�
 """
 
 import argparse
-import json
 import math
 import os
 import sys
 import time
 
+import json
 from PIL import Image
 
-sys.path.insert(0, '/data/codes/gui_grounding/GUI-SD-code-main')
 from swift.custom_utils.format_func import extract_bbox  # noqa: E402
 
-SYSTEM_PROMPT = "You are a helpful assistant."
+sys.path.insert(0, '/data/codes/gui_grounding/GUI-SD-code-main')
+
+SYSTEM_PROMPT = 'You are a helpful assistant.'
 
 
 def iou_xyxy(a, b):
-    ix1 = max(a[0], b[0]); iy1 = max(a[1], b[1])
-    ix2 = min(a[2], b[2]); iy2 = min(a[3], b[3])
-    iw = max(0, ix2 - ix1); ih = max(0, iy2 - iy1)
+    ix1 = max(a[0], b[0])
+    iy1 = max(a[1], b[1])
+    ix2 = min(a[2], b[2])
+    iy2 = min(a[3], b[3])
+    iw = max(0, ix2 - ix1)
+    ih = max(0, iy2 - iy1)
     inter = iw * ih
     aa = max(0, a[2] - a[0]) * max(0, a[3] - a[1])
     bb = max(0, b[2] - b[0]) * max(0, b[3] - b[1])
@@ -44,7 +48,7 @@ def center_score_xyxy(a, b):
     ay = (a[1] + a[3]) / 2
     bx = (b[0] + b[2]) / 2
     by = (b[1] + b[3]) / 2
-    dist = math.sqrt((ax - bx) ** 2 + (ay - by) ** 2)
+    dist = math.sqrt((ax - bx)**2 + (ay - by)**2)
     # Coordinates are norm-1000, so the image diagonal is about 1414.
     return max(0.0, 1.0 - dist / math.sqrt(2_000_000))
 
@@ -68,11 +72,7 @@ def aspect_ratio_score_xyxy(a, b):
 
 
 def valid_norm_box(bbox):
-    return (
-        bbox != 'no bbox'
-        and 0 <= bbox[0] < bbox[2] <= 1000
-        and 0 <= bbox[1] < bbox[3] <= 1000
-    )
+    return (bbox != 'no bbox' and 0 <= bbox[0] < bbox[2] <= 1000 and 0 <= bbox[1] < bbox[3] <= 1000)
 
 
 def geometry_reward(pred_bbox, gt_bbox):
@@ -93,14 +93,7 @@ def geometry_reward(pred_bbox, gt_bbox):
     center = center_score_xyxy(pred_bbox, gt_bbox) if valid_box else 0.0
     area = area_ratio_score_xyxy(pred_bbox, gt_bbox) if valid_box else 0.0
     aspect = aspect_ratio_score_xyxy(pred_bbox, gt_bbox) if valid_box else 0.0
-    reward = (
-        0.10 * parse_ok
-        + 0.10 * valid_box
-        + 0.50 * iou
-        + 0.15 * center
-        + 0.10 * area
-        + 0.05 * aspect
-    )
+    reward = (0.10 * parse_ok + 0.10 * valid_box + 0.50 * iou + 0.15 * center + 0.10 * area + 0.05 * aspect)
     return {
         'reward': reward,
         'parse_ok': parse_ok,
@@ -158,13 +151,22 @@ def main():
     ap.add_argument('--gpu_mem_util', type=float, default=0.85)
     ap.add_argument('--max_new_tokens', type=int, default=128)
     ap.add_argument('--seed', type=int, default=42)
-    ap.add_argument('--num_rollouts', type=int, default=1,
-                    help='number of sampled bbox rollouts per prompt; 1 keeps original greedy eval')
-    ap.add_argument('--rollout_temperature', type=float, default=None,
-                    help='sampling temperature for --num_rollouts > 1; defaults to 0.7 when sampling')
+    ap.add_argument(
+        '--num_rollouts',
+        type=int,
+        default=1,
+        help='number of sampled bbox rollouts per prompt; 1 keeps original greedy eval')
+    ap.add_argument(
+        '--rollout_temperature',
+        type=float,
+        default=None,
+        help='sampling temperature for --num_rollouts > 1; defaults to 0.7 when sampling')
     ap.add_argument('--top_p', type=float, default=0.95)
-    ap.add_argument('--eval_batch_size', type=int, default=0,
-                    help='number of prompts per vLLM.generate call; 0 = all prompts at once')
+    ap.add_argument(
+        '--eval_batch_size',
+        type=int,
+        default=0,
+        help='number of prompts per vLLM.generate call; 0 = all prompts at once')
     args = ap.parse_args()
 
     os.makedirs(args.out_dir, exist_ok=True)
@@ -203,14 +205,24 @@ def main():
     def build_request(s):
         img = Image.open(s['image']).convert('RGB')
         messages = [
-            {'role': 'system', 'content': SYSTEM_PROMPT},
-            {'role': 'user', 'content': [
-                {'type': 'image'},
-                {'type': 'text', 'text': s['user_text']},
-            ]},
+            {
+                'role': 'system',
+                'content': SYSTEM_PROMPT
+            },
+            {
+                'role': 'user',
+                'content': [
+                    {
+                        'type': 'image'
+                    },
+                    {
+                        'type': 'text',
+                        'text': s['user_text']
+                    },
+                ]
+            },
         ]
-        prompt = processor.apply_chat_template(
-            messages, add_generation_prompt=True, tokenize=False)
+        prompt = processor.apply_chat_template(messages, add_generation_prompt=True, tokenize=False)
         return {'prompt': prompt, 'multi_modal_data': {'image': img}}
 
     t0 = time.time()
@@ -242,7 +254,8 @@ def main():
                 'rollout_id': ridx,
                 'pred_bbox': pred_bbox if pred_bbox != 'no bbox' else None,
                 'text': text,
-                **{k: round(v, 6) for k, v in reward_info.items()},
+                **{k: round(v, 6)
+                   for k, v in reward_info.items()},
             })
         best = max(candidates, key=lambda c: (c['reward'], c['iou'], c['valid_box']))
         pred_bbox = best['pred_bbox'] if best['pred_bbox'] is not None else 'no bbox'
@@ -256,7 +269,8 @@ def main():
         mean_best_reward += best['reward']
         ious.append(iou)
         per_sample.append({
-            'ref_id': s['ref_id'], 'category': s['category'],
+            'ref_id': s['ref_id'],
+            'category': s['category'],
             'gt_norm': s['gt_norm'],
             'pred_bbox': pred_bbox if pred_bbox != 'no bbox' else None,
             'iou': iou,

@@ -7,11 +7,11 @@ from typing import Dict, List, Union
 
 import json
 
-from swift.infer_engine import InferRequest
-from swift.cus_rewards.ground_reward import GroundAcc, GroundFormat
+from swift.cus_rewards.bbox_iou_reward import BBoxGeometryReward, BBoxIoUFormat, BBoxIoUReward
+from swift.cus_rewards.bbox_reward import BBoxFormat, BBoxReward
 from swift.cus_rewards.g2_reward import G2Acc, G2Format
-from swift.cus_rewards.bbox_reward import BBoxReward, BBoxFormat
-from swift.cus_rewards.bbox_iou_reward import BBoxGeometryReward, BBoxIoUReward, BBoxIoUFormat
+from swift.cus_rewards.ground_reward import GroundAcc, GroundFormat
+from swift.infer_engine import InferRequest
 
 
 class ORM:
@@ -457,14 +457,13 @@ orms = {
     'cosine': CosineReward,
     'repetition': RepetitionPenalty,
     'soft_overlong': SoftOverlong,
-    'ground-acc': GroundAcc, 
+    'ground-acc': GroundAcc,
     'ground-format': GroundFormat,
-    'g2acc': G2Acc, 
+    'g2acc': G2Acc,
     'g2format': G2Format,
     'bbox-reward': BBoxReward,
     'bbox-format': BBoxFormat,
     'bbox-iou': BBoxIoUReward,
     'bbox-geometry': BBoxGeometryReward,
     'bbox-iou-format': BBoxIoUFormat,
-
 }

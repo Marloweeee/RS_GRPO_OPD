@@ -207,7 +207,7 @@ class Template(ProcessorMixin):
         if load_images:
             if isinstance(image, dict) and 'bytes' in image:
                 image = image['bytes'] or image['path']
-            
+
             image = load_image(image)
 
             # try:
@@ -216,7 +216,6 @@ class Template(ProcessorMixin):
             #     print(image)
             #     assert False
 
-            
         else:
             if isinstance(image, dict):
                 path = image['path']

@@ -307,8 +307,7 @@ def load_dataset(
         download_mode=download_mode,
         columns=columns,  # columns_mapping
         # remove_unused_columns=remove_unused_columns,
-        remove_unused_columns=False
-    )
+        remove_unused_columns=False)
 
     use_hf_default = use_hf
     if use_hf_default is None:

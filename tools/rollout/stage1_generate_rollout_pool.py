@@ -11,20 +11,19 @@ The script parses each bbox, computes geometry reward, assigns route labels
 """
 
 import argparse
-import json
 import math
 import os
 import sys
 import time
 from collections import defaultdict
 
+import json
 from PIL import Image
 
 sys.path.insert(0, '/data/codes/gui_grounding/GUI-SD-code-main')
-from swift.custom_utils.format_func import extract_bbox  # noqa: E402
+from swift.custom_utils.format_func import extract_bbox  # noqa: E402  # isort:skip
 
-
-SYSTEM_PROMPT = "You are a helpful assistant."
+SYSTEM_PROMPT = 'You are a helpful assistant.'
 
 
 def iou_xyxy(a, b):
@@ -46,7 +45,7 @@ def center_score_xyxy(a, b):
     ay = (a[1] + a[3]) / 2
     bx = (b[0] + b[2]) / 2
     by = (b[1] + b[3]) / 2
-    dist = math.sqrt((ax - bx) ** 2 + (ay - by) ** 2)
+    dist = math.sqrt((ax - bx)**2 + (ay - by)**2)
     return max(0.0, 1.0 - dist / math.sqrt(2_000_000))
 
 
@@ -69,11 +68,7 @@ def aspect_ratio_score_xyxy(a, b):
 
 
 def valid_norm_box(bbox):
-    return (
-        bbox != 'no bbox'
-        and 0 <= bbox[0] < bbox[2] <= 1000
-        and 0 <= bbox[1] < bbox[3] <= 1000
-    )
+    return (bbox != 'no bbox' and 0 <= bbox[0] < bbox[2] <= 1000 and 0 <= bbox[1] < bbox[3] <= 1000)
 
 
 def geometry_reward(pred_bbox, gt_bbox):
@@ -94,14 +89,7 @@ def geometry_reward(pred_bbox, gt_bbox):
     center = center_score_xyxy(pred_bbox, gt_bbox) if valid_box else 0.0
     area = area_ratio_score_xyxy(pred_bbox, gt_bbox) if valid_box else 0.0
     aspect = aspect_ratio_score_xyxy(pred_bbox, gt_bbox) if valid_box else 0.0
-    reward = (
-        0.10 * parse_ok
-        + 0.10 * valid_box
-        + 0.50 * iou
-        + 0.15 * center
-        + 0.10 * area
-        + 0.05 * aspect
-    )
+    reward = (0.10 * parse_ok + 0.10 * valid_box + 0.50 * iou + 0.15 * center + 0.10 * area + 0.05 * aspect)
     return {
         'reward': reward,
         'parse_ok': parse_ok,
@@ -173,7 +161,7 @@ def stdev(values):
     if len(values) <= 1:
         return 0.0
     m = mean(values)
-    return math.sqrt(sum((v - m) ** 2 for v in values) / len(values))
+    return math.sqrt(sum((v - m)**2 for v in values) / len(values))
 
 
 def round_float(value, digits=6):
@@ -242,17 +230,18 @@ def summarize_records(records, num_rollouts):
         'best_of_k_IoU@0.7': round_float(mean([v > 0.7 for v in best_ious]), 4),
         'random_one_mIoU_proxy_rollout0': round_float(mean(random_ious), 4),
         'mean_of_k_mIoU': round_float(mean(mean_iou_per_group), 4),
-        'oracle_gap_IoU@0.5': round_float(
-            mean([v > 0.5 for v in best_ious]) - mean([v > 0.5 for v in greedy_ious]), 4),
+        'oracle_gap_IoU@0.5': round_float(mean([v > 0.5 for v in best_ious]) - mean([v > 0.5 for v in greedy_ious]), 4),
         'oracle_gap_mIoU': round_float(mean(best_ious) - mean(greedy_ious), 4),
         'parse_rate_candidates': round_float(parse_total / max(1, candidate_total), 4),
         'valid_rate_candidates': round_float(valid_total / max(1, candidate_total), 4),
         'group_reward_std_mean': round_float(mean(group_reward_stds), 4),
         'group_reward_std_p50': round_float(percentile(group_reward_stds, 50), 4),
         'route_counts': dict(route_counts),
-        'route_ratio': {k: round_float(v / max(1, candidate_total), 4) for k, v in sorted(route_counts.items())},
+        'route_ratio': {k: round_float(v / max(1, candidate_total), 4)
+                        for k, v in sorted(route_counts.items())},
         'correction_source_counts': dict(correction_counts),
-        'correction_source_ratio': {k: round_float(v / max(1, n), 4) for k, v in sorted(correction_counts.items())},
+        'correction_source_ratio': {k: round_float(v / max(1, n), 4)
+                                    for k, v in sorted(correction_counts.items())},
     }
 
 
@@ -327,11 +316,22 @@ def main():
     for sample in samples:
         image = Image.open(sample['image']).convert('RGB')
         messages = [
-            {'role': 'system', 'content': SYSTEM_PROMPT},
-            {'role': 'user', 'content': [
-                {'type': 'image'},
-                {'type': 'text', 'text': sample['user_text']},
-            ]},
+            {
+                'role': 'system',
+                'content': SYSTEM_PROMPT
+            },
+            {
+                'role': 'user',
+                'content': [
+                    {
+                        'type': 'image'
+                    },
+                    {
+                        'type': 'text',
+                        'text': sample['user_text']
+                    },
+                ]
+            },
         ]
         prompt = processor.apply_chat_template(messages, add_generation_prompt=True, tokenize=False)
         requests.append({'prompt': prompt, 'multi_modal_data': {'image': image}})
@@ -354,10 +354,7 @@ def main():
 
         group_mean, group_std, best, worst = route_candidates(
             candidates, tau_good=args.tau_good, tau_fail=args.tau_fail, delta=args.delta)
-        correction_source = (
-            'best_sibling' if best['iou'] >= args.tau_good
-            else 'teacher_or_gt_needed'
-        )
+        correction_source = ('best_sibling' if best['iou'] >= args.tau_good else 'teacher_or_gt_needed')
         records.append({
             'sample_id': sample['sample_id'],
             'ref_id': sample['ref_id'],

@@ -313,8 +313,7 @@ class Qwen2VLTemplate(Template):
         kwargs = {'image_patch_size': self.processor.image_processor.patch_size} if self.version == 'v3' else {}
         if media_type == 'image':
             inputs.images[index] = fetch_image({'image': inputs.images[index]}, **kwargs)
-            
-            
+
             if self.mode == 'lmdeploy':
                 return ['<|vision_start|>', [-100], '<|vision_end|>']
             else:

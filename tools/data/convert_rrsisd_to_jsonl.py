@@ -16,13 +16,13 @@ RRSIS-D → anno.jsonl 转换脚本
 """
 
 import argparse
-import json
 import os
 import pickle
 from collections import defaultdict
 
+import json
 
-SYSTEM_PROMPT = "You are a helpful assistant."
+SYSTEM_PROMPT = 'You are a helpful assistant.'
 
 
 def clip_xyxy(bbox, image_size):
@@ -52,28 +52,43 @@ def make_record(ref, ann, img, cat_name, image_prefix, sample_id_offset):
     bbox_xyxy = clip_xyxy(ann['bbox'], image_size)
     nx1, ny1, nx2, ny2 = xyxy_to_norm1000(bbox_xyxy, image_size)
 
-    user_text = f"Locate {sent}, output its bbox coordinates using JSON format."
-    assistant_text = json.dumps({"bbox_2d": [nx1, ny1, nx2, ny2]}, separators=(',', ': '))
+    user_text = f'Locate {sent}, output its bbox coordinates using JSON format.'
+    assistant_text = json.dumps({'bbox_2d': [nx1, ny1, nx2, ny2]}, separators=(',', ': '))
 
     record = {
-        "solution": {
-            "name": "rs_grounding",
-            "arguments": {"action": "locate", "coordinate": bbox_xyxy},
+        'solution': {
+            'name': 'rs_grounding',
+            'arguments': {
+                'action': 'locate',
+                'coordinate': bbox_xyxy
+            },
         },
-        "images": os.path.join(image_prefix, ref['file_name']),
-        "messages": [
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": user_text},
-            {"role": "assistant", "content": assistant_text},
+        'images':
+        os.path.join(image_prefix, ref['file_name']),
+        'messages': [
+            {
+                'role': 'system',
+                'content': SYSTEM_PROMPT
+            },
+            {
+                'role': 'user',
+                'content': user_text
+            },
+            {
+                'role': 'assistant',
+                'content': assistant_text
+            },
         ],
-        "additional_paras": json.dumps({
-            "image_size": image_size,
-            "platform": "satellite",
-            "ui_type": "object",
-            "category": cat_name,
-            "ref_id": ref['ref_id'],
+        'additional_paras':
+        json.dumps({
+            'image_size': image_size,
+            'platform': 'satellite',
+            'ui_type': 'object',
+            'category': cat_name,
+            'ref_id': ref['ref_id'],
         }),
-        "sample_id": sample_id_offset + ref['ann_id'],
+        'sample_id':
+        sample_id_offset + ref['ann_id'],
     }
     return record
 
@@ -82,8 +97,10 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--src_dir', default='/data/codes/gui_grounding/data/rs_sub_dir')
     parser.add_argument('--out_dir', default='/data/codes/gui_grounding/data/rs_sub_dir')
-    parser.add_argument('--image_prefix', default='/data/codes/gui_grounding/data/rs_grounding/JPEGImages',
-                        help='图像绝对路径前缀；jsonl 里 images 字段 = prefix/<file_name>')
+    parser.add_argument(
+        '--image_prefix',
+        default='/data/codes/gui_grounding/data/rs_grounding/JPEGImages',
+        help='图像绝对路径前缀；jsonl 里 images 字段 = prefix/<file_name>')
     parser.add_argument('--sample_id_offset', type=int, default=100000)
     parser.add_argument('--also_all', action='store_true', help='额外输出一个合并 all.jsonl')
     args = parser.parse_args()

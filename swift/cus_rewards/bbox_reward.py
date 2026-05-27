@@ -23,17 +23,14 @@ GUI-G1 使用三个 reward 的线性组合:
   - R_box:  基于预测点到 GT bbox 中心的归一化距离约束
 """
 
-from typing import Dict, List, Union
-import re
-import json
 import math
+import re
+from typing import Dict, List, Union
+
+import json
 
 from swift.custom_utils.format_func import extract_action
-from swift.custom_utils.ground_func import (
-    pointnorm2real,
-    calculate_pred_norm_point,
-    bboxreal2norm,
-)
+from swift.custom_utils.ground_func import bboxreal2norm, calculate_pred_norm_point, pointnorm2real
 
 
 class ORM:
@@ -72,13 +69,11 @@ class BBoxReward(ORM):
     def compute_reward(self, predict_str: str, ground_truth: dict, image_size: list) -> float:
         try:
             pred_action = extract_action(predict_str)
-            if pred_action == "no action":
+            if pred_action == 'no action':
                 return 0.0
 
             # 预测归一化坐标
-            pred_point = calculate_pred_norm_point(
-                image_size, pred_action['arguments']['coordinate'], "qwen3vl"
-            )
+            pred_point = calculate_pred_norm_point(image_size, pred_action['arguments']['coordinate'], 'qwen3vl')
             pred_x, pred_y = pred_point
 
             # GT bbox 归一化到 0-1000
@@ -95,8 +90,8 @@ class BBoxReward(ORM):
             gt_h = max(gt_y2 - gt_y1, 1)
             sigma_x = 0.5 * gt_w
             sigma_y = 0.5 * gt_h
-            x_term = (pred_x - gt_cx) ** 2 / (sigma_x ** 2)
-            y_term = (pred_y - gt_cy) ** 2 / (sigma_y ** 2)
+            x_term = (pred_x - gt_cx)**2 / (sigma_x**2)
+            y_term = (pred_y - gt_cy)**2 / (sigma_y**2)
             r_dist = math.exp(-0.5 * (x_term + y_term))
 
             # ====== R_box: 坐标距离约束 ======
@@ -123,5 +118,5 @@ class BBoxFormat(ORM):
         rewards = []
         for predict_str, ground_truth in zip(completions, solution):
             action = extract_action(predict_str)
-            rewards.append(1.0 if action != "no action" else 0.0)
+            rewards.append(1.0 if action != 'no action' else 0.0)
         return rewards

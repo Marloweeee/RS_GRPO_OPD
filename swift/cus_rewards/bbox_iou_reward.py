@@ -12,6 +12,7 @@ GIoU 取值 [-1, 1]，clip 到 [0, 1] 后再加权，保持总 reward 区间稳�
 
 import math
 from typing import List
+
 import json
 
 from swift.custom_utils.format_func import extract_bbox
@@ -19,6 +20,7 @@ from swift.custom_utils.ground_func import bboxreal2norm
 
 
 class ORM:
+
     def __call__(self, **kwargs) -> List[float]:
         raise NotImplementedError
 
@@ -73,7 +75,7 @@ class BBoxIoUReward(ORM):
 
     def _compute(self, predict_str: str, ground_truth: dict, image_size) -> float:
         pred = extract_bbox(predict_str)
-        if pred == "no bbox":
+        if pred == 'no bbox':
             return 0.0
 
         try:
@@ -90,11 +92,7 @@ class BBoxIoUReward(ORM):
 
 
 def _valid_norm_box(bbox):
-    return (
-        bbox != "no bbox"
-        and 0 <= bbox[0] < bbox[2] <= 1000
-        and 0 <= bbox[1] < bbox[3] <= 1000
-    )
+    return (bbox != 'no bbox' and 0 <= bbox[0] < bbox[2] <= 1000 and 0 <= bbox[1] < bbox[3] <= 1000)
 
 
 def _center_score(pred, gt):
@@ -102,7 +100,7 @@ def _center_score(pred, gt):
     py = (pred[1] + pred[3]) / 2
     gx = (gt[0] + gt[2]) / 2
     gy = (gt[1] + gt[3]) / 2
-    dist = math.sqrt((px - gx) ** 2 + (py - gy) ** 2)
+    dist = math.sqrt((px - gx)**2 + (py - gy)**2)
     return max(0.0, 1.0 - dist / math.sqrt(2_000_000))
 
 
@@ -138,7 +136,7 @@ class BBoxGeometryReward(ORM):
 
     def _compute(self, predict_str: str, ground_truth: dict, image_size) -> float:
         pred = extract_bbox(predict_str)
-        if pred == "no bbox":
+        if pred == 'no bbox':
             return 0.0
 
         try:
@@ -153,14 +151,7 @@ class BBoxGeometryReward(ORM):
         center = _center_score(pred, gt) if valid_box else 0.0
         area = _area_ratio_score(pred, gt) if valid_box else 0.0
         aspect = _aspect_ratio_score(pred, gt) if valid_box else 0.0
-        reward = (
-            0.10 * parse_ok
-            + 0.10 * valid_box
-            + 0.50 * iou
-            + 0.15 * center
-            + 0.10 * area
-            + 0.05 * aspect
-        )
+        reward = (0.10 * parse_ok + 0.10 * valid_box + 0.50 * iou + 0.15 * center + 0.10 * area + 0.05 * aspect)
         return round(reward, 4)
 
 
@@ -168,4 +159,4 @@ class BBoxIoUFormat(ORM):
     """单独的 format reward：可解析 = 1，否则 0。供日志/调试使用。"""
 
     def __call__(self, completions, solution, **kwargs) -> List[float]:
-        return [1.0 if extract_bbox(c) != "no bbox" else 0.0 for c in completions]
+        return [1.0 if extract_bbox(c) != 'no bbox' else 0.0 for c in completions]

@@ -96,8 +96,8 @@ class VLLMClient:
             except requests.RequestException as e:
                 last_error = e
             if attempt < self.request_retries:
-                logger.warning('vLLM POST failed (%s/%s) for %s: %s. Retrying in %.1fs.', attempt,
-                               self.request_retries, url, last_error, self.request_retry_delay)
+                logger.warning('vLLM POST failed (%s/%s) for %s: %s. Retrying in %.1fs.', attempt, self.request_retries,
+                               url, last_error, self.request_retry_delay)
                 time.sleep(self.request_retry_delay)
         if last_error is not None:
             raise last_error

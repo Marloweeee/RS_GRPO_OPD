@@ -13,7 +13,6 @@
 """
 
 import argparse
-import json
 import math
 import os
 import random
@@ -21,13 +20,15 @@ import sys
 import time
 from collections import defaultdict
 
+import json
 import numpy as np
 from PIL import Image, ImageDraw
 
-sys.path.insert(0, '/data/codes/gui_grounding/GUI-SD-code-main')
 from swift.custom_utils.format_func import extract_bbox  # noqa: E402
 
-SYSTEM_PROMPT = "You are a helpful assistant."
+sys.path.insert(0, '/data/codes/gui_grounding/GUI-SD-code-main')
+
+SYSTEM_PROMPT = 'You are a helpful assistant.'
 
 
 def _gaussian_alpha(W, H, x1, y1, x2, y2, sigma_ratio=1.5, min_area_frac=0.1):
@@ -39,12 +40,15 @@ def _gaussian_alpha(W, H, x1, y1, x2, y2, sigma_ratio=1.5, min_area_frac=0.1):
     ys = np.arange(H)[:, None]
     dx = np.maximum(x1 - xs, 0) + np.maximum(xs - x2, 0)
     dy = np.maximum(y1 - ys, 0) + np.maximum(ys - y2, 0)
-    dist = np.sqrt(dx.astype(np.float64) ** 2 + dy.astype(np.float64) ** 2)
-    return np.exp(-dist ** 2 / (2 * sigma ** 2)).astype(np.float32)
+    dist = np.sqrt(dx.astype(np.float64)**2 + dy.astype(np.float64)**2)
+    return np.exp(-dist**2 / (2 * sigma**2)).astype(np.float32)
 
 
-def render_image(orig_img: Image.Image, bbox_pixel, mode: str,
-                 jitter_ratio: float = 0.2, hint_box_color: str = 'magenta'):
+def render_image(orig_img: Image.Image,
+                 bbox_pixel,
+                 mode: str,
+                 jitter_ratio: float = 0.2,
+                 hint_box_color: str = 'magenta'):
     x1, y1, x2, y2 = bbox_pixel
     W, H = orig_img.size
     bbox_w, bbox_h = x2 - x1, y2 - y1
@@ -66,9 +70,7 @@ def render_image(orig_img: Image.Image, bbox_pixel, mode: str,
         jx2 = max(jx1 + 1, min(W, x2 + random.randint(-jw, jw)))
         jy2 = max(jy1 + 1, min(H, y2 + random.randint(-jh, jh)))
         lw = 5
-        ImageDraw.Draw(res).rectangle(
-            [jx1 - lw, jy1 - lw, jx2 + lw, jy2 + lw],
-            outline=hint_box_color, width=lw)
+        ImageDraw.Draw(res).rectangle([jx1 - lw, jy1 - lw, jx2 + lw, jy2 + lw], outline=hint_box_color, width=lw)
         return res
 
     if mode in ('hint_legacy', 'gt'):
@@ -76,12 +78,10 @@ def render_image(orig_img: Image.Image, bbox_pixel, mode: str,
         arr = np.array(orig_img, dtype=np.float32)
         res = Image.fromarray((arr * alpha).astype(np.uint8))
         lw = 5
-        ImageDraw.Draw(res).rectangle(
-            [x1 - lw, y1 - lw, x2 + lw, y2 + lw],
-            outline='green', width=lw)
+        ImageDraw.Draw(res).rectangle([x1 - lw, y1 - lw, x2 + lw, y2 + lw], outline='green', width=lw)
         return res
 
-    raise ValueError(f"unknown mode: {mode}")
+    raise ValueError(f'unknown mode: {mode}')
 
 
 def build_user_text(base_text: str, mode: str, hint_box_color: str, gt_norm):
@@ -97,7 +97,7 @@ def build_user_text(base_text: str, mode: str, hint_box_color: str, gt_norm):
         nx1, ny1, nx2, ny2 = gt_norm
         gt_str = '{"bbox_2d": [' + f'{nx1},{ny1},{nx2},{ny2}' + ']}'
         return base_text + f' Hint: The exact answer is {gt_str}.'
-    raise ValueError(f"unknown mode: {mode}")
+    raise ValueError(f'unknown mode: {mode}')
 
 
 def xyxy_norm1000(bbox_pixel, image_size):
@@ -111,9 +111,12 @@ def xyxy_norm1000(bbox_pixel, image_size):
 
 
 def iou_xyxy(a, b):
-    ix1 = max(a[0], b[0]); iy1 = max(a[1], b[1])
-    ix2 = min(a[2], b[2]); iy2 = min(a[3], b[3])
-    iw = max(0, ix2 - ix1); ih = max(0, iy2 - iy1)
+    ix1 = max(a[0], b[0])
+    iy1 = max(a[1], b[1])
+    ix2 = min(a[2], b[2])
+    iy2 = min(a[3], b[3])
+    iw = max(0, ix2 - ix1)
+    ih = max(0, iy2 - iy1)
     inter = iw * ih
     aa = max(0, a[2] - a[0]) * max(0, a[3] - a[1])
     bb = max(0, b[2] - b[0]) * max(0, b[3] - b[1])
@@ -174,8 +177,7 @@ def main():
     ap.add_argument('--jitter_ratio', type=float, default=0.2)
     ap.add_argument('--hint_box_color', type=str, default='magenta')
     ap.add_argument('--seed', type=int, default=42)
-    ap.add_argument('--modes', nargs='+',
-                    default=['none', 'soft_window', 'jitter_box', 'hint_legacy', 'gt'])
+    ap.add_argument('--modes', nargs='+', default=['none', 'soft_window', 'jitter_box', 'hint_legacy', 'gt'])
     args = ap.parse_args()
 
     random.seed(args.seed)
@@ -219,19 +221,28 @@ def main():
         reqs = []
         for s in samples:
             img = Image.open(s['image']).convert('RGB')
-            rendered = render_image(img, s['gt_pixel'], mode,
-                                    jitter_ratio=args.jitter_ratio,
-                                    hint_box_color=args.hint_box_color)
+            rendered = render_image(
+                img, s['gt_pixel'], mode, jitter_ratio=args.jitter_ratio, hint_box_color=args.hint_box_color)
             user_text = build_user_text(s['user_text'], mode, args.hint_box_color, s['gt_norm'])
             messages = [
-                {'role': 'system', 'content': SYSTEM_PROMPT},
-                {'role': 'user', 'content': [
-                    {'type': 'image'},
-                    {'type': 'text', 'text': user_text},
-                ]},
+                {
+                    'role': 'system',
+                    'content': SYSTEM_PROMPT
+                },
+                {
+                    'role': 'user',
+                    'content': [
+                        {
+                            'type': 'image'
+                        },
+                        {
+                            'type': 'text',
+                            'text': user_text
+                        },
+                    ]
+                },
             ]
-            prompt = processor.apply_chat_template(
-                messages, add_generation_prompt=True, tokenize=False)
+            prompt = processor.apply_chat_template(messages, add_generation_prompt=True, tokenize=False)
             reqs.append({'prompt': prompt, 'multi_modal_data': {'image': rendered}})
 
         outputs = llm.generate(reqs, sampling_params=sp)
@@ -260,9 +271,12 @@ def main():
                         digit_ent_list.append(ent)
 
             per_sample.append({
-                'ref_id': s['ref_id'], 'category': s['category'],
-                'gt_norm': s['gt_norm'], 'pred_bbox': pred_bbox if pred_bbox != 'no bbox' else None,
-                'iou': iou, 'text': text,
+                'ref_id': s['ref_id'],
+                'category': s['category'],
+                'gt_norm': s['gt_norm'],
+                'pred_bbox': pred_bbox if pred_bbox != 'no bbox' else None,
+                'iou': iou,
+                'text': text,
             })
 
         m_iou = sum(ious) / max(1, len(ious))
@@ -273,8 +287,12 @@ def main():
         mean_all_ent = (sum(all_ent_list) / len(all_ent_list)) if all_ent_list else 0.0
         dt = time.time() - t0
         result = {
-            'mode': mode, 'n': len(samples), 'time_s': round(dt, 1),
-            'mIoU': round(m_iou, 4), 'IoU@0.5': round(iou_50, 4), 'IoU@0.7': round(iou_70, 4),
+            'mode': mode,
+            'n': len(samples),
+            'time_s': round(dt, 1),
+            'mIoU': round(m_iou, 4),
+            'IoU@0.5': round(iou_50, 4),
+            'IoU@0.7': round(iou_70, 4),
             'parse_rate': round(parse_rate, 4),
             'digit_entropy_topk': round(mean_digit_ent, 4),
             'all_entropy_topk': round(mean_all_ent, 4),
@@ -294,8 +312,8 @@ def main():
     print('-' * 165)
     for mode in args.modes:
         r = all_results[mode]
-        print(f'{r["mode"]:<14s} | ' + ' | '.join(
-            f'{r[k]:>17.4f}' if isinstance(r[k], float) else f'{r[k]:>17}' for k in cols[1:]))
+        print(f'{r["mode"]:<14s} | ' + ' | '.join(f'{r[k]:>17.4f}' if isinstance(r[k], float) else f'{r[k]:>17}'
+                                                  for k in cols[1:]))
 
     with open(os.path.join(args.out_dir, 'summary.json'), 'w') as f:
         json.dump(all_results, f, indent=2)

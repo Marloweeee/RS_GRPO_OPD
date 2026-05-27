@@ -122,11 +122,11 @@ class SwiftRLHF(SwiftSft):
             # org
             # if key == 'teacher' and args.rlhf_type != 'gkd':
             #     continue
-            
+
             # add
             if key == 'teacher' and args.rlhf_type not in ['opsd', 'gkd'] and not getattr(args, 'use_sdpo', False):
                 continue
-            
+
             model_key = 'reward' if key == 'value' else key
             model_type = getattr(args, f'{model_key}_model_type')
             model_revision = getattr(args, f'{model_key}_model_revision')

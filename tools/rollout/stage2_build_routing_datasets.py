@@ -17,14 +17,14 @@ Outputs:
 """
 
 import argparse
-import json
 import os
 import sys
 from collections import Counter, defaultdict
 
-sys.path.insert(0, '/data/codes/gui_grounding/GUI-SD-code-main')
-from swift.custom_utils.format_func import extract_bbox  # noqa: E402
+import json
 
+sys.path.insert(0, '/data/codes/gui_grounding/GUI-SD-code-main')
+from swift.custom_utils.format_func import extract_bbox  # noqa: E402  # isort:skip
 
 SYSTEM_PROMPT = 'You are a helpful assistant.'
 
@@ -96,14 +96,26 @@ def build_base_record(record, assistant_text):
                 'coordinate': record['gt_pixel'],
             },
         },
-        'images': record['image'],
+        'images':
+        record['image'],
         'messages': [
-            {'role': 'system', 'content': SYSTEM_PROMPT},
-            {'role': 'user', 'content': record['prompt']},
-            {'role': 'assistant', 'content': assistant_text},
+            {
+                'role': 'system',
+                'content': SYSTEM_PROMPT
+            },
+            {
+                'role': 'user',
+                'content': record['prompt']
+            },
+            {
+                'role': 'assistant',
+                'content': assistant_text
+            },
         ],
-        'additional_paras': json.dumps(additional, ensure_ascii=False),
-        'sample_id': record.get('sample_id'),
+        'additional_paras':
+        json.dumps(additional, ensure_ascii=False),
+        'sample_id':
+        record.get('sample_id'),
     }
 
 
@@ -304,10 +316,9 @@ def main():
         'stage2b_dpo_records': len(dpo_rows),
         'stage2b_dpo_skipped': skipped_dpo,
         'target_source_counts': dict(target_sources),
-        'target_source_ratio': {
-            k: round_float(v / max(1, len(sft_rows)), 4)
-            for k, v in sorted(target_sources.items())
-        },
+        'target_source_ratio':
+        {k: round_float(v / max(1, len(sft_rows)), 4)
+         for k, v in sorted(target_sources.items())},
         'chosen_mIoU': round_float(mean(chosen_ious), 4),
         'chosen_IoU@0.5': round_float(mean([v > 0.5 for v in chosen_ious]), 4),
         'rejected_mIoU': round_float(mean(rejected_ious), 4),
