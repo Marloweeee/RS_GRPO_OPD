@@ -462,7 +462,7 @@ log "nnodes=${NNODES} nproc_per_node=${NPROC_PER_NODE} node_rank=${NODE_RANK}"
 log "pod_ip=${pod_ip} advertise_host=${advertise_host}"
 log "train_cuda=${TRAIN_CUDA_VISIBLE_DEVICES} rollout_cuda=${ROLLOUT_CUDA_VISIBLE_DEVICES}"
 log "per_device_train_batch_size=${PER_DEVICE_TRAIN_BATCH_SIZE} grad_acc=${GRADIENT_ACCUMULATION_STEPS} lr=${LR}"
-log "sdpo_lambda=${SDPO_LAMBDA} sdpo_target=${SDPO_TARGET} sdpo_hint_source=${SDPO_HINT_SOURCE} sdpo_sibling_select_metric=${SDPO_SIBLING_SELECT_METRIC} sdpo_sibling_fallback=${SDPO_SIBLING_FALLBACK} sdpo_teacher_refresh_mode=${SDPO_TEACHER_REFRESH_MODE:-fixed} sdpo_teacher_refresh_step=${SDPO_TEACHER_REFRESH_STEP} grpo_beta=${GRPO_BETA} num_generations=${NUM_GENERATIONS}"
+log "sdpo_lambda=${SDPO_LAMBDA} sdpo_grpo_failed_weight=${SDPO_GRPO_FAILED_WEIGHT:-1.0} sdpo_target=${SDPO_TARGET} sdpo_hint_source=${SDPO_HINT_SOURCE} sdpo_sibling_select_metric=${SDPO_SIBLING_SELECT_METRIC} sdpo_sibling_fallback=${SDPO_SIBLING_FALLBACK} sdpo_teacher_refresh_mode=${SDPO_TEACHER_REFRESH_MODE:-fixed} sdpo_teacher_refresh_step=${SDPO_TEACHER_REFRESH_STEP} grpo_beta=${GRPO_BETA} num_generations=${NUM_GENERATIONS}"
 log "sdpo_teacher_refresh_metric warmup=${SDPO_TEACHER_REFRESH_WARMUP:-80} window=${SDPO_TEACHER_REFRESH_WINDOW:-50} check_interval=${SDPO_TEACHER_REFRESH_CHECK_INTERVAL:-10} min_iou_improve=${SDPO_TEACHER_REFRESH_MIN_IOU_IMPROVE:-0.01} max_failed=${SDPO_TEACHER_REFRESH_MAX_FAILED:-0.55} min_sdpo_loss=${SDPO_TEACHER_REFRESH_MIN_SDPO_LOSS:-0.02} max_kl=${SDPO_TEACHER_REFRESH_MAX_KL:-0.30} max_refreshes=${SDPO_TEACHER_REFRESH_MAX_REFRESHES:-1} cooldown_steps=${SDPO_TEACHER_REFRESH_COOLDOWN_STEPS:-0}"
 log "sdpo_teacher_refresh_metric_ewma short_window=${SDPO_TEACHER_REFRESH_SHORT_WINDOW:-20} long_window=${SDPO_TEACHER_REFRESH_LONG_WINDOW:-80} ewma_alpha=${SDPO_TEACHER_REFRESH_EWMA_ALPHA:-0.10} consecutive_checks=${SDPO_TEACHER_REFRESH_CONSECUTIVE_CHECKS:-2} min_short_long_iou_gain=${SDPO_TEACHER_REFRESH_MIN_SHORT_LONG_IOU_GAIN:-0.006} min_ewma_iou_gain=${SDPO_TEACHER_REFRESH_MIN_EWMA_IOU_GAIN:-0.008} max_iou05_drop=${SDPO_TEACHER_REFRESH_MAX_IOU05_DROP:-0.010}"
 log "opsd_mask_mode=${OPSD_MASK_MODE} opsd_hint_mode=${OPSD_HINT_MODE} opsd_ema_decay=${OPSD_EMA_DECAY} opsd_gaussian_sigma_ratio=${OPSD_GAUSSIAN_SIGMA_RATIO} opsd_jitter_ratio=${OPSD_JITTER_RATIO}"
@@ -653,6 +653,8 @@ setsid env \
     --sdpo_tau_fail "$SDPO_TAU_FAIL" \
     --sdpo_delta "$SDPO_DELTA" \
     --sdpo_only_failed true \
+    --sdpo_distill_scope "${SDPO_DISTILL_SCOPE:-failed}" \
+    --sdpo_grpo_failed_weight "${SDPO_GRPO_FAILED_WEIGHT:-1.0}" \
     --sdpo_target "$SDPO_TARGET" \
     --sdpo_hint_source "$SDPO_HINT_SOURCE" \
     --sdpo_sibling_select_metric "$SDPO_SIBLING_SELECT_METRIC" \

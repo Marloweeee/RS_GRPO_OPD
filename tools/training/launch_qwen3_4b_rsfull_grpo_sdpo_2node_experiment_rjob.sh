@@ -140,6 +140,8 @@ add_env "SDPO_LAMBDA" "${SDPO_LAMBDA:-0.25}"
 add_env "SDPO_TAU_GOOD" "${SDPO_TAU_GOOD:-0.5}"
 add_env "SDPO_TAU_FAIL" "${SDPO_TAU_FAIL:-0.3}"
 add_env "SDPO_DELTA" "${SDPO_DELTA:-0.5}"
+add_env "SDPO_GRPO_FAILED_WEIGHT" "${SDPO_GRPO_FAILED_WEIGHT:-1.0}"
+add_env "SDPO_DISTILL_SCOPE" "${SDPO_DISTILL_SCOPE:-failed}"
 add_env "SDPO_TARGET" "${SDPO_TARGET:-rollout}"
 add_env "SDPO_HINT_SOURCE" "${SDPO_HINT_SOURCE:-gt}"
 add_env "SDPO_SIBLING_SELECT_METRIC" "${SDPO_SIBLING_SELECT_METRIC:-reward}"
@@ -188,6 +190,7 @@ add_env "SKIP_EVAL" "${SKIP_EVAL:-true}"
 for key in \
     MODEL_PATH TEACHER_PATH ROLLOUT_MODEL_PATH RUN_TIMESTAMP \
     TEACHER_REFRESH_STEP \
+    SDPO_DISTILL_SCOPE \
     SDPO_HINT_SOURCE SDPO_SIBLING_SELECT_METRIC SDPO_SIBLING_FALLBACK \
     SDPO_TEACHER_REFRESH_MODE SDPO_TEACHER_REFRESH_STEP SDPO_TEACHER_REFRESH_WARMUP \
     SDPO_TEACHER_REFRESH_WINDOW SDPO_TEACHER_REFRESH_CHECK_INTERVAL \
@@ -261,6 +264,7 @@ trap cleanup_interrupt HUP INT TERM
     echo "[launch-qwen3-4b-stage-exp] artifact_root=${artifact_root}"
     echo "[launch-qwen3-4b-stage-exp] opsd_mask_mode=${OPSD_MASK_MODE:-zoom_in}"
     echo "[launch-qwen3-4b-stage-exp] opsd_hint_mode=${OPSD_HINT_MODE:-hint}"
+    echo "[launch-qwen3-4b-stage-exp] sdpo_distill_scope=${SDPO_DISTILL_SCOPE:-failed}"
     echo "[launch-qwen3-4b-stage-exp] sdpo_hint_source=${SDPO_HINT_SOURCE:-gt} sdpo_sibling_select_metric=${SDPO_SIBLING_SELECT_METRIC:-reward} sdpo_sibling_fallback=${SDPO_SIBLING_FALLBACK:-gt}"
     echo "[launch-qwen3-4b-stage-exp] sdpo_teacher_refresh_mode=${SDPO_TEACHER_REFRESH_MODE:-fixed}"
     echo "[launch-qwen3-4b-stage-exp] sdpo_teacher_refresh_step=${SDPO_TEACHER_REFRESH_STEP:-${TEACHER_REFRESH_STEP:--1}}"

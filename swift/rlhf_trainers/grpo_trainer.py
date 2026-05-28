@@ -880,18 +880,31 @@ class GRPOTrainer(RolloutTrainerMixin, SwiftMixin, HFGRPOTrainer):
         if not getattr(self, 'use_sdpo', False):
             return
         routes = [data.get('_sdpo_route', 'unknown') for data in batch]
-        if getattr(self.args, 'sdpo_only_failed', True):
+        scope = getattr(self.args, 'sdpo_distill_scope', None)
+        if scope is None:
+            scope = 'failed' if getattr(self.args, 'sdpo_only_failed', True) else 'failed_ambiguous'
+        if scope == 'failed':
             mask_values = [
                 1.0 if route == 'failed' and data.get('_sdpo_hint_source_type') != 'skip' else 0.0
                 for route, data in zip(routes, batch)
             ]
-        else:
+        elif scope == 'failed_ambiguous':
             mask_values = [
                 0.0 if route == 'good' or data.get('_sdpo_hint_source_type') == 'skip' else 1.0
                 for route, data in zip(routes, batch)
             ]
+        elif scope == 'all':
+            mask_values = [0.0 if data.get('_sdpo_hint_source_type') == 'skip' else 1.0 for data in batch]
+        else:
+            raise ValueError(f'Unsupported sdpo_distill_scope: {scope}')
         batch_encoded['sdpo_sequence_mask'] = torch.tensor(
             mask_values, dtype=torch.float32, device=self.accelerator.device)
+        failed_weight = float(getattr(self.args, 'sdpo_grpo_failed_weight', 1.0))
+        batch_encoded['sdpo_grpo_sequence_weights'] = torch.tensor(
+            [failed_weight if route == 'failed' else 1.0 for route in routes],
+            dtype=torch.float32,
+            device=self.accelerator.device,
+        )
         batch_encoded['_sdpo_origin_batch'] = [deepcopy(data) for data in batch]
 
     @profiling_decorator
@@ -1838,17 +1851,30 @@ class GRPOTrainer(RolloutTrainerMixin, SwiftMixin, HFGRPOTrainer):
             off_policy_seq_mask_expanded = off_policy_seq_mask.unsqueeze(-1).expand_as(completion_mask)
             completion_mask = completion_mask & off_policy_seq_mask_expanded
 
+        grpo_sequence_weights = inputs.get('sdpo_grpo_sequence_weights')
+        if grpo_sequence_weights is not None:
+            grpo_sequence_weights = grpo_sequence_weights.to(device=completion_mask.device, dtype=per_token_loss.dtype)
+
         if self.loss_type in ['grpo', 'sapo']:
             # completion_mask is now always [batch_size, seq_len] after pad_back
-            loss = ((per_token_loss * completion_mask).sum(-1) / completion_mask.sum(-1).clamp(min=1.0)).mean()
+            sequence_loss = (per_token_loss * completion_mask).sum(-1) / completion_mask.sum(-1).clamp(min=1.0)
+            if grpo_sequence_weights is not None:
+                sequence_loss = sequence_loss * grpo_sequence_weights
+            loss = sequence_loss.mean()
         elif self.loss_type == 'bnpo':
+            if grpo_sequence_weights is not None:
+                per_token_loss = per_token_loss * grpo_sequence_weights.unsqueeze(1)
             loss = (per_token_loss * completion_mask).sum() / completion_mask.sum().clamp(min=1.0)
         elif self.loss_type == 'dr_grpo':
             batch_size = completion_mask.shape[0]
+            if grpo_sequence_weights is not None:
+                per_token_loss = per_token_loss * grpo_sequence_weights.unsqueeze(1)
             loss = (per_token_loss * completion_mask).sum() / (batch_size * self.max_completion_length)
         elif self.loss_type in ['cispo', 'dapo']:
             # CISPO and DAPO: Normalize by total completion tokens across all processes
             normalizer = inputs['num_items_in_batch'] / self.accelerator.num_processes
+            if grpo_sequence_weights is not None:
+                per_token_loss = per_token_loss * grpo_sequence_weights.unsqueeze(1)
             loss = (per_token_loss * completion_mask).sum() / normalizer
         else:
             raise ValueError(f'Unknown loss type: {self.loss_type}')
@@ -2051,6 +2077,7 @@ class GRPOTrainer(RolloutTrainerMixin, SwiftMixin, HFGRPOTrainer):
             'num_items_in_batch',
             'logits_to_keep',
             'sdpo_sequence_mask',
+            'sdpo_grpo_sequence_weights',
             '_sdpo_origin_batch',
             '_origin_data',
             'seq_lengths',
@@ -3705,7 +3732,8 @@ class GRPOTrainer(RolloutTrainerMixin, SwiftMixin, HFGRPOTrainer):
             for k, v in inputs.items() if k not in [
                 'logits_to_keep', 'completion_mask', 'ref_per_token_logps', 'advantages', 'old_per_token_logps',
                 'truncated_mask', 'seq_lengths', 'num_items_in_batch', 'rollout_per_token_logps', 'rollout_is_weights',
-                'sdpo_sequence_mask', '_sdpo_origin_batch', '_sdpo_student_logits', '_origin_data'
+                'sdpo_sequence_mask', 'sdpo_grpo_sequence_weights', '_sdpo_origin_batch', '_sdpo_student_logits',
+                '_origin_data'
             ]
         }
 

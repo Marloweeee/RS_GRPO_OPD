@@ -387,6 +387,8 @@ class GRPOArgumentsMixin(RolloutTrainerArgumentsMixin):
     sdpo_tau_fail: float = 0.3
     sdpo_delta: float = 0.5
     sdpo_only_failed: bool = True
+    sdpo_distill_scope: Literal['failed', 'failed_ambiguous', 'all'] = 'failed'
+    sdpo_grpo_failed_weight: float = 1.0
     sdpo_target: Literal['rollout', 'gt'] = 'rollout'
     sdpo_hint_source: Literal['gt', 'sibling', 'sibling_gt_fallback'] = 'gt'
     sdpo_sibling_select_metric: Literal['reward', 'iou'] = 'reward'
