@@ -1,0 +1,763 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MRPD 0528 主线补充实验计划</title>
+  <style>
+    :root {
+      --bg: #f6f8fb;
+      --panel: #ffffff;
+      --ink: #172033;
+      --muted: #5b6878;
+      --line: #d8e0ea;
+      --head: #111827;
+      --blue: #1d5f99;
+      --blue-soft: #eaf4ff;
+      --green: #16664f;
+      --green-soft: #e8f7f1;
+      --amber: #8a5a10;
+      --amber-soft: #fff6e4;
+      --red: #9b2c2c;
+      --red-soft: #fff1f1;
+      --gray: #eef2f7;
+      --purple: #6541a4;
+      --purple-soft: #f2edff;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: var(--bg);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans SC", "Microsoft YaHei", Arial, sans-serif;
+      line-height: 1.62;
+    }
+
+    header {
+      color: #f9fafb;
+      background: var(--head);
+      padding: 34px 28px 30px;
+    }
+
+    .wrap,
+    main {
+      max-width: 1520px;
+      margin: 0 auto;
+    }
+
+    main {
+      padding: 24px 24px 56px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 32px;
+      line-height: 1.18;
+      letter-spacing: 0;
+    }
+
+    h2 {
+      margin: 0 0 12px;
+      font-size: 22px;
+      line-height: 1.28;
+      letter-spacing: 0;
+    }
+
+    h3 {
+      margin: 18px 0 8px;
+      font-size: 17px;
+      letter-spacing: 0;
+    }
+
+    p { margin: 8px 0; }
+    ul, ol { margin: 8px 0 0 22px; padding: 0; }
+    li { margin: 5px 0; }
+
+    code {
+      padding: 1px 5px;
+      border-radius: 4px;
+      color: #111827;
+      background: var(--gray);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+      font-size: 0.92em;
+      word-break: break-all;
+    }
+
+    section {
+      margin: 0 0 18px;
+      padding: 22px 24px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+    }
+
+    .lead {
+      max-width: 1080px;
+      margin-top: 12px;
+      color: #d8dee9;
+      font-size: 16px;
+    }
+
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 9px;
+      margin-top: 16px;
+    }
+
+    .tag {
+      display: inline-flex;
+      min-height: 28px;
+      align-items: center;
+      padding: 3px 9px;
+      border: 1px solid rgba(248, 250, 252, 0.24);
+      border-radius: 6px;
+      color: #e5e7eb;
+      background: rgba(255, 255, 255, 0.08);
+      font-size: 13px;
+    }
+
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .card {
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fbfdff;
+    }
+
+    .card .label {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .card .value {
+      margin-top: 4px;
+      font-size: 22px;
+      font-weight: 800;
+      line-height: 1.18;
+    }
+
+    .card .desc {
+      margin-top: 6px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .callout {
+      margin: 12px 0;
+      padding: 12px 14px;
+      border: 1px solid var(--line);
+      border-left: 4px solid var(--blue);
+      border-radius: 8px;
+      background: var(--blue-soft);
+    }
+
+    .callout.good {
+      border-left-color: var(--green);
+      background: var(--green-soft);
+    }
+
+    .callout.warn {
+      border-left-color: var(--amber);
+      background: var(--amber-soft);
+    }
+
+    .callout.risk {
+      border-left-color: var(--red);
+      background: var(--red-soft);
+    }
+
+    .callout.idea {
+      border-left-color: var(--purple);
+      background: var(--purple-soft);
+    }
+
+    .table-wrap {
+      width: 100%;
+      overflow-x: auto;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+    }
+
+    table {
+      width: 100%;
+      min-width: 1320px;
+      border-collapse: collapse;
+      background: var(--panel);
+    }
+
+    th,
+    td {
+      padding: 9px 10px;
+      border-right: 1px solid var(--line);
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+      font-size: 13px;
+    }
+
+    th {
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      color: #172033;
+      background: #eef3f9;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    th:last-child,
+    td:last-child { border-right: 0; }
+    tr:last-child td { border-bottom: 0; }
+
+    .num {
+      text-align: right;
+      white-space: nowrap;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      min-height: 24px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .p0 { color: #8b1d18; background: var(--red-soft); }
+    .p1 { color: #7a4a09; background: var(--amber-soft); }
+    .p2 { color: #155f49; background: var(--green-soft); }
+    .done { color: #155f49; background: var(--green-soft); }
+    .todo { color: #1f5d99; background: var(--blue-soft); }
+    .partial { color: #7a4a09; background: var(--amber-soft); }
+    .codepath { max-width: 430px; word-break: break-all; }
+    .muted { color: var(--muted); }
+
+    .flow {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .step {
+      min-height: 112px;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fbfdff;
+    }
+
+    .step b {
+      display: block;
+      margin-bottom: 6px;
+      color: var(--blue);
+    }
+
+    @media (max-width: 980px) {
+      .cards,
+      .flow {
+        grid-template-columns: 1fr;
+      }
+      h1 { font-size: 26px; }
+      main { padding: 18px 14px 44px; }
+      section { padding: 18px 16px; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap">
+      <h1>MRPD 0528 主线补充实验计划</h1>
+      <p class="lead">本文档聚焦三个最贴近 MRPD 主张的验证点：pass@8 gap reduction、路由机制分析、选择性蒸馏消融。目标是把“多轨迹中存在更好定位结果”进一步证明为“MRPD 能将组内优势和教师纠偏转化为单次 greedy 推理提升”。</p>
+      <div class="meta">
+        <span class="tag">路径：MRPD/0528plan.html</span>
+        <span class="tag">日期：2026-05-28 计划</span>
+        <span class="tag">数据集：RRSIS-D test 为主</span>
+        <span class="tag">模型：Qwen3-VL-4B 系列 checkpoint</span>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section>
+      <h2>0. 核心问题与当前证据缺口</h2>
+      <div class="cards">
+        <div class="card">
+          <div class="label">已知事实 1</div>
+          <div class="value">SFT 存在明显 best-of-8 上限</div>
+          <div class="desc">已有 gaussian hint pass@8：SFT first mIoU=0.7273，best@8 mIoU=0.8251，说明多轨迹里确实存在显著更好的 bbox。</div>
+        </div>
+        <div class="card">
+          <div class="label">已知事实 2</div>
+          <div class="value">MRPD greedy 优于 SFT/GRPO</div>
+          <div class="desc">当前 RRSIS-D test：SFT=0.6809，GRPO-only 用户复核值=0.6862，MRPD gaussian metric refresh=0.6990，EMA0.98=0.7000。</div>
+        </div>
+        <div class="card">
+          <div class="label">缺口</div>
+          <div class="value">还缺机制闭环</div>
+          <div class="desc">需要证明提升来自路由后的选择性纠偏，而不是采样噪声、普通 KD 或 hint 工程堆叠。</div>
+        </div>
+      </div>
+      <div class="callout">
+        <p><strong>本文档的实验原则：</strong>所有对照尽量使用同一数据 split、同一评测脚本、同一采样参数、同一 checkpoint 选择规则。新增代码只做最小兼容改动，优先复用现有 `eval_teacher_hint_pass8.py`、训练日志中的 `sdpo/route_*` 指标，以及 MRPD 训练脚本。</p>
+      </div>
+    </section>
+
+    <section>
+      <h2>1. 需要固定的实验设置</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>项目</th>
+              <th>固定设置</th>
+              <th>理由</th>
+              <th>备注</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>主数据集</td>
+              <td><code>/data/codes/gui_grounding/data/rs_full/rs_test.jsonl</code></td>
+              <td>现有主表均使用 RRSIS-D test，便于和 SFT、GRPO、MRPD 主结果直接比较。</td>
+              <td>后续可在 val 上复核，但 test 是本轮主报告对象。</td>
+            </tr>
+            <tr>
+              <td>pass@8 采样</td>
+              <td><code>num_rollouts=8</code>，<code>temperature=0.7</code>，<code>top_p=0.95</code>，<code>seed=42</code></td>
+              <td>沿用已有 SFT pass@8 设置，保证 first@8 / best@8 可比。</td>
+              <td>如果要做稳健性，可补 seed=43/44，但第一轮先固定 seed。</td>
+            </tr>
+            <tr>
+              <td>推理资源</td>
+              <td>8 卡 vLLM TP=8，batch size 128 左右</td>
+              <td>避免单卡慢评测造成排队和卡死；和近期评测实践一致。</td>
+              <td>输出必须包含 <code>summary.json</code> 和 <code>per_sample.jsonl</code>。</td>
+            </tr>
+            <tr>
+              <td>路由默认阈值</td>
+              <td><code>sdpo_tau_good=0.5</code>，<code>sdpo_tau_fail=0.3</code>，<code>sdpo_delta=0.5</code></td>
+              <td>来自当前代码默认参数，和主线训练一致。</td>
+              <td>见 <code>swift/rlhf_trainers/args_mixin.py</code>。</td>
+            </tr>
+            <tr>
+              <td>默认路由规则</td>
+              <td>valid 且 IoU≥0.5 且 reward≥组均值为 good；无效框、IoU&lt;0.3 或 advantage&lt;-0.5 为 failed；其余为 ambiguous。</td>
+              <td>这是 MRPD 选择性纠偏的核心机制，后续统计必须按此定义。</td>
+              <td>见 <code>swift/rlhf_trainers/grpo_trainer.py</code> 的路由实现。</td>
+            </tr>
+            <tr>
+              <td>当前默认蒸馏范围</td>
+              <td><code>sdpo_only_failed=true</code>，只对 failed route 施加 MRPD/OPSD teacher loss。</td>
+              <td>这是主方法的默认设置，也是选择性蒸馏消融的被证明对象。</td>
+              <td>当前 <code>false</code> 实际是 failed+ambiguous，不是 all samples。</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section>
+      <h2>2. 实验 A：pass@8 Gap Reduction</h2>
+      <div class="callout good">
+        <p><strong>科学假设：</strong>如果 MRPD 真的学到了“组内更优轨迹”的定位偏好，那么训练后的 greedy mIoU 应该更接近该 checkpoint 自身的 best@8 上限；同时相对 SFT / GRPO-only，它应缩小 greedy 与 best@8 之间的 gap。</p>
+      </div>
+
+      <h3>2.1 对照 checkpoint</h3>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>模型</th>
+              <th>角色</th>
+              <th>checkpoint</th>
+              <th>已有 greedy / pass@8 状态</th>
+              <th>本轮需要补什么</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>SFT ckpt</td>
+              <td>起点模型</td>
+              <td class="codepath"><code>/mnt/jfs/copilot/lhb/checkpoint/rs/rs-sft/gui-sd-qwen3-4b-rrsisd_sft_e1-20260526-220915/v0-20260526-220853/checkpoint-96</code></td>
+              <td>greedy 已有；gaussian-hint pass@8 已有；no-hint pass@8 需要用统一脚本复核。</td>
+              <td>用同一 pass@8 脚本重跑 no-hint 与 gaussian-hint，确保字段统一。</td>
+            </tr>
+            <tr>
+              <td>GRPO-only ckpt</td>
+              <td>最强基础 RL baseline</td>
+              <td class="codepath"><code>/mnt/jfs/copilot/lhb/checkpoint/rs/rs-sd/gui-sd-qwen3-4b-rrsisd_sft_grpo_only_e1-20260527-082554/v0-20260527-083221/checkpoint-870</code></td>
+              <td>greedy 已有；pass@8 缺失。</td>
+              <td>补 no-hint pass@8 和 gaussian-hint pass@8。</td>
+            </tr>
+            <tr>
+              <td>MRPD metric refresh ckpt</td>
+              <td>主方法</td>
+              <td class="codepath"><code>/mnt/jfs/copilot/lhb/checkpoint/rs/rs-sd/gui-sd-qwen3-4b-rrsisd_sft_grpo_opsd_metric_gaussian_e1-20260526-225857/v0-20260526-230454/checkpoint-870</code></td>
+              <td>greedy 已有；pass@8 缺失。</td>
+              <td>补 no-hint pass@8 和 gaussian-hint pass@8。</td>
+            </tr>
+            <tr>
+              <td>MRPD EMA0.98 ckpt</td>
+              <td>当前最高 greedy 变体</td>
+              <td class="codepath"><code>/mnt/jfs/copilot/lhb/checkpoint/rs/rs-sd/gui-sd-qwen3-4b-rrsisd_sft_grpo_opsd_ema098_gaussian_e1-20260527-113500-ema098/v0-20260527-113657/checkpoint-870</code></td>
+              <td>greedy 已有；pass@8 缺失。</td>
+              <td>可作为增强项补 no-hint / gaussian-hint pass@8，用于解释 EMA 变体。</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>2.2 评测矩阵与指标</h3>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>实验 ID</th>
+              <th>模型</th>
+              <th>提示模式</th>
+              <th>必须输出</th>
+              <th>关键派生指标</th>
+              <th>解释方式</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>A1</td>
+              <td>SFT</td>
+              <td>no-hint / none</td>
+              <td><code>first_mIoU</code>、<code>best@8_mIoU</code>、各阈值 first/best、<code>per_sample.jsonl</code></td>
+              <td><code>gap = best@8_mIoU - greedy_mIoU</code></td>
+              <td>衡量基础模型的多采样上限。</td>
+            </tr>
+            <tr>
+              <td>A2</td>
+              <td>SFT</td>
+              <td>gaussian GT hint</td>
+              <td>同上</td>
+              <td>teacher-privileged upper bound</td>
+              <td>证明视觉提示教师能产生更强候选轨迹。</td>
+            </tr>
+            <tr>
+              <td>A3</td>
+              <td>GRPO-only</td>
+              <td>no-hint / gaussian</td>
+              <td>同上</td>
+              <td>GRPO gap、GRPO best@8</td>
+              <td>判断 GRPO 是否已把 best-of-N 能力转化到 greedy。</td>
+            </tr>
+            <tr>
+              <td>A4</td>
+              <td>MRPD metric refresh</td>
+              <td>no-hint / gaussian</td>
+              <td>同上</td>
+              <td><code>gap_reduction = (gap_baseline - gap_mrpd) / gap_baseline</code></td>
+              <td>主证据：MRPD 是否缩小 greedy 与 best@8 的距离。</td>
+            </tr>
+            <tr>
+              <td>A5</td>
+              <td>MRPD EMA0.98</td>
+              <td>no-hint / gaussian</td>
+              <td>同上</td>
+              <td>EMA gap reduction</td>
+              <td>辅助判断当前最高 greedy 是否也对应更小 gap。</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>2.3 执行注意事项</h3>
+      <ul>
+        <li>优先使用 <code>tools/evaluation/eval_teacher_hint_pass8.py</code> 的输出格式，因为它显式保存 <code>first_*</code>、<code>best@8_*</code> 和 <code>per_sample.jsonl</code>。</li>
+        <li>no-hint 也应使用同一脚本的 <code>hint_mode=none</code> 或 <code>no_mask</code>，避免旧 <code>eval_student.py --num_rollouts 8</code> 只输出 best 而没有 first 字段。</li>
+        <li>最终表格不要只报 best@8，更要报 greedy、first@8、best@8、gap、gap reduction。核心结论应是 MRPD greedy 更接近自身或 SFT 的 best@8 上限。</li>
+        <li>若 gaussian-hint first@8 低于 no-hint first@8，不应回避；这说明 privileged hint 改变了输入分布，但 best@8 仍可作为 teacher upper bound 分析。</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>3. 实验 B：路由机制分析</h2>
+      <div class="callout">
+        <p><strong>科学假设：</strong>MRPD 的收益来自“按 rollout 质量路由后，对失败轨迹施加教师纠偏”。因此需要证明三件事：失败轨迹真实存在；teacher 在 failed route 上相对 student 有更大优势；蒸馏信号主要落在 failed 或 ambiguous 样本，而不是无差别拉动所有样本。</p>
+      </div>
+
+      <div class="flow">
+        <div class="step">
+          <b>1. rollout</b>
+          <span>学生模型生成每个 prompt 的 8 条 bbox 候选。</span>
+        </div>
+        <div class="step">
+          <b>2. reward / IoU</b>
+          <span>根据解析框和 GT 计算 geometry reward、IoU、valid_box。</span>
+        </div>
+        <div class="step">
+          <b>3. route</b>
+          <span>按 IoU、reward 与组内 advantage 标注 good / failed / ambiguous。</span>
+        </div>
+        <div class="step">
+          <b>4. teacher</b>
+          <span>教师接收带 visual hint 的同一输入，提供分布级纠偏。</span>
+        </div>
+        <div class="step">
+          <b>5. selective loss</b>
+          <span>默认仅 failed route 进入 teacher loss，避免好样本被拉回。</span>
+        </div>
+      </div>
+
+      <h3>3.1 从训练日志提取的宏观统计</h3>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>统计项</th>
+              <th>来源</th>
+              <th>输出字段</th>
+              <th>用途</th>
+              <th>可靠性要求</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>route 分布</td>
+              <td>MRPD 训练 log / trainer metrics</td>
+              <td><code>sdpo/route_good</code>、<code>sdpo/route_failed</code>、<code>sdpo/route_ambiguous</code></td>
+              <td>说明训练过程中失败轨迹比例，以及 ambiguous 是否占据大量样本。</td>
+              <td>按 step 聚合均值、前 20% / 中 60% / 后 20% 分段均值，并画曲线。</td>
+            </tr>
+            <tr>
+              <td>rollout 质量</td>
+              <td>MRPD 训练 log</td>
+              <td><code>sdpo/iou_mean</code>、<code>sdpo/iou@0.5</code>、reward mean/std</td>
+              <td>说明 route 变化是否对应学生 rollout 质量提升。</td>
+              <td>和 route_failed 同图展示，避免单独解释 route 比例。</td>
+            </tr>
+            <tr>
+              <td>teacher loss 强度</td>
+              <td>MRPD 训练 log</td>
+              <td><code>sdpo/loss</code>、<code>kl</code></td>
+              <td>说明 teacher 纠偏是否稳定，不是 KL 失控。</td>
+              <td>同时报告 max / mean / last，排查异常尖峰。</td>
+            </tr>
+            <tr>
+              <td>刷新事件</td>
+              <td>训练 log</td>
+              <td>refresh step、触发条件、refresh 前后 route_failed / iou_mean</td>
+              <td>连接 teacher refresh 与路由变化。</td>
+              <td>若无刷新，也要记录 refresh_count=0。</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>3.2 离线 teacher-student gap 分析</h3>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>实验 ID</th>
+              <th>样本来源</th>
+              <th>比较对象</th>
+              <th>统计方式</th>
+              <th>核心指标</th>
+              <th>结论判据</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>B1</td>
+              <td>MRPD 训练时保存的 rollout 或重新离线生成 rollout pool</td>
+              <td>student rollout bbox vs teacher-hint greedy bbox</td>
+              <td>按同一 prompt、同一 GT，先给 student rollout 标 route，再让 teacher 用 gaussian hint 生成 1 条 bbox。</td>
+              <td>每个 route 的 student IoU、teacher IoU、teacher-student gap、teacher 胜率。</td>
+              <td>在 failed route 上 teacher gap 应显著大于 good route；failed route 的 teacher 胜率应明显高于 50%。</td>
+            </tr>
+            <tr>
+              <td>B2</td>
+              <td>每个 prompt 的 8 条 rollout</td>
+              <td>good sibling vs GT-hint teacher</td>
+              <td>若组内有 good sibling，比较 best sibling IoU 和 teacher IoU。</td>
+              <td>sibling_hit_rate、best_sibling_iou、teacher_iou、fallback_rate。</td>
+              <td>判断组内成功轨迹是否足够可靠，可支撑 sibling-hint 后续实验。</td>
+            </tr>
+            <tr>
+              <td>B3</td>
+              <td>failed / ambiguous / good 分桶</td>
+              <td>teacher loss mask 覆盖率</td>
+              <td>模拟当前 mask 逻辑，统计 failed-only、failed+ambiguous、all-samples 三种 scope 下进入蒸馏的样本比例。</td>
+              <td>mask_rate、route-specific mask_rate、预期 teacher loss 预算。</td>
+              <td>为实验 C 的训练消融提供解释，避免只看最终 mIoU。</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>3.3 推荐实现方式</h3>
+      <ul>
+        <li>第一步先写 CPU 日志解析脚本：读取训练 log 中 Python dict 风格 metrics，输出 <code>route_stats.json</code>、<code>route_stats.csv</code> 和曲线图所需数据。</li>
+        <li>第二步使用现有 rollout / eval 逻辑生成 <code>route_analysis_per_sample.jsonl</code>，每行包含 sample_id、rollout_id、route、student_iou、teacher_iou、teacher_minus_student、hint_mode、pred_bbox。</li>
+        <li>若没有保存训练时 rollout，则重新用 SFT 或 MRPD ckpt 在 train/val 子集上采样 8 条，建议先用 RRSIS-D val 或 test 的 1000 条样本做机制分析，再扩展到全量。</li>
+        <li>最终论文呈现建议：一张 route 分布曲线 + 一张 route 分桶 teacher gap 表 + 2 到 3 个可视化案例。</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>4. 实验 C：选择性蒸馏消融</h2>
+      <div class="callout warn">
+        <p><strong>关键实现提醒：</strong>当前代码中 <code>sdpo_only_failed=true</code> 表示 failed-only；<code>sdpo_only_failed=false</code> 实际表示 failed+ambiguous，因为 good route 仍被 mask 掉。因此如果要做真正的 all_samples，不能只改环境变量，必须增加一个显式的 distillation scope 参数。</p>
+      </div>
+
+      <h3>4.1 最小消融矩阵</h3>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>实验 ID</th>
+              <th>名称</th>
+              <th>蒸馏范围</th>
+              <th>代码/参数实现</th>
+              <th>其它训练设置</th>
+              <th>预期解释</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>C1</td>
+              <td>failed-only</td>
+              <td>只对 failed route 施加 teacher loss。</td>
+              <td>现有默认：<code>sdpo_only_failed=true</code>。</td>
+              <td>从 SFT checkpoint 初始化；GRPO+MRPD gaussian；metric/window refresh；1 epoch；save step=10。</td>
+              <td>主方法。若最优，说明只纠偏失败轨迹能保留学生已经学会的好轨迹。</td>
+            </tr>
+            <tr>
+              <td>C2</td>
+              <td>failed + ambiguous</td>
+              <td>对 failed 和 ambiguous route 施加 teacher loss，排除 good。</td>
+              <td>现有可实现：<code>sdpo_only_failed=false</code>。</td>
+              <td>与 C1 完全一致，只改蒸馏 scope。</td>
+              <td>验证 ambiguous 是否应当纳入纠偏；若略降，说明 ambiguous 中混有可接受样本，强行蒸馏会过度约束。</td>
+            </tr>
+            <tr>
+              <td>C3</td>
+              <td>all-samples</td>
+              <td>good、ambiguous、failed 全部施加 teacher loss。</td>
+              <td>新增最小参数：<code>sdpo_distill_scope=all</code>，mask 全部非 skip 样本。</td>
+              <td>与 C1 完全一致，只改蒸馏 scope。</td>
+              <td>若低于 C1，证明 MRPD 不是普通全样本 KD；选择性路由是必要组件。</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>4.2 建议的最小代码改动</h3>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>文件</th>
+              <th>改动</th>
+              <th>原因</th>
+              <th>风险控制</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="codepath"><code>swift/rlhf_trainers/args_mixin.py</code></td>
+              <td>新增 <code>sdpo_distill_scope: Literal['failed', 'failed_ambiguous', 'all'] = 'failed'</code>。</td>
+              <td>用显式 scope 替代容易误解的 bool，保证实验命名和实际 mask 一致。</td>
+              <td>保留 <code>sdpo_only_failed</code> 兼容旧脚本；默认行为不变。</td>
+            </tr>
+            <tr>
+              <td class="codepath"><code>swift/rlhf_trainers/grpo_trainer.py</code></td>
+              <td>在 <code>_attach_sdpo_batch</code> 中按 scope 生成 <code>sdpo_sequence_mask</code>。</td>
+              <td>C1/C2/C3 的核心差异只应体现在 mask 上。</td>
+              <td>skip hint 的样本仍保持 0，避免 sibling skip 进入 teacher loss。</td>
+            </tr>
+            <tr>
+              <td class="codepath"><code>swift/rlhf_trainers/grpo_trainer.py</code></td>
+              <td>若 <code>sdpo_target='gt'</code>，同步检查 <code>_prepare_sdpo_gt_inputs</code> 是否仍只过滤 failed。</td>
+              <td>避免 rollout-target 和 gt-target 两套路径语义不一致。</td>
+              <td>本轮主线默认 <code>sdpo_target=rollout</code>，但应预留正确性。</td>
+            </tr>
+            <tr>
+              <td class="codepath"><code>tools/training/*2node_worker.sh</code></td>
+              <td>透传 <code>SDPO_DISTILL_SCOPE</code> 到 <code>swift rlhf</code>。</td>
+              <td>便于用同一 worker 跑 C1/C2/C3。</td>
+              <td>默认值 <code>failed</code>，旧实验不受影响。</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>4.3 训练与评测输出</h3>
+      <ul>
+        <li>每组训练完成后先做 greedy test：mIoU、IoU@0.5/0.6/0.7/0.8/0.9、parse_rate、valid_rate。</li>
+        <li>每组同时解析训练日志：平均 route_good / route_failed / route_ambiguous、平均 mask_rate、平均 sdpo/loss、KL 曲线。</li>
+        <li>若资源允许，对 C1 与 C3 再补 pass@8，观察 all-samples 是否降低 best@8 或 first@8。</li>
+        <li>最终结论不能只写“C1 分数最高”，而要写“C1 在保持 good route 不被 teacher 过度拉动的同时，对 failed route 提供更集中纠偏”。</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>5. 汇总表与判断标准</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>验证点</th>
+              <th>成功标准</th>
+              <th>如果结果不符合预期</th>
+              <th>论文中如何诚实表述</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>pass@8 gap reduction</td>
+              <td>MRPD greedy 高于 SFT/GRPO，并且 greedy-best@8 gap 小于 SFT 或 GRPO；或 MRPD first@8 高于 baseline first@8。</td>
+              <td>如果 MRPD best@8 也上升但 gap 不缩小，说明方法提升了整体采样质量，而非单纯压缩 gap。</td>
+              <td>改写为“MRPD improves the rollout distribution and greedy behavior”，不要强行声称完全转化 oracle 上限。</td>
+            </tr>
+            <tr>
+              <td>路由机制分析</td>
+              <td>failed route 中 teacher-student gap 最大，teacher 胜率高；good route gap 小或 teacher 不显著优于 student。</td>
+              <td>如果 teacher 在 good route 也明显更强，说明 teacher 可作为更通用监督，但选择性 mask 的必要性需要由 C 组消融证明。</td>
+              <td>强调 route 的作用是控制蒸馏预算和避免过度约束，而不必声称 teacher 只在 failed route 有价值。</td>
+            </tr>
+            <tr>
+              <td>选择性蒸馏消融</td>
+              <td>failed-only ≥ failed+ambiguous ≥ all-samples，或 failed-only 在 IoU@0.8/0.9 上最好。</td>
+              <td>如果 all-samples 更强，说明当前“选择性纠偏”不是最优主张，应调整方法为“teacher-regularized GRPO”，并把 route 作为分析而非核心组件。</td>
+              <td>负面结果也可接受，但必须据此调整论文 claim，不能继续主张 failed-only 是必要组件。</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section>
+      <h2>6. 推荐执行顺序</h2>
+      <ol>
+        <li><strong>先做 CPU/脚本准备：</strong>统一 pass@8 输出字段；写 route log 解析脚本；确认 <code>sdpo_distill_scope</code> 的最小代码改动。</li>
+        <li><strong>先跑评测，不先训练：</strong>补 SFT、GRPO-only、MRPD metric、MRPD EMA 的 no-hint / gaussian pass@8，生成 gap reduction 表。</li>
+        <li><strong>再做机制统计：</strong>从已有 MRPD 训练日志解析 route 曲线；如果训练日志粒度不够，再离线生成 1000 条样本的 rollout route pool 做 teacher-student gap。</li>
+        <li><strong>最后跑训练消融：</strong>C1/C2/C3 三组使用同一 SFT checkpoint、同一 gaussian hint、同一 metric refresh、同一训练步数和 eval 流程。</li>
+        <li><strong>结果落盘：</strong>所有输出统一放在 <code>/data/codes/gui_grounding/data/logs/eval/0528_mrpd_mainline/</code>、<code>/data/codes/gui_grounding/data/logs/training/0528_mrpd_mainline/</code> 或对应 rjob log 中；最终追加到 <code>MRPD/0-SummaryOfExp.html</code>。</li>
+      </ol>
+      <div class="callout idea">
+        <p><strong>最推荐第一批启动的任务：</strong>pass@8 全矩阵是纯评测，最直接服务论文主线；route log 解析是 CPU 任务，几乎不占 GPU；选择性蒸馏消融需要训练资源，建议等前两项确认无误后再起三组 2 机任务。</p>
+      </div>
+    </section>
+  </main>
+</body>
+</html>
