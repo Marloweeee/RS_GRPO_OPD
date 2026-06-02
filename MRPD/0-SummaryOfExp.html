@@ -34,7 +34,7 @@ li { margin:4px 0; }
 <body>
 <main>
 <h1>MRPD / OPSD 实验结果汇总</h1>
-<p>生成时间：2026-05-27 20:05:03 HKT；最近更新：2026-05-28 12:21:33 HKT。本页从 <code>/data/codes/gui_grounding/data/logs/eval</code> 与 <code>/data/codes/gui_grounding/data/logs/0528_mainline</code> 中已有的 <code>summary.json</code> / <code>threshold_summary.json</code> / 机制分析文件汇总，不包含重新评测。</p>
+<p>生成时间：2026-05-27 20:05:03 HKT；最近更新：2026-06-01 11:00:00 HKT。本页从 <code>/data/codes/gui_grounding/data/logs/eval</code> 与 <code>/data/codes/gui_grounding/data/logs/0528_mainline</code> 中已有的 <code>summary.json</code> / <code>threshold_summary.json</code> / 机制分析文件汇总，不包含重新评测。</p>
 <div class="note">术语说明：当前汇总中尽量使用 MRPD/OPSD 表述；历史目录名里仍可能出现 sdpo/opd/grpo_sdpo 等旧命名，表格保留原路径以便追溯。</div>
 
 <section class="card">
@@ -43,10 +43,12 @@ li { margin:4px 0; }
 <div class="kpi"><b>0.7000</b>当前 RRSIS-D test greedy 已评测最高 mIoU：SFT -&gt; MRPD EMA0.98 gaussian</div>
 <div class="kpi"><b>0.8251</b>SFT ckpt + gaussian hint 的 best@8 mIoU 上限</div>
 <div class="kpi"><b>0.6987</b>固定 step-80 教师刷新 test mIoU</div>
+<div class="kpi"><b>0.6923</b>Qwen3-VL-8B SFT -&gt; GRPO+OPSD gaussian test mIoU</div>
 <div class="kpi"><b>3 / 3</b>0528plan 三项主线机制实验均已完成并写入本页</div>
 </div>
 <ul>
 <li>SFT 后继续做 GRPO+OPSD/MRPD 明显优于 SFT-only，当前 gaussian metric refresh 主线约 <b>0.6990</b> mIoU。</li>
+<li>8B scale-up 已完成：相对 8B SFT-only，GRPO+OPSD gaussian 将 RRSIS-D test mIoU 从 <b>0.6809</b> 提升到 <b>0.6923</b>，增益 <b>+0.0114</b>；IoU@0.5 从 <b>0.7667</b> 提升到 <b>0.7828</b>。</li>
 <li>OPSD-only 与 GRPO-only 都已验证：按用户复核后的 GRPO-only test 结果，MRPD gaussian metric refresh 相对 GRPO-only 提升约 <b>+0.0128</b> mIoU，相对 OPSD-only 提升约 <b>+0.0157</b> mIoU。</li>
 <li>0528plan 三项机制实验均已完成：pass@8 gap reduction 证明组内存在更优 bbox 候选且训练能转化部分 greedy 能力；路由分析显示教师主要在 failed/ambiguous 轨迹上优于学生；选择性蒸馏消融中 only_failed 范围 mIoU=<b>0.6973</b>，优于 failed+ambiguous 和 all_samples。</li>
 <li>提示模式消融里，gaussian metric refresh 仍是当前 test greedy 主线最好；zoom_in、jitter_box、soft_window、no_hint 都没有超过它。</li>
@@ -146,6 +148,38 @@ li { margin:4px 0; }
 <td><span class="badge ok">完成</span></td>
 <td class="path"><code>data/logs/eval/q4b-sft-grpo-opsd-no-hint-20260527-093400-aos2n-test/summary.json</code></td>
 </tr></table></div>
+</section>
+
+<section class="card">
+<h2>Qwen3-VL-8B Scale-up 结果</h2>
+<p>本节记录 8B 模型从 SFT 到 GRPO+OPSD/MRPD 的两阶段验证。两条结果均为 RRSIS-D test、TP=8、greedy 单次推理、temperature=0；GRPO+OPSD 阶段从 8B SFT <code>checkpoint-96</code> 初始化。最终成功评测使用 batch=32、GPU_MEM_UTIL=0.80；此前 batch=512 在 A800 上触发 vLLM OOM，仅影响评测批大小，不改变模型权重与统计口径。</p>
+<div class="table-wrap"><table><tr><th>实验</th><th>数据集</th><th>配置说明</th><th>n</th><th>rollouts</th><th>temp</th><th>mIoU</th><th>IoU@0.5</th><th>IoU@0.6</th><th>IoU@0.7</th><th>IoU@0.8</th><th>IoU@0.9</th><th>parse</th><th>valid</th><th>状态</th><th>Checkpoint / 来源</th></tr>
+<tr>
+<td>Qwen3-VL-8B SFT-only</td>
+<td>RRSIS-D test</td>
+<td>8B 从 Qwen3-VL-8B-Instruct 在 RRSIS-D train 上 SFT 1 epoch；greedy 单次推理</td>
+<td class="num">3481.0000</td>
+<td class="num">1.0000</td>
+<td class="num">0.0000</td>
+<td class="num">0.6809</td><td class="num">0.7667</td><td class="num">0.7156</td><td class="num">0.6432</td><td class="num">0.5274</td><td class="num">0.3364</td>
+<td class="num">1.0000</td><td class="num">1.0000</td>
+<td><span class="badge ok">完成</span></td>
+<td class="path"><code>/mnt/jfs/copilot/lhb/checkpoint/rs/rs-sft/gui-sd-qwen3-8b-rrsisd_sft_e1_retry-20260529-094035/v0-20260529-094457/checkpoint-96</code><br><code>data/logs/eval/q8b-rrsisd-sft-20260529-094035-checkpoint-96-test-greedy/summary.json</code></td>
+</tr>
+<tr>
+<td>Qwen3-VL-8B SFT -&gt; GRPO+OPSD gaussian</td>
+<td>RRSIS-D test</td>
+<td>从 8B SFT checkpoint-96 初始化，继续两机 GRPO+OPSD/MRPD gaussian metric refresh 1 epoch；greedy 单次推理</td>
+<td class="num">3481.0000</td>
+<td class="num">1.0000</td>
+<td class="num">0.0000</td>
+<td class="num">0.6923</td><td class="num">0.7828</td><td class="num">0.7314</td><td class="num">0.6593</td><td class="num">0.5427</td><td class="num">0.3393</td>
+<td class="num">1.0000</td><td class="num">1.0000</td>
+<td><span class="badge ok">完成</span></td>
+<td class="path"><code>/mnt/jfs/copilot/lhb/checkpoint/rs/rs-sd/gui-sd-qwen3-8b-rrsisd_sft96_grpo_opsd_metric_gaussian_e1-20260529-105009/v0-20260529-105419/checkpoint-870</code><br><code>data/logs/eval/q8b-rrsisd-grpo-opsd-20260529-105009-checkpoint-870-test-greedy-b32/summary.json</code></td>
+</tr>
+</table></div>
+<p class="small">相对 8B SFT-only，8B GRPO+OPSD gaussian 的增益为：mIoU +0.0114，IoU@0.5 +0.0161，IoU@0.6 +0.0158，IoU@0.7 +0.0161，IoU@0.8 +0.0153，IoU@0.9 +0.0029；parse_rate 与 valid_rate 均保持 1.0000。</p>
 </section>
 
 <section class="card">
@@ -463,6 +497,38 @@ li { margin:4px 0; }
 <td><span class="badge ok">完成</span></td>
 <td class="path"><code>data/logs/eval/q4b-rsvg-sft-mrpd-20260527-123311-rsvgsftmrpd-test/summary.json</code></td>
 </tr></table></div>
+</section>
+
+<section class="card">
+<h2>AVVG-refGeo 结果</h2>
+<p>AVVG-refGeo 使用 6139 条 test 样本，图像路径指向 <code>/data/codes/gui_grounding/data/AVVG/refGeo/images/avvg</code>。SFT-only 与 SFT 后继续 MRPD/OPSD gaussian metric refresh（resume 自 ckpt-810，最终 ckpt-1141）的 test 评测均已完成。两次评测均在 AOS 单机 8 卡 TP=8、greedy 单次推理。</p>
+<div class="table-wrap"><table><tr><th>实验</th><th>数据集</th><th>配置说明</th><th>n</th><th>rollouts</th><th>temp</th><th>mIoU</th><th>IoU@0.5</th><th>IoU@0.6</th><th>IoU@0.7</th><th>IoU@0.8</th><th>IoU@0.9</th><th>parse</th><th>valid</th><th>状态</th><th>Checkpoint / 来源</th></tr>
+<tr>
+<td>AVVG-refGeo SFT-only 4B</td>
+<td>AVVG-refGeo test</td>
+<td>Qwen3-VL-4B 从原始权重在 AVVG-refGeo train 上 SFT 1 epoch；greedy 单次推理</td>
+<td class="num">6139.0000</td>
+<td class="num">1.0000</td>
+<td class="num">0.0000</td>
+<td class="num">0.3343</td><td class="num">0.3628</td><td class="num">0.3584</td><td class="num">0.3442</td><td class="num">0.3167</td><td class="num">0.2098</td>
+<td class="num">1.0000</td><td class="num">1.0000</td>
+<td><span class="badge ok">完成</span></td>
+<td class="path"><code>/mnt/jfs/copilot/lhb/checkpoint/rs/avvg-sft/gui-sd-qwen3-4b-avvg_refgeo_sft_e1-20260527-155126-avvgsftmrpd/v0-20260527-155554/checkpoint-207</code><br><code>data/logs/eval/q4b-avvg-sft-20260527-155126-avvgsftmrpd-test/summary.json</code></td>
+</tr>
+<tr>
+<td>AVVG-refGeo SFT -&gt; MRPD gaussian (ckpt-1141)</td>
+<td>AVVG-refGeo test</td>
+<td>SFT ckpt 后继续 MRPD/OPSD gaussian metric refresh，resume 自 ckpt-810 续训至 ckpt-1141；ref_model 使用 Qwen3-VL-4B-Instruct base；greedy 单次推理</td>
+<td class="num">6139.0000</td>
+<td class="num">1.0000</td>
+<td class="num">0.0000</td>
+<td class="num">0.3786</td><td class="num">0.4139</td><td class="num">0.4097</td><td class="num">0.3937</td><td class="num">0.3541</td><td class="num">0.2264</td>
+<td class="num">1.0000</td><td class="num">1.0000</td>
+<td><span class="badge ok">完成</span></td>
+<td class="path"><code>/mnt/jfs/copilot/lhb/checkpoint/rs/avvg-mrpd/gui-sd-qwen3-4b-avvg_refgeo_sft_mrpd_metric_gaussian_e1_resume810_aos-20260530-105306/v0-20260530-105850/checkpoint-1141</code><br><code>data/logs/eval/ev-avvg-ck1141-20260601-103811.worker.log</code></td>
+</tr>
+</table></div>
+<p class="small">相对 AVVG-refGeo SFT-only，SFT -&gt; MRPD gaussian 的增益为：mIoU +0.0443（+13.3% relative），IoU@0.5 +0.0511（+14.1%），IoU@0.6 +0.0513，IoU@0.7 +0.0495，IoU@0.8 +0.0374，IoU@0.9 +0.0166；parse_rate 与 valid_rate 均保持 1.0000。</p>
 </section>
 
 <section class="card">
