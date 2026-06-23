@@ -36,6 +36,8 @@ backoff_limit="${RJOB_BACKOFF_LIMIT:-1}"
 max_wait_duration="${RJOB_MAX_WAIT_DURATION:-12h0m0s}"
 cleanup_on_interrupt="${CLEANUP_RJOB_ON_INTERRUPT:-true}"
 positive_tags="${RJOB_POSITIVE_TAGS:-feature/gpfs=yes}"
+negative_tags="${RJOB_NEGATIVE_TAGS:-}"
+prefer_new_machine="${RJOB_PREFER_NEW_MACHINE:-false}"
 mount_arg="--mount=juicefs+s3://oss.i.shaipower.com/tkj-jfs:/mnt/jfs/copilot"
 completion_pattern="${COMPLETION_GREP_PATTERN:-run completed}"
 completion_grace_sec="${COMPLETION_GRACE_SEC:-45}"
@@ -60,6 +62,9 @@ predict_cmd=(
 if [ -n "$positive_tags" ]; then
     predict_cmd+=(--positive-tags "$positive_tags")
 fi
+if [ -n "$negative_tags" ]; then
+    predict_cmd+=(--negative-tags "$negative_tags")
+fi
 
 launch_cmd=(
     brainctl launch
@@ -80,6 +85,12 @@ launch_cmd=(
 )
 if [ -n "$positive_tags" ]; then
     launch_cmd+=(--positive-tags "$positive_tags")
+fi
+if [ -n "$negative_tags" ]; then
+    launch_cmd+=(--negative-tags "$negative_tags")
+fi
+if [ "$prefer_new_machine" = "true" ]; then
+    launch_cmd+=(--prefer-new-machine)
 fi
 
 add_env() {
@@ -188,7 +199,7 @@ add_env "STAGE2_SKIP_EVAL" "${STAGE2_SKIP_EVAL:-true}"
 add_env "SKIP_EVAL" "${SKIP_EVAL:-true}"
 
 for key in \
-    MODEL_PATH TEACHER_PATH ROLLOUT_MODEL_PATH RUN_TIMESTAMP \
+    MODEL_PATH REF_MODEL_PATH TEACHER_PATH ROLLOUT_MODEL_PATH RUN_TIMESTAMP \
     TEACHER_REFRESH_STEP \
     SDPO_DISTILL_SCOPE \
     SDPO_HINT_SOURCE SDPO_SIBLING_SELECT_METRIC SDPO_SIBLING_FALLBACK \
@@ -256,6 +267,9 @@ trap cleanup_interrupt HUP INT TERM
     echo "[launch-qwen3-4b-stage-exp] charged_group=${charged_group}"
     echo "[launch-qwen3-4b-stage-exp] namespace=${namespace}"
     echo "[launch-qwen3-4b-stage-exp] max_wait_duration=${max_wait_duration}"
+    echo "[launch-qwen3-4b-stage-exp] positive_tags=${positive_tags}"
+    echo "[launch-qwen3-4b-stage-exp] negative_tags=${negative_tags}"
+    echo "[launch-qwen3-4b-stage-exp] prefer_new_machine=${prefer_new_machine}"
     echo "[launch-qwen3-4b-stage-exp] worker_script=${worker_script}"
     echo "[launch-qwen3-4b-stage-exp] base_model_path=${base_model_path}"
     echo "[launch-qwen3-4b-stage-exp] train_jsonl=${train_jsonl}"

@@ -34,7 +34,7 @@ li { margin:4px 0; }
 <body>
 <main>
 <h1>MRPD / OPSD 实验结果汇总</h1>
-<p>生成时间：2026-05-27 20:05:03 HKT；最近更新：2026-06-01 11:00:00 HKT。本页从 <code>/data/codes/gui_grounding/data/logs/eval</code> 与 <code>/data/codes/gui_grounding/data/logs/0528_mainline</code> 中已有的 <code>summary.json</code> / <code>threshold_summary.json</code> / 机制分析文件汇总，不包含重新评测。</p>
+<p>生成时间：2026-05-27 20:05:03 HKT；最近更新：2026-06-09 19:22:26 HKT。本页从 <code>/data/codes/gui_grounding/data/logs/eval</code> 与 <code>/data/codes/gui_grounding/data/logs/0528_mainline</code> 中已有的 <code>summary.json</code> / <code>threshold_summary.json</code> / 机制分析文件汇总；新增评测完成后追加对应 summary。</p>
 <div class="note">术语说明：当前汇总中尽量使用 MRPD/OPSD 表述；历史目录名里仍可能出现 sdpo/opd/grpo_sdpo 等旧命名，表格保留原路径以便追溯。</div>
 
 <section class="card">
@@ -44,11 +44,14 @@ li { margin:4px 0; }
 <div class="kpi"><b>0.8251</b>SFT ckpt + gaussian hint 的 best@8 mIoU 上限</div>
 <div class="kpi"><b>0.6987</b>固定 step-80 教师刷新 test mIoU</div>
 <div class="kpi"><b>0.6923</b>Qwen3-VL-8B SFT -&gt; GRPO+OPSD gaussian test mIoU</div>
+<div class="kpi"><b>rollout=8</b>训练 rollout 数量消融中整体最优：mIoU 0.6990</div>
 <div class="kpi"><b>3 / 3</b>0528plan 三项主线机制实验均已完成并写入本页</div>
 </div>
 <ul>
 <li>SFT 后继续做 GRPO+OPSD/MRPD 明显优于 SFT-only，当前 gaussian metric refresh 主线约 <b>0.6990</b> mIoU。</li>
-<li>8B scale-up 已完成：相对 8B SFT-only，GRPO+OPSD gaussian 将 RRSIS-D test mIoU 从 <b>0.6809</b> 提升到 <b>0.6923</b>，增益 <b>+0.0114</b>；IoU@0.5 从 <b>0.7667</b> 提升到 <b>0.7828</b>。</li>
+<li>训练 rollout 数量消融已补齐 2/4/8/16：rollout=8 主实验整体最好（mIoU=<b>0.6990</b>），rollout=16 仅在 IoU@0.9 略高（0.3625 vs 0.3577），因此当前主设置仍推荐 rollout=8。</li>
+<li>SFT -&gt; OPSD-only 的 pass@8 补测已完成：greedy 单次 IoU@0.5=<b>0.7708</b>；no-hint pass@8@0.5=<b>0.8397</b>，gaussian hint pass@8@0.5=<b>0.8885</b>。gaussian pass@8@0.5 低于 SFT ckpt gaussian 的 <b>0.9038</b>，但相对该 ckpt greedy 单次提升 <b>+0.1177</b>。</li>
+<li>8B scale-up 已完成：相对 8B SFT-only，GRPO+OPSD gaussian 将 RRSIS-D test mIoU 从 <b>0.6809</b> 提升到 <b>0.6923</b>，增益 <b>+0.0114</b>；IoU@0.5/0.6/0.7/0.8/0.9 从 <b>0.7667/0.7156/0.6432/0.5274/0.3364</b> 提升到 <b>0.7828/0.7314/0.6593/0.5427/0.3393</b>，增益 <b>+0.0161/+0.0158/+0.0161/+0.0153/+0.0029</b>。</li>
 <li>OPSD-only 与 GRPO-only 都已验证：按用户复核后的 GRPO-only test 结果，MRPD gaussian metric refresh 相对 GRPO-only 提升约 <b>+0.0128</b> mIoU，相对 OPSD-only 提升约 <b>+0.0157</b> mIoU。</li>
 <li>0528plan 三项机制实验均已完成：pass@8 gap reduction 证明组内存在更优 bbox 候选且训练能转化部分 greedy 能力；路由分析显示教师主要在 failed/ambiguous 轨迹上优于学生；选择性蒸馏消融中 only_failed 范围 mIoU=<b>0.6973</b>，优于 failed+ambiguous 和 all_samples。</li>
 <li>提示模式消融里，gaussian metric refresh 仍是当前 test greedy 主线最好；zoom_in、jitter_box、soft_window、no_hint 都没有超过它。</li>
@@ -89,7 +92,7 @@ li { margin:4px 0; }
 <td class="num">3481.0000</td>
 <td class="num">1.0000</td>
 <td class="num">0.0000</td>
-<td class="num">0.6862</td><td class="num">0.7814</td><td class="num">0.7297</td><td class="num">0.6491</td><td class="num">0.5355</td><td class="num">0.3489</td>
+<td class="num">0.6862</td><td class="num">0.7714</td><td class="num">0.7297</td><td class="num">0.6491</td><td class="num">0.5355</td><td class="num">0.3489</td>
 <td><span class="badge ok">完成/复核</span></td>
 <td class="path"><code>用户复核修正值；原任务路径保留用于追溯：data/logs/eval/q4b-sft-grpo-only-20260527-082554-test/summary.json</code></td>
 </tr>
@@ -148,6 +151,62 @@ li { margin:4px 0; }
 <td><span class="badge ok">完成</span></td>
 <td class="path"><code>data/logs/eval/q4b-sft-grpo-opsd-no-hint-20260527-093400-aos2n-test/summary.json</code></td>
 </tr></table></div>
+</section>
+
+<section class="card">
+<h2>训练 Rollout 数量消融</h2>
+<p>本节比较 GRPO+OPSD/MRPD 训练阶段的 <code>num_generations</code> / rollout 数量。四组均从同一个 RRSIS-D SFT checkpoint 初始化，使用 RRSIS-D train 训练；测试统一为 RRSIS-D test、TP=8、greedy 单次推理，<code>num_rollouts=1</code>、<code>temperature=0.0</code>。注意：表中的“训练 rollout”不是测试时的 pass@k。</p>
+<div class="table-wrap"><table><tr><th>训练 rollout</th><th>实验 / ckpt</th><th>数据集</th><th>n</th><th>测试 rollouts</th><th>temp</th><th>mIoU</th><th>IoU@0.5</th><th>IoU@0.6</th><th>IoU@0.7</th><th>IoU@0.8</th><th>IoU@0.9</th><th>mean_best_reward</th><th>parse</th><th>valid</th><th>结论</th><th>来源</th></tr>
+<tr>
+<td class="num">2</td>
+<td>ngen2 / <code>checkpoint-217</code></td>
+<td>RRSIS-D test</td>
+<td class="num">3481.0000</td>
+<td class="num">1.0000</td>
+<td class="num">0.0000</td>
+<td class="num">0.6867</td><td class="num">0.7722</td><td class="num">0.7188</td><td class="num">0.6484</td><td class="num">0.5381</td><td class="num">0.3459</td>
+<td class="num">0.8104</td><td class="num">1.0000</td><td class="num">1.0000</td>
+<td>低 rollout 基线</td>
+<td class="path"><code>data/logs/eval/rollout_n_ablation/ngen2_test_20260602-220858/summary.json</code></td>
+</tr>
+<tr>
+<td class="num">4</td>
+<td>ngen4 / <code>checkpoint-435</code></td>
+<td>RRSIS-D test</td>
+<td class="num">3481.0000</td>
+<td class="num">1.0000</td>
+<td class="num">0.0000</td>
+<td class="num">0.6901</td><td class="num">0.7828</td><td class="num">0.7262</td><td class="num">0.6538</td><td class="num">0.5384</td><td class="num">0.3493</td>
+<td class="num">0.8122</td><td class="num">1.0000</td><td class="num">1.0000</td>
+<td>相对 rollout=2 稳定提升</td>
+<td class="path"><code>data/logs/eval/rollout_n_ablation/ngen4_test_20260602-221559/summary.json</code></td>
+</tr>
+<tr>
+<td class="num">8</td>
+<td>主实验 / <code>checkpoint-870</code></td>
+<td>RRSIS-D test</td>
+<td class="num">3481.0000</td>
+<td class="num">1.0000</td>
+<td class="num">0.0000</td>
+<td class="num"><b>0.6990</b></td><td class="num"><b>0.7912</b></td><td class="num"><b>0.7369</b></td><td class="num"><b>0.6665</b></td><td class="num"><b>0.5530</b></td><td class="num">0.3577</td>
+<td class="num"><b>0.8180</b></td><td class="num">1.0000</td><td class="num">1.0000</td>
+<td>整体最优，推荐主设置</td>
+<td class="path"><code>data/logs/eval/gui-sd-qwen3-4b-rrsisd_sft_grpo_opsd_metric_gaussian_e1-20260526-225857_test/summary.json</code><br><code>data/logs/training/q4b-sftopsd-gauss-e1-20260526-225857.rjob.log</code> 记录 <code>NUM_GENERATIONS=8</code></td>
+</tr>
+<tr>
+<td class="num">16</td>
+<td>ngen16 / <code>checkpoint-1740</code></td>
+<td>RRSIS-D test</td>
+<td class="num">3481.0000</td>
+<td class="num">1.0000</td>
+<td class="num">0.0000</td>
+<td class="num">0.6935</td><td class="num">0.7851</td><td class="num">0.7331</td><td class="num">0.6627</td><td class="num">0.5519</td><td class="num"><b>0.3625</b></td>
+<td class="num">0.8153</td><td class="num">1.0000</td><td class="num">1.0000</td>
+<td>极高阈值 IoU@0.9 最好，但整体低于 rollout=8</td>
+<td class="path"><code>data/logs/eval/rollout_n_ablation/ngen16_test_20260603-091218/summary.json</code></td>
+</tr>
+</table></div>
+<p class="small">从 2 到 4 有稳定增益，8 达到整体最优；16 进一步增加训练候选数后，IoU@0.9 略升但 mIoU、IoU@0.5/0.6/0.7/0.8 均低于 8，说明更大 rollout 对极高精度边界可能有帮助，但会带来收益饱和甚至回落。当前论文主实验继续采用 rollout=8 更合理。</p>
 </section>
 
 <section class="card">
@@ -534,6 +593,50 @@ li { margin:4px 0; }
 <section class="card">
 <h2>Pass@8 / Best-of-8 上限分析</h2>
 <p>这些结果用于说明多次 rollout 中存在显著更优 bbox，因此 MRPD 的目标是缩小单次采样与组内最优之间的 gap。该部分作为补充上限分析保留在主线、路由、消融和跨数据集结果之后。</p>
+<p>这里单独列出用户最关心的 @0.5 口径：greedy 单次推理使用 <code>num_rollouts=1</code>、<code>temperature=0.0</code>；pass@8 使用 <code>num_rollouts=8</code>、<code>temperature=0.7</code>、<code>top_p=0.95</code>。pass@8 表里的 first@0.5 是同一采样设置下第 1 条，不等同于 greedy 单次。</p>
+<div class="table-wrap"><table><tr><th>模型 / 设置</th><th>RRSIS-D test n</th><th>greedy 单次 IoU@0.5</th><th>pass@8 提示模式</th><th>pass@8@0.5</th><th>pass@8 相对 greedy 提升</th><th>同采样 first@0.5</th><th>来源</th></tr>
+<tr>
+<td>SFT ckpt</td>
+<td class="num">3481.0000</td>
+<td class="num">0.7696</td>
+<td>no-hint</td>
+<td class="num">0.8544</td>
+<td class="num">+0.0848</td>
+<td class="num">-</td>
+<td class="path"><code>data/logs/eval/qwen3-4b-rrsisd-sft-20260526-220915-checkpoint-96-test-greedy/summary.json</code><br><code>data/logs/eval/0528_mrpd_mainline/pass8_0528p8/sft_none/summary.json</code></td>
+</tr>
+<tr>
+<td>SFT ckpt</td>
+<td class="num">3481.0000</td>
+<td class="num">0.7696</td>
+<td>gaussian hint</td>
+<td class="num">0.9038</td>
+<td class="num">+0.1342</td>
+<td class="num">0.8268</td>
+<td class="path"><code>data/logs/eval/qwen3-4b-rrsisd-sft-20260526-220915-checkpoint-96-test-greedy/summary.json</code><br><code>data/logs/eval/0528_mrpd_mainline/pass8_0528p8/sft_gaussian/summary.json</code></td>
+</tr>
+<tr>
+<td>SFT -&gt; OPSD-only checkpoint-109</td>
+<td class="num">3481.0000</td>
+<td class="num">0.7708</td>
+<td>no-hint</td>
+<td class="num">0.8397</td>
+<td class="num">+0.0689</td>
+<td class="num">0.7360</td>
+<td class="path"><code>data/logs/eval/q4b-sft-opsd-only-gaussian-20260527-085701-test/summary.json</code><br><code>data/logs/eval/0528_mrpd_mainline/pass8_0528p8/sft_opsd_only_none/summary.json</code></td>
+</tr>
+<tr>
+<td>SFT -&gt; OPSD-only checkpoint-109</td>
+<td class="num">3481.0000</td>
+<td class="num">0.7708</td>
+<td>gaussian hint</td>
+<td class="num">0.8885</td>
+<td class="num">+0.1177</td>
+<td class="num">0.8193</td>
+<td class="path"><code>data/logs/eval/q4b-sft-opsd-only-gaussian-20260527-085701-test/summary.json</code><br><code>data/logs/eval/0528_mrpd_mainline/pass8_0528p8/sft_opsd_only_gaussian/summary.json</code></td>
+</tr>
+</table></div>
+<p class="small">按 IoU@0.5 看，SFT -&gt; OPSD-only 的 greedy 单次与 SFT greedy 基本持平（0.7708 vs 0.7696）；pass@8 后 no-hint 达到 0.8397，gaussian hint 达到 0.8885。相比 SFT ckpt 的对应 pass@8，OPSD-only 的 no-hint 低 0.0147，gaussian hint 低 0.0153。</p>
 <div class="table-wrap"><table><tr><th>实验</th><th>提示/采样</th><th>n</th><th>rollouts</th><th>first mIoU</th><th>first@0.5</th><th>first@0.6</th><th>first@0.7</th><th>first@0.8</th><th>first@0.9</th><th>best@8 mIoU</th><th>best@8@0.5</th><th>best@8@0.6</th><th>best@8@0.7</th><th>best@8@0.8</th><th>best@8@0.9</th><th>状态</th><th>来源</th></tr>
 <tr>
 <td>SFT ckpt no-hint pass@8</td>
@@ -545,6 +648,15 @@ li { margin:4px 0; }
 <td class="path"><code>data/logs/eval/qwen3-4b-rrsisd-sft-20260526-220915-checkpoint-96-test-nohint-pass8-b32/summary.json</code></td>
 </tr>
 <tr>
+<td>SFT -&gt; OPSD-only no-hint pass@8</td>
+<td>无教师视觉提示，temperature=0.7；SFT -&gt; OPSD-only gaussian checkpoint-109</td>
+<td class="num">3481.0000</td>
+<td class="num">8.0000</td>
+<td class="num">0.6473</td><td class="num">0.7360</td><td class="num">0.6768</td><td class="num">0.5895</td><td class="num">0.4634</td><td class="num">0.2666</td><td class="num">0.7558</td><td class="num">0.8397</td><td class="num">0.8018</td><td class="num">0.7403</td><td class="num">0.6398</td><td class="num">0.4450</td>
+<td><span class="badge ok">完成</span></td>
+<td class="path"><code>data/logs/eval/0528_mrpd_mainline/pass8_0528p8/sft_opsd_only_none/summary.json</code></td>
+</tr>
+<tr>
 <td>SFT ckpt gaussian hint pass@8</td>
 <td>教师 gaussian 视觉提示，temperature=0.7</td>
 <td class="num">3481.0000</td>
@@ -552,6 +664,15 @@ li { margin:4px 0; }
 <td class="num">0.7273</td><td class="num">0.8268</td><td class="num">0.7716</td><td class="num">0.6912</td><td class="num">0.5837</td><td class="num">0.3712</td><td class="num">0.8251</td><td class="num">0.9038</td><td class="num">0.8756</td><td class="num">0.8271</td><td class="num">0.7443</td><td class="num">0.5745</td>
 <td><span class="badge ok">完成</span></td>
 <td class="path"><code>data/logs/eval/qwen3-4b-rrsisd-sft-20260526-220915-checkpoint-96-test-hint-gaussian-pass8-b32/summary.json</code></td>
+</tr>
+<tr>
+<td>SFT -&gt; OPSD-only gaussian hint pass@8</td>
+<td>教师 gaussian 视觉提示，temperature=0.7；SFT -&gt; OPSD-only gaussian checkpoint-109</td>
+<td class="num">3481.0000</td>
+<td class="num">8.0000</td>
+<td class="num">0.7205</td><td class="num">0.8193</td><td class="num">0.7598</td><td class="num">0.6817</td><td class="num">0.5639</td><td class="num">0.3398</td><td class="num">0.8092</td><td class="num">0.8885</td><td class="num">0.8532</td><td class="num">0.7969</td><td class="num">0.7076</td><td class="num">0.5366</td>
+<td><span class="badge ok">完成</span></td>
+<td class="path"><code>data/logs/eval/0528_mrpd_mainline/pass8_0528p8/sft_opsd_only_gaussian/summary.json</code></td>
 </tr>
 <tr>
 <td>SFT ckpt zoom_in hint pass@8</td>

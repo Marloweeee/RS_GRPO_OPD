@@ -1,0 +1,1544 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MRPD 运行日志附录补充</title><style>
+:root { --bg:#f6f7f9; --panel:#fff; --text:#1f2937; --muted:#64748b; --line:#d9e0e8; --head:#edf3f8; --accent:#0f766e; --warn:#9a5b00; --ok:#167a3c; }
+* { box-sizing:border-box; }
+body { margin:0; background:var(--bg); color:var(--text); font:14px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Arial,"Noto Sans SC",sans-serif; }
+main { max-width:1540px; margin:0 auto; padding:28px 24px 56px; }
+h1 { margin:0 0 8px; font-size:28px; letter-spacing:0; }
+h2 { margin:26px 0 10px; font-size:20px; }
+h3 { margin:18px 0 8px; font-size:16px; }
+p { margin:8px 0; color:var(--muted); }
+.card { background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:16px; margin:14px 0; box-shadow:0 1px 2px rgba(15,23,42,.04); }
+.note { background:#fff7ed; border:1px solid #fed7aa; padding:10px 12px; border-radius:8px; color:#7c2d12; }
+.grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:12px; }
+.kpi { background:#f8fafc; border:1px solid var(--line); border-radius:8px; padding:12px; }
+.kpi b { display:block; color:var(--accent); font-size:18px; }
+.table-wrap { overflow:auto; border:1px solid var(--line); border-radius:8px; background:white; margin-top:8px; }
+table { border-collapse:collapse; width:100%; min-width:1180px; }
+th, td { border-bottom:1px solid var(--line); border-right:1px solid #edf1f5; padding:7px 8px; vertical-align:top; }
+th { position:sticky; top:0; background:var(--head); text-align:left; font-weight:650; white-space:nowrap; }
+td.num { text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap; }
+code { font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:12px; word-break:break-all; white-space:normal; }
+.badge { display:inline-block; padding:2px 7px; border-radius:999px; font-size:12px; border:1px solid currentColor; white-space:nowrap; }
+.badge.ok { color:var(--ok); background:#ecfdf5; }
+.badge.warn { color:var(--warn); background:#fffbeb; }
+.muted { color:var(--muted); font-size:12px; }
+ul { margin:8px 0 0 18px; padding:0; }
+li { margin:4px 0; }
+.small { font-size:12px; color:var(--muted); }
+</style></head><body><main>
+<h1>MRPD / OPSD 运行日志附录补充</h1>
+<p>生成时间：2026-06-23 HKT。来源目录：<code>/data/codes/gui_grounding/GUI-SD-code-main/guisd_data/logs</code>；去重参照：<code>MRPD/0-SummaryOfExp.html</code>。本页是新的附录补充页，不改写现有总表。</p>
+<div class="note">筛选口径：结果分数若已在 <code>0-SummaryOfExp.html</code> 记录，本页不重复铺同一张结果表，只补充日志中可复现的训练/评测设置、checkpoint、异常/终态说明。前期探索只收录与最终 MRPD/OPSD 结构相同或接近、且量级为 Qwen3-VL-4B 的运行；闭源 smoke、tmp/brainctl 帮助文件、缺少有效 run_name 的失败尝试放入排除说明。</div>
+<section class="card"><h2>覆盖概览</h2><div class="grid">
+<div class="kpi"><b>89</b>条去重后的训练/运行设置记录</div>
+<div class="kpi"><b>4</b>条未在总表结构化写入的 4B metrics/summary</div>
+<div class="kpi"><b>32</b>个带 <code>status.json</code> 的评测目录设置索引</div>
+<div class="kpi"><b>11</b>条闭源模型记录列为排除项</div>
+</div><ul>
+<li>主表已有的 RRSIS-D test、pass@8、rollout N、8B、RSVG、AVVG、0528 机制等分数不在本页重复展开。</li>
+<li>本页补充的是日志级上下文：初始化 checkpoint、训练数据、mask/hint、教师刷新、loss/route 设置、资源规格、vLLM/eval 参数和终态。</li>
+<li>带有 <code>IndexError: list index out of range</code> 的训练，若日志先保存 checkpoint 并打印 completed，本页标为“完成；退出清理期 DeepSpeed 析构告警”。</li>
+</ul></section>
+<section class="card"><h2>新增未结构化写入总表的结果/metrics</h2>
+<p>以下结果在现有页未作为独立结构化行写入，或者只以用户修正值/旧记录背景出现；这里按日志原始值保留，便于附录追溯。它们不替代 <code>0-SummaryOfExp.html</code> 中已经复核的主表数值。</p>
+<div class="table-wrap"><table><tr><th>记录</th><th>n</th><th>rollouts</th><th>temp</th><th>mIoU</th><th>IoU@0.5</th><th>IoU@0.6</th><th>IoU@0.7</th><th>IoU@0.8</th><th>IoU@0.9</th><th>parse</th><th>valid</th><th>说明</th><th>来源</th></tr>
+<tr>
+<td>gui-sd-qwen3-4b-rrsisd_sft_grpo_opsd_metric_gaussian_e1-20260526-225857_val</td>
+<td class="num">1740</td>
+<td class="num">1</td>
+<td class="num">0.0000</td>
+<td class="num">0.7066</td>
+<td class="num">0.7943</td>
+<td class="num">0.7563</td>
+<td class="num">0.6925</td>
+<td class="num">0.5793</td>
+<td class="num">0.3644</td>
+<td class="num">1.0000</td>
+<td class="num">1.0000</td>
+<td>主线 metric-gaussian checkpoint-870 的 val split 补充；现有页只写了 test 和 extra-epoch val。</td><td><code>guisd_data/logs/eval/gui-sd-qwen3-4b-rrsisd_sft_grpo_opsd_metric_gaussian_e1-20260526-225857_val/summary.json</code></td></tr>
+<tr>
+<td>q4b-opdonly-2n-0522.metrics</td>
+<td class="num">3481</td>
+<td class="num">1</td>
+<td class="num">0.0000</td>
+<td class="num">0.5910</td>
+<td class="num">0.6490</td>
+<td class="num">-</td>
+<td class="num">0.5016</td>
+<td class="num">-</td>
+<td class="num">-</td>
+<td class="num">1.0000</td>
+<td class="num">1.0000</td>
+<td>早期 4B OPSD-only/OPD-only 同结构试跑，保留为附录追溯，不替代后续 SFT-&gt;OPSD-only 主表。</td><td><code>guisd_data/logs/eval/q4b-opdonly-2n-0522.metrics.json</code></td></tr>
+<tr>
+<td>qwen3-4b-grpo-only-ck870-aos.metrics</td>
+<td class="num">3481</td>
+<td class="num">1</td>
+<td class="num">0.0000</td>
+<td class="num">0.6697</td>
+<td class="num">0.7579</td>
+<td class="num">0.7062</td>
+<td class="num">0.6277</td>
+<td class="num">0.5194</td>
+<td class="num">0.3324</td>
+<td class="num">1.0000</td>
+<td class="num">1.0000</td>
+<td>早期 GRPO-only ck870 AOS 评测原始 metrics；0-Summary 主表采用用户复核修正值，本条只作为日志证据。</td><td><code>guisd_data/logs/eval/qwen3-4b-grpo-only-ck870-aos.metrics.json</code></td></tr>
+<tr>
+<td>qwen3-4b-midrefresh-s80.metrics</td>
+<td class="num">3481</td>
+<td class="num">-</td>
+<td class="num">-</td>
+<td class="num">0.6794</td>
+<td class="num">0.7713</td>
+<td class="num">0.7087</td>
+<td class="num">0.6332</td>
+<td class="num">0.5246</td>
+<td class="num">0.3298</td>
+<td class="num">1.0000</td>
+<td class="num">1.0000</td>
+<td>早期 mid-refresh/s80 同结构 4B metrics，主表已有后续刷新策略对照，本条补充原始日志。</td><td><code>guisd_data/logs/eval/qwen3-4b-midrefresh-s80.metrics.json</code></td></tr>
+</table></div></section>
+<section class="card"><h2>训练运行设置索引</h2>
+<p>该表从 training 日志和 rollout_n_ablation env 文件抽取，主要补充参数/实验设置；结果分数仍以总表和上节新增 metrics 为准。</p>
+<h3>RRSIS-D 4B 主线/提示模式 <span class="muted">(12 条)</span></h3>
+<div class="table-wrap"><table><tr><th>实验/用途</th><th>run_name</th><th>关键训练参数</th><th>初始化与数据</th><th>OPSD/MRPD 设置</th><th>资源</th><th>checkpoint / 终态</th><th>来源</th></tr>
+<tr>
+<td>SFT-only</td>
+<td><code>gui-sd-qwen3-4b-rrsisd_sft_e1-20260526-214237</code></td>
+<td>SFT-only active setting：1 epoch full fine-tune；batch/grad/lr 见日志。通用 launcher 中保留的 GRPO/OPSD env 不参与 SFT worker 的 active loss。</td>
+<td>init=/mnt/jfs/.../checkpoint/opensource/Qwen3-VL-4B-Instruct; train=data/rs_full/rs_train.jsonl; test=data/rs_full/rs_test.jsonl</td>
+<td>SFT-only：无 teacher、无 OPSD/MRPD loss、无 teacher refresh；mask/refresh 字段若出现在原日志中是通用 launcher 默认值。</td>
+<td>P=2; gpu/node=8; cpu/node=28; mem=600000; group=aos</td>
+<td>/mnt/jfs/.../checkpoint/rs/rs-sft/gui-sd-qwen3-4b-rrsisd_sft_e1-20260526-214237/v0-20260526-214518/checkpoint-96; 完成</td>
+<td><code>guisd_data/logs/training/q4b-rrsisd-sft-2n-20260526-214237.rjob.log</code></td>
+</tr>
+<tr>
+<td>SFT-only</td>
+<td><code>gui-sd-qwen3-4b-rrsisd_sft_e1-20260526-220915</code></td>
+<td>SFT-only active setting：1 epoch full fine-tune；batch/grad/lr 见日志。通用 launcher 中保留的 GRPO/OPSD env 不参与 SFT worker 的 active loss。</td>
+<td>init=/mnt/jfs/.../checkpoint/opensource/Qwen3-VL-4B-Instruct; train=data/rs_full/rs_train.jsonl; test=data/rs_full/rs_test.jsonl</td>
+<td>SFT-only：无 teacher、无 OPSD/MRPD loss、无 teacher refresh；mask/refresh 字段若出现在原日志中是通用 launcher 默认值。</td>
+<td>P=2; gpu/node=8; cpu/node=64; mem=800000; group=gui_agent</td>
+<td>/mnt/jfs/.../checkpoint/rs/rs-sft/gui-sd-qwen3-4b-rrsisd_sft_e1-20260526-220915/v0-20260526-220853/checkpoint-96; 完成</td>
+<td><code>guisd_data/logs/training/q4b-rrsisd-sft-2n-20260526-220915.rjob.log</code></td>
+</tr>
+<tr>
+<td>SFT -&gt; GRPO-only</td>
+<td><code>gui-sd-qwen3-4b-rrsisd_sft_grpo_only_e1-20260527-082554</code></td>
+<td>GRPO-only active setting：1 epoch；num_gen=8；bs/dev=4；grad_acc=2；lr=1e-6；GRPO beta=0.04；不使用 teacher/OPSD。</td>
+<td>init=/mnt/jfs/.../checkpoint/rs/rs-sft/gui-sd-qwen3-4b-rrsisd_sft_e1-20260526-220915/v0-20260526-220853/checkpoint-96; train=data/rs_full/rs_train.jsonl; test=data/rs_full/rs_test.jsonl</td>
+<td>GRPO-only：active worker mode=grpo_only_no_teacher_no_sdpo；mask/refresh 字段若出现在原日志中是通用 launcher 默认值，不作为 active MRPD 设置。</td>
+<td>P=2; gpu/node=8; cpu/node=64; mem=700000; group=gui_agent</td>
+<td>/mnt/jfs/.../checkpoint/rs/rs-sd/gui-sd-qwen3-4b-rrsisd_sft_grpo_only_e1-20260527-082554/v0-20260527-083221/checkpoint-870; 完成；退出清理期 DeepSpeed 析构告警; DeepSpeed 析构 IndexError 出现在保存/完成之后</td>
+<td><code>guisd_data/logs/training/mrpd_sft_grpo_only_20260527-082554.console.log</code><br><code>guisd_data/logs/training/q4b-sft-grpo-only-e1-20260527-082554.rjob.log</code></td>
+</tr>
+<tr>
+<td>SFT -&gt; MRPD metric gaussian</td>
+<td><code>gui-sd-qwen3-4b-rrsisd_sft_grpo_opsd_metric_gaussian_e1-20260526-225857</code></td>
+<td>epoch=1; num_gen=8; bs/dev=4; grad_acc=2; lr=1e-6; grpo_beta=0.04; lambda=0.25; max_len=20000; max_new=64; token_weight=uniform-entropy; non_digit=0.05; max_digit=3; rollout_temp=0.7; top_p=0.95; vLLM_mem=0.82; vLLM_len=20000</td>
+<td>init=/mnt/jfs/.../checkpoint/rs/rs-sft/gui-sd-qwen3-4b-rrsisd_sft_e1-20260526-220915/v0-20260526-220853/checkpoint-96; train=data/rs_full/rs_train.jsonl; test=data/rs_full/rs_test.jsonl</td>
+<td>mask=gaussian; hint=hint; ema=0.0; refresh=metric; step=-1; warmup=80 window=50 check_interval=10 min_iou_improve=0.01 max_failed=0.55 min_sdpo_loss=0.02 max_kl=0.30; EWMA: short_window=20 long_window=80 ewma_alpha=0.10 consecutive_checks=2 min_short_long_iou_gain=0.006 min_ewma_iou_gain=0.008 max_iou05_drop=0.010</td>
+<td>P=2; gpu/node=8; cpu/node=80; mem=800000; group=gui_agent</td>
+<td>/mnt/jfs/.../checkpoint/rs/rs-sd/gui-sd-qwen3-4b-rrsisd_sft_grpo_opsd_metric_gaussian_e1-20260526-225857/v0-20260526-230454/checkpoint-870; 完成；退出清理期 DeepSpeed 析构告警; DeepSpeed 析构 IndexError 出现在保存/完成之后</td>
+<td><code>guisd_data/logs/training/q4b-sftopsd-gauss-e1-20260526-225857.rjob.log</code><br><code>guisd_data/logs/training/qwen3_4b_sft_to_opsd_gauss_e1.console.log</code></td>
+</tr>
+<tr>
+<td>jitter_box hint</td>
+<td><code>gui-sd-qwen3-4b-rrsisd_sft_grpo_opsd_metric_jitter_box_e1-20260527-082554</code></td>
+<td>epoch=1; num_gen=8; bs/dev=4; grad_acc=2; lr=1e-6; grpo_beta=0.04; lambda=0.25; max_len=20000; max_new=64; token_weight=uniform-entropy; non_digit=0.05; max_digit=3; rollout_temp=0.7; top_p=0.95; vLLM_mem=0.82; vLLM_len=20000</td>
+<td>init=/mnt/jfs/.../checkpoint/rs/rs-sft/gui-sd-qwen3-4b-rrsisd_sft_e1-20260526-220915/v0-20260526-220853/checkpoint-96; train=data/rs_full/rs_train.jsonl; test=data/rs_full/rs_test.jsonl</td>
+<td>mask=jitter_box; hint=hint; ema=0.0; refresh=metric; step=-1; warmup=80 window=50 check_interval=10 min_iou_improve=0.01 max_failed=0.55 min_sdpo_loss=0.02 max_kl=0.30; EWMA: short_window=20 long_window=80 ewma_alpha=0.10 consecutive_checks=2 min_short_long_iou_gain=0.006 min_ewma_iou_gain=0.008 max_iou05_drop=0.010</td>
+<td>P=2; gpu/node=8; cpu/node=64; mem=700000; group=gui_agent</td>
+<td>/mnt/jfs/.../checkpoint/rs/rs-sd/gui-sd-qwen3-4b-rrsisd_sft_grpo_opsd_metric_jitter_box_e1-20260527-082554/v0-20260527-083220/checkpoint-870; 完成；退出清理期 DeepSpeed 析构告警; DeepSpeed 析构 IndexError 出现在保存/完成之后</td>
+<td><code>guisd_data/logs/training/mrpd_sft_opsd_jitter_20260527-082554.console.log</code><br><code>guisd_data/logs/training/q4b-sftopsd-jitter-e1-20260527-082554.rjob.log</code></td>
+</tr>
+<tr>
+<td>no_hint/no_mask</td>
+<td><code>gui-sd-qwen3-4b-rrsisd_sft_grpo_opsd_metric_no_hint_e1-20260527-085701</code></td>
+<td>epoch=1; num_gen=8; bs/dev=4; grad_acc=2; lr=1e-6; grpo_beta=0.04; lambda=0.25; max_len=20000; max_new=64; token_weight=uniform-entropy; non_digit=0.05; max_digit=3; rollout_temp=0.7; top_p=0.95; vLLM_mem=0.82; vLLM_len=20000</td>
+<td>init=/mnt/jfs/.../checkpoint/rs/rs-sft/gui-sd-qwen3-4b-rrsisd_sft_e1-20260526-220915/v0-20260526-220853/checkpoint-96; train=data/rs_full/rs_train.jsonl; test=data/rs_full/rs_test.jsonl</td>
+<td>mask=no_mask; hint=none; ema=0.0; refresh=metric; step=-1; warmup=80 window=50 check_interval=10 min_iou_improve=0.01 max_failed=0.55 min_sdpo_loss=0.02 max_kl=0.30; EWMA: short_window=20 long_window=80 ewma_alpha=0.10 consecutive_checks=2 min_short_long_iou_gain=0.006 min_ewma_iou_gain=0.008 max_iou05_drop=0.010</td>
+<td>P=2; gpu/node=8; cpu/node=64; mem=700000; group=gui_agent</td>
+<td>已提交/状态不明</td>
+<td><code>guisd_data/logs/training/q4b-sftopsd-nohint-e1-20260527-085701.rjob.log</code></td>
+</tr>
+<tr>
+<td>no_hint/no_mask</td>
+<td><code>gui-sd-qwen3-4b-rrsisd_sft_grpo_opsd_metric_no_hint_e1-20260527-092000-aos1n</code></td>
+<td>epoch=1; num_gen=8; bs/dev=4; grad_acc=2; lr=1e-6; grpo_beta=0.04; lambda=0.25; max_len=20000; max_new=64; token_weight=uniform-entropy; non_digit=0.05; max_digit=3; rollout_temp=0.7; top_p=0.95; vLLM_mem=0.82; vLLM_len=20000</td>
+<td>init=/mnt/jfs/.../checkpoint/rs/rs-sft/gui-sd-qwen3-4b-rrsisd_sft_e1-20260526-220915/v0-20260526-220853/checkpoint-96; train=data/rs_full/rs_train.jsonl; test=data/rs_full/rs_test.jsonl</td>
+<td>mask=no_mask; hint=none; ema=0.0; refresh=metric; step=-1; warmup=80 window=50 check_interval=10 min_iou_improve=0.01 max_failed=0.55 min_sdpo_loss=0.02 max_kl=0.30; EWMA: short_window=20 long_window=80 ewma_alpha=0.10 consecutive_checks=2 min_short_long_iou_gain=0.006 min_ewma_iou_gain=0.008 max_iou05_drop=0.010</td>
+<td>P=1; gpu/node=8; cpu/node=64; mem=600000; group=aos</td>
+<td>/mnt/jfs/.../checkpoint/rs/rs-sd/gui-sd-qwen3-4b-rrsisd_sft_grpo_opsd_metric_no_hint_e1-20260527-092000-aos1n/v0-20260527-092516/checkpoint-40; 已保存 checkpoint；终态需看尾部日志</td>
+<td><code>guisd_data/logs/training/q4b-sftopsd-nohint-e1-20260527-092000-aos1n.rjob.log</code></td>
+</tr>
+<tr>
+<td>no_hint/no_mask</td>
+<td><code>gui-sd-qwen3-4b-rrsisd_sft_grpo_opsd_metric_no_hint_e1-20260527-093400-aos2n</code></td>
+<td>epoch=1; num_gen=8; bs/dev=4; grad_acc=2; lr=1e-6; grpo_beta=0.04; lambda=0.25; max_len=20000; max_new=64; token_weight=uniform-entropy; non_digit=0.05; max_digit=3; rollout_temp=0.7; top_p=0.95; vLLM_mem=0.82; vLLM_len=20000</td>
+<td>init=/mnt/jfs/.../checkpoint/rs/rs-sft/gui-sd-qwen3-4b-rrsisd_sft_e1-20260526-220915/v0-20260526-220853/checkpoint-96; train=data/rs_full/rs_train.jsonl; test=data/rs_full/rs_test.jsonl</td>
+<td>mask=no_mask; hint=none; ema=0.0; refresh=metric; step=-1; warmup=80 window=50 check_interval=10 min_iou_improve=0.01 max_failed=0.55 min_sdpo_loss=0.02 max_kl=0.30; EWMA: short_window=20 long_window=80 ewma_alpha=0.10 consecutive_checks=2 min_short_long_iou_gain=0.006 min_ewma_iou_gain=0.008 max_iou05_drop=0.010</td>
+<td>P=2; gpu/node=8; cpu/node=24; mem=240000; group=aos</td>
+<td>/mnt/jfs/.../checkpoint/rs/rs-sd/gui-sd-qwen3-4b-rrsisd_sft_grpo_opsd_metric_no_hint_e1-20260527-093400-aos2n/v0-20260527-093842/checkpoint-870; 完成；退出清理期 DeepSpeed 析构告警; DeepSpeed 析构 IndexError 出现在保存/完成之后</td>
+<td><code>guisd_data/logs/training/q4b-sftopsd-nohint-e1-20260527-093400-aos2n.rjob.log</code></td>
+</tr>
+<tr>
+<td>soft_window hint</td>
+<td><code>gui-sd-qwen3-4b-rrsisd_sft_grpo_opsd_metric_soft_window_e1-20260527-095000</code></td>
+<td>epoch=1; num_gen=8; bs/dev=4; grad_acc=2; lr=1e-6; grpo_beta=0.04; lambda=0.25; max_len=20000; max_new=64; token_weight=uniform-entropy; non_digit=0.05; max_digit=3; rollout_temp=0.7; top_p=0.95; vLLM_mem=0.82; vLLM_len=20000</td>
+<td>init=/mnt/jfs/.../checkpoint/rs/rs-sft/gui-sd-qwen3-4b-rrsisd_sft_e1-20260526-220915/v0-20260526-220853/checkpoint-96; train=data/rs_full/rs_train.jsonl; test=data/rs_full/rs_test.jsonl</td>
+<td>mask=soft_window; hint=hint; ema=0.0; refresh=metric; step=-1; warmup=80 window=50 check_interval=10 min_iou_improve=0.01 max_failed=0.55 min_sdpo_loss=0.02 max_kl=0.30; EWMA: short_window=20 long_window=80 ewma_alpha=0.10 consecutive_checks=2 min_short_long_iou_gain=0.006 min_ewma_iou_gain=0.008 max_iou05_drop=0.010</td>
+<td>P=2; gpu/node=8; cpu/node=64; mem=700000; group=gui_agent</td>
+<td>已提交/状态不明</td>
+<td><code>guisd_data/logs/training/q4b-sftopsd-soft-window-e1-20260527-095000.rjob.log</code></td>
+</tr>
+<tr>
+<td>soft_window hint</td>
+<td><code>gui-sd-qwen3-4b-rrsisd_sft_grpo_opsd_metric_soft_window_e1-20260527-100136</code></td>
+<td>epoch=1; num_gen=8; bs/dev=4; grad_acc=2; lr=1e-6; grpo_beta=0.04; lambda=0.25; max_len=20000; max_new=64; token_weight=uniform-entropy; non_digit=0.05; max_digit=3; rollout_temp=0.7; top_p=0.95; vLLM_mem=0.82; vLLM_len=20000</td>
+<td>init=/mnt/jfs/.../checkpoint/rs/rs-sft/gui-sd-qwen3-4b-rrsisd_sft_e1-20260526-220915/v0-20260526-220853/checkpoint-96; train=data/rs_full/rs_train.jsonl; test=data/rs_full/rs_test.jsonl</td>
+<td>mask=soft_window; hint=hint; ema=0.0; refresh=metric; step=-1; warmup=80 window=50 check_interval=10 min_iou_improve=0.01 max_failed=0.55 min_sdpo_loss=0.02 max_kl=0.30; EWMA: short_window=20 long_window=80 ewma_alpha=0.10 consecutive_checks=2 min_short_long_iou_gain=0.006 min_ewma_iou_gain=0.008 max_iou05_drop=0.010</td>
+<td>P=2; gpu/node=8; cpu/node=64; mem=700000; group=gui_agent</td>
+<td>/mnt/jfs/.../checkpoint/rs/rs-sd/gui-sd-qwen3-4b-rrsisd_sft_grpo_opsd_metric_soft_window_e1-20260527-100136/v0-20260527-100616/checkpoint-870; 已保存 checkpoint；终态需看尾部日志; DeepSpeed 析构 IndexError 出现在保存/完成之后</td>
+<td><code>guisd_data/logs/training/mrpd_sft_opsd_soft_window_retry_20260527-100136.console.log</code><br><code>guisd_data/logs/training/q4b-sftopsd-soft-window-e1-20260527-100136.rjob.log</code></td>
+</tr>
+<tr>
+<td>zoom_in hint</td>
+<td><code>gui-sd-qwen3-4b-rrsisd_sft_grpo_opsd_metric_zoom_in_e1-20260527-082554</code></td>
+<td>epoch=1; num_gen=8; bs/dev=4; grad_acc=2; lr=1e-6; grpo_beta=0.04; lambda=0.25; max_len=20000; max_new=64; token_weight=uniform-entropy; non_digit=0.05; max_digit=3; rollout_temp=0.7; top_p=0.95; vLLM_mem=0.82; vLLM_len=20000</td>
+<td>init=/mnt/jfs/.../checkpoint/rs/rs-sft/gui-sd-qwen3-4b-rrsisd_sft_e1-20260526-220915/v0-20260526-220853/checkpoint-96; train=data/rs_full/rs_train.jsonl; test=data/rs_full/rs_test.jsonl</td>
+<td>mask=zoom_in; hint=hint; ema=0.0; refresh=metric; step=-1; warmup=80 window=50 check_interval=10 min_iou_improve=0.01 max_failed=0.55 min_sdpo_loss=0.02 max_kl=0.30; EWMA: short_window=20 long_window=80 ewma_alpha=0.10 consecutive_checks=2 min_short_long_iou_gain=0.006 min_ewma_iou_gain=0.008 max_iou05_drop=0.010</td>
+<td>P=2; gpu/node=8; cpu/node=64; mem=700000; group=gui_agent</td>
+<td>/mnt/jfs/.../checkpoint/rs/rs-sd/gui-sd-qwen3-4b-rrsisd_sft_grpo_opsd_metric_zoom_in_e1-20260527-082554/v0-20260527-083226/checkpoint-870; 完成；退出清理期 DeepSpeed 析构告警; DeepSpeed 析构 IndexError 出现在保存/完成之后</td>
+<td><code>guisd_data/logs/training/mrpd_sft_opsd_zoom_20260527-082554.console.log</code><br><code>guisd_data/logs/training/q4b-sftopsd-zoom-e1-20260527-082554.rjob.log</code></td>
+</tr>
+<tr>
+<td>SFT -&gt; OPSD-only</td>
+<td><code>gui-sd-qwen3-4b-rrsisd_sft_opsd_only_gaussian_e1-20260527-082554</code></td>
+<td>epoch=1; num_gen=8; bs/dev=4; grad_acc=2; lr=1e-6; grpo_beta=0.04; lambda=0.25; max_len=20000; max_new=64; token_weight=uniform-entropy; non_digit=0.05; max_digit=3; rollout_temp=0.7; top_p=0.95; vLLM_mem=0.82; vLLM_len=20000</td>
+<td>init=/mnt/jfs/.../checkpoint/rs/rs-sft/gui-sd-qwen3-4b-rrsisd_sft_e1-20260526-220915/v0-20260526-220853/checkpoint-96; train=data/rs_full/rs_train.jsonl; test=data/rs_full/rs_test.jsonl</td>
+<td>mask=gaussian; hint=hint; ema=0.0; refresh=metric; step=-1; warmup=80 window=50 check_interval=10 min_iou_improve=0.01 max_failed=0.55 min_sdpo_loss=0.02 max_kl=0.30; EWMA: short_window=20 long_window=80 ewma_alpha=0.10 consecutive_checks=2 min_short_long_iou_gain=0.006 min_ewma_iou_gain=0.008 max_iou05_drop=0.010</td>
+<td>P=2; gpu/node=8; cpu/node=64; mem=700000; group=gui_agent</td>
+<td>/mnt/jfs/.../checkpoint/rs/rs-sd/gui-sd-qwen3-4b-rrsisd_sft_opsd_only_gaussian_e1-20260527-082554/v0-20260527-083221/checkpoint-109; 完成</td>
+<td><code>guisd_data/logs/training/mrpd_sft_opsd_only_20260527-082554.console.log</code><br><code>guisd_data/logs/training/q4b-sft-opsd-only-gauss-e1-20260527-082554.rjob.log</code></td>
+</tr>
+</table></div>
+<h3>教师刷新策略对照 <span class="muted">(7 条)</span></h3>
+<div class="table-wrap"><table><tr><th>实验/用途</th><th>run_name</th><th>关键训练参数</th><th>初始化与数据</th><th>OPSD/MRPD 设置</th><th>资源</th><th>checkpoint / 终态</th><th>来源</th></tr>
+<tr>
+<td>EMA0.98 teacher</td>
+<td><code>gui-sd-qwen3-4b-rrsisd_sft_grpo_opsd_ema098_gaussian_e1-20260527-113500-ema098</code></td>
+<td>epoch=1; num_gen=8; bs/dev=4; grad_acc=2; lr=1e-6; grpo_beta=0.04; lambda=0.25; max_len=20000; max_new=64; token_weight=uniform-entropy; non_digit=0.05; max_digit=3; rollout_temp=0.7; top_p=0.95; vLLM_mem=0.82; vLLM_len=20000</td>
+<td>init=/mnt/jfs/.../checkpoint/rs/rs-sft/gui-sd-qwen3-4b-rrsisd_sft_e1-20260526-220915/v0-20260526-220853/checkpoint-96; train=data/rs_full/rs_train.jsonl; test=data/rs_full/rs_test.jsonl</td>
+<td>mask=gaussian; hint=hint; ema=0.98; refresh=off; step=-1; warmup=80 window=50 check_interval=10 min_iou_improve=0.01 max_failed=0.55 min_sdpo_loss=0.02 max_kl=0.30; EWMA: short_window=20 long_window=80 ewma_alpha=0.10 consecutive_checks=2 min_short_long_iou_gain=0.006 min_ewma_iou_gain=0.008 max_iou05_drop=0.010</td>
+<td>P=2; gpu/node=8; cpu/node=64; mem=700000; group=gui_agent</td>
+<td>/mnt/jfs/.../checkpoint/rs/rs-sd/gui-sd-qwen3-4b-rrsisd_sft_grpo_opsd_ema098_gaussian_e1-20260527-113500-ema098/v0-20260527-113657/checkpoint-870; 完成；退出清理期 DeepSpeed 析构告警; DeepSpeed 析构 IndexError 出现在保存/完成之后</td>
+<td><code>guisd_data/logs/training/q4b-sftopsd-ema098-gauss-e1-20260527-113500-ema098.rjob.log</code></td>
+</tr>
+<tr>
+<td>fixed step-80 teacher</td>
+<td><code>gui-sd-qwen3-4b-rrsisd_sft_grpo_opsd_fixed_s80_gaussian_e1-20260527-113500-s80</code></td>
+<td>epoch=1; num_gen=8; bs/dev=4; grad_acc=2; lr=1e-6; grpo_beta=0.04; lambda=0.25; max_len=20000; max_new=64; token_weight=uniform-entropy; non_digit=0.05; max_digit=3; rollout_temp=0.7; top_p=0.95; vLLM_mem=0.82; vLLM_len=20000</td>
+<td>init=/mnt/jfs/.../checkpoint/rs/rs-sft/gui-sd-qwen3-4b-rrsisd_sft_e1-20260526-220915/v0-20260526-220853/checkpoint-96; train=data/rs_full/rs_train.jsonl; test=data/rs_full/rs_test.jsonl</td>
+<td>mask=gaussian; hint=hint; ema=0.0; refresh=fixed; step=80; warmup=80 window=50 check_interval=10 min_iou_improve=0.01 max_failed=0.55 min_sdpo_loss=0.02 max_kl=0.30; EWMA: short_window=20 long_window=80 ewma_alpha=0.10 consecutive_checks=2 min_short_long_iou_gain=0.006 min_ewma_iou_gain=0.008 max_iou05_drop=0.010</td>
+<td>P=2; gpu/node=8; cpu/node=64; mem=700000; group=gui_agent</td>
+<td>/mnt/jfs/.../checkpoint/rs/rs-sd/gui-sd-qwen3-4b-rrsisd_sft_grpo_opsd_fixed_s80_gaussian_e1-20260527-113500-s80/v0-20260527-113651/checkpoint-870; 完成；退出清理期 DeepSpeed 析构告警; DeepSpeed 析构 IndexError 出现在保存/完成之后</td>
+<td><code>guisd_data/logs/training/q4b-sftopsd-fixed-s80-gauss-e1-20260527-113500-s80.rjob.log</code></td>
+</tr>
+<tr>
+<td>metric-EWMA refresh</td>
+<td><code>gui-sd-qwen3-4b-rrsisd_sft_grpo_opsd_metric_ewma_gaussian_refresh2_e1-20260527-145452-r2</code></td>
+<td>epoch=1; num_gen=8; bs/dev=4; grad_acc=2; lr=1e-6; grpo_beta=0.04; lambda=0.25; max_len=20000; max_new=64; token_weight=uniform-entropy; non_digit=0.05; max_digit=3; rollout_temp=0.7; top_p=0.95; vLLM_mem=0.82; vLLM_len=20000</td>
+<td>init=/mnt/jfs/.../checkpoint/rs/rs-sft/gui-sd-qwen3-4b-rrsisd_sft_e1-20260526-220915/v0-20260526-220853/checkpoint-96; train=data/rs_full/rs_train.jsonl; test=data/rs_full/rs_test.jsonl</td>
+<td>mask=gaussian; hint=hint; ema=0.0; refresh=metric_ewma; step=-1; warmup=80 window=50 check_interval=10 min_iou_improve=0.01 max_failed=0.55 min_sdpo_loss=0.02 max_kl=0.30 max_refreshes=2 cooldown_steps=120; EWMA: short_window=20 long_window=80 ewma_alpha=0.10 consecutive_checks=2 min_short_long_iou_gain=0.006 min_ewma_iou_gain=0.008 max_iou05_drop=0.010</td>
+<td>P=2; gpu/node=8; cpu/node=64; mem=700000; group=gui_agent</td>
+<td>/mnt/jfs/.../checkpoint/rs/rs-sd/gui-sd-qwen3-4b-rrsisd_sft_grpo_opsd_metric_ewma_gaussian_refresh2_e1-20260527-145452-r2/v0-20260527-150120/checkpoint-870; 完成；退出清理期 DeepSpeed 析构告警; DeepSpeed 析构 IndexError 出现在保存/完成之后</td>
+<td><code>guisd_data/logs/training/q4b-sftopsd-ewma-gauss-r2-e1-20260527-145452-r2.rjob.log</code></td>
+</tr>
+<tr>
+<td>metric-EWMA refresh</td>
+<td><code>gui-sd-qwen3-4b-rrsisd_sft_grpo_opsd_metric_ewma_gaussian_refresh3_e1-20260527-145452-r3</code></td>
+<td>epoch=1; num_gen=8; bs/dev=4; grad_acc=2; lr=1e-6; grpo_beta=0.04; lambda=0.25; max_len=20000; max_new=64; token_weight=uniform-entropy; non_digit=0.05; max_digit=3; rollout_temp=0.7; top_p=0.95; vLLM_mem=0.82; vLLM_len=20000</td>
+<td>init=/mnt/jfs/.../checkpoint/rs/rs-sft/gui-sd-qwen3-4b-rrsisd_sft_e1-20260526-220915/v0-20260526-220853/checkpoint-96; train=data/rs_full/rs_train.jsonl; test=data/rs_full/rs_test.jsonl</td>
+<td>mask=gaussian; hint=hint; ema=0.0; refresh=metric_ewma; step=-1; warmup=80 window=50 check_interval=10 min_iou_improve=0.01 max_failed=0.55 min_sdpo_loss=0.02 max_kl=0.30 max_refreshes=3 cooldown_steps=120; EWMA: short_window=20 long_window=80 ewma_alpha=0.10 consecutive_checks=2 min_short_long_iou_gain=0.006 min_ewma_iou_gain=0.008 max_iou05_drop=0.010</td>
+<td>P=2; gpu/node=8; cpu/node=64; mem=700000; group=gui_agent</td>
+<td>/mnt/jfs/.../checkpoint/rs/rs-sd/gui-sd-qwen3-4b-rrsisd_sft_grpo_opsd_metric_ewma_gaussian_refresh3_e1-20260527-145452-r3/v0-20260527-150108/checkpoint-870; 完成；退出清理期 DeepSpeed 析构告警; DeepSpeed 析构 IndexError 出现在保存/完成之后</td>
+<td><code>guisd_data/logs/training/q4b-sftopsd-ewma-gauss-r3-e1-20260527-145452-r3.rjob.log</code></td>
+</tr>
+<tr>
+<td>no-refresh teacher</td>
+<td><code>gui-sd-qwen3-4b-rrsisd_sft_grpo_opsd_no_refresh_gaussian_e1-20260527-113900-norefresh</code></td>
+<td>epoch=1; num_gen=8; bs/dev=4; grad_acc=2; lr=1e-6; grpo_beta=0.04; lambda=0.25; max_len=20000; max_new=64; token_weight=uniform-entropy; non_digit=0.05; max_digit=3; rollout_temp=0.7; top_p=0.95; vLLM_mem=0.82; vLLM_len=20000</td>
+<td>init=/mnt/jfs/.../checkpoint/rs/rs-sft/gui-sd-qwen3-4b-rrsisd_sft_e1-20260526-220915/v0-20260526-220853/checkpoint-96; train=data/rs_full/rs_train.jsonl; test=data/rs_full/rs_test.jsonl</td>
+<td>mask=gaussian; hint=hint; ema=0.0; refresh=off; step=-1; warmup=80 window=50 check_interval=10 min_iou_improve=0.01 max_failed=0.55 min_sdpo_loss=0.02 max_kl=0.30; EWMA: short_window=20 long_window=80 ewma_alpha=0.10 consecutive_checks=2 min_short_long_iou_gain=0.006 min_ewma_iou_gain=0.008 max_iou05_drop=0.010</td>
+<td>P=2; gpu/node=8; cpu/node=64; mem=700000; group=gui_agent</td>
+<td>已提交/状态不明</td>
+<td><code>guisd_data/logs/training/q4b-sftopsd-norefresh-gauss-e1-20260527-113900-norefresh.rjob.log</code></td>
+</tr>
+<tr>
+<td>no-refresh teacher</td>
+<td><code>gui-sd-qwen3-4b-rrsisd_sft_grpo_opsd_no_refresh_gaussian_e1-20260527-114200-norefresh</code></td>
+<td>epoch=1; num_gen=8; bs/dev=4; grad_acc=2; lr=1e-6; grpo_beta=0.04; lambda=0.25; max_len=20000; max_new=64; token_weight=uniform-entropy; non_digit=0.05; max_digit=3; rollout_temp=0.7; top_p=0.95; vLLM_mem=0.82; vLLM_len=20000</td>
+<td>init=/mnt/jfs/.../checkpoint/rs/rs-sft/gui-sd-qwen3-4b-rrsisd_sft_e1-20260526-220915/v0-20260526-220853/checkpoint-96; train=data/rs_full/rs_train.jsonl; test=data/rs_full/rs_test.jsonl</td>
+<td>mask=gaussian; hint=hint; ema=0.0; refresh=off; step=-1; warmup=80 window=50 check_interval=10 min_iou_improve=0.01 max_failed=0.55 min_sdpo_loss=0.02 max_kl=0.30; EWMA: short_window=20 long_window=80 ewma_alpha=0.10 consecutive_checks=2 min_short_long_iou_gain=0.006 min_ewma_iou_gain=0.008 max_iou05_drop=0.010</td>
+<td>P=2; gpu/node=8; cpu/node=64; mem=700000; group=gui_agent</td>
+<td>/mnt/jfs/.../checkpoint/rs/rs-sd/gui-sd-qwen3-4b-rrsisd_sft_grpo_opsd_no_refresh_gaussian_e1-20260527-114200-norefresh/v0-20260527-114435/checkpoint-870; 完成；退出清理期 DeepSpeed 析构告警; DeepSpeed 析构 IndexError 出现在保存/完成之后</td>
+<td><code>guisd_data/logs/training/q4b-noref-gauss-05271142.rjob.log</code></td>
+</tr>
+<tr>
+<td>EMA0.98 teacher</td>
+<td><code>gui-sd-qwen3-4b-rsfull_grpo_sdpo_teacher_ema098_refresh_ewma_zoom_in_e1-20260524-203336</code></td>
+<td>epoch=1; num_gen=8; bs/dev=4; grad_acc=2; lr=2e-6; grpo_beta=0.04; lambda=0.25; max_len=20000; max_new=64; token_weight=uniform-entropy; non_digit=0.05; max_digit=3; rollout_temp=0.7; top_p=0.95; vLLM_mem=0.82; vLLM_len=20000</td>
+<td>init=/mnt/jfs/.../checkpoint/opensource/Qwen3-VL-4B-Instruct; train=data/rs_full/rs_train.jsonl; test=data/rs_full/rs_test.jsonl</td>
+<td>mask=zoom_in; hint=hint; ema=0.98; refresh=metric_ewma; step=-1; warmup=0 window=50 check_interval=10 min_iou_improve=0.01 max_failed=0.55 min_sdpo_loss=0.02 max_kl=0.30; EWMA: short_window=20 long_window=80 ewma_alpha=0.10 consecutive_checks=2 min_short_long_iou_gain=0.006 min_ewma_iou_gain=0.008 max_iou05_drop=0.010</td>
+<td>P=2; gpu/node=8; cpu/node=64; mem=800000; group=gui_agent</td>
+<td>/mnt/jfs/.../checkpoint/rs/rs-sd/gui-sd-qwen3-4b-rsfull_grpo_sdpo_teacher_ema098_refresh_ewma_zoom_in_e1-20260524-203336/v0-20260524-203829/checkpoint-870; 完成；退出清理期 DeepSpeed 析构告警; DeepSpeed 析构 IndexError 出现在保存/完成之后</td>
+<td><code>guisd_data/logs/training/q4b-tema098-ewma-zoom-2n-20260524-203336.rjob.log</code></td>
+</tr>
+</table></div>
+<h3>Sibling / GT hint 对照 <span class="muted">(2 条)</span></h3>
+<div class="table-wrap"><table><tr><th>实验/用途</th><th>run_name</th><th>关键训练参数</th><th>初始化与数据</th><th>OPSD/MRPD 设置</th><th>资源</th><th>checkpoint / 终态</th><th>来源</th></tr>
+<tr>
+<td>soft_window hint</td>
+<td><code>gui-sd-qwen3-4b-rrsisd_sft_mrpd_gt_hint_softwindow_e1-20260527-173518-gt</code></td>
+<td>epoch=1; num_gen=8; bs/dev=4; grad_acc=2; lr=1e-6; grpo_beta=0.04; lambda=0.25; max_len=20000; max_new=64; token_weight=uniform-entropy; non_digit=0.05; max_digit=3; rollout_temp=0.7; top_p=0.95; vLLM_mem=0.82; vLLM_len=20000</td>
+<td>init=/mnt/jfs/.../checkpoint/rs/rs-sft/gui-sd-qwen3-4b-rrsisd_sft_e1-20260526-220915/v0-20260526-220853/checkpoint-96; train=data/rs_full/rs_train.jsonl; test=data/rs_full/rs_test.jsonl</td>
+<td>mask=soft_window; hint=hint; ema=0.0; refresh=metric_ewma; step=-1; warmup=80 window=50 check_interval=10 min_iou_improve=0.01 max_failed=0.55 min_sdpo_loss=0.02 max_kl=0.30 max_refreshes=1 cooldown_steps=0; EWMA: short_window=20 long_window=80 ewma_alpha=0.10 consecutive_checks=2 min_short_long_iou_gain=0.006 min_ewma_iou_gain=0.008 max_iou05_drop=0.010</td>
+<td>P=2; gpu/node=8; cpu/node=80; mem=800000; group=gui_agent</td>
+<td>/mnt/jfs/.../checkpoint/rs/rs-sd/gui-sd-qwen3-4b-rrsisd_sft_mrpd_gt_hint_softwindow_e1-20260527-173518-gt/v0-20260527-173948/checkpoint-870; 训练已完成；launcher 尾部取 pod 日志失败; DeepSpeed 析构 IndexError 出现在保存/完成之后</td>
+<td><code>guisd_data/logs/training/q4b-sftmrpd-gt-sw-e1-20260527-173518-gt.rjob.log</code></td>
+</tr>
+<tr>
+<td>soft_window hint</td>
+<td><code>gui-sd-qwen3-4b-rrsisd_sft_mrpd_sibling_gtfallback_softwindow_e1-20260527-173518-sibling</code></td>
+<td>epoch=1; num_gen=8; bs/dev=4; grad_acc=2; lr=1e-6; grpo_beta=0.04; lambda=0.25; max_len=20000; max_new=64; token_weight=uniform-entropy; non_digit=0.05; max_digit=3; rollout_temp=0.7; top_p=0.95; vLLM_mem=0.82; vLLM_len=20000</td>
+<td>init=/mnt/jfs/.../checkpoint/rs/rs-sft/gui-sd-qwen3-4b-rrsisd_sft_e1-20260526-220915/v0-20260526-220853/checkpoint-96; train=data/rs_full/rs_train.jsonl; test=data/rs_full/rs_test.jsonl</td>
+<td>mask=soft_window; hint=hint; ema=0.0; refresh=metric_ewma; step=-1; warmup=80 window=50 check_interval=10 min_iou_improve=0.01 max_failed=0.55 min_sdpo_loss=0.02 max_kl=0.30 max_refreshes=1 cooldown_steps=0; EWMA: short_window=20 long_window=80 ewma_alpha=0.10 consecutive_checks=2 min_short_long_iou_gain=0.006 min_ewma_iou_gain=0.008 max_iou05_drop=0.010</td>
+<td>P=2; gpu/node=8; cpu/node=80; mem=800000; group=gui_agent</td>
+<td>/mnt/jfs/.../checkpoint/rs/rs-sd/gui-sd-qwen3-4b-rrsisd_sft_mrpd_sibling_gtfallback_softwindow_e1-20260527-173518-sibling/v0-20260527-173947/checkpoint-870; 训练已完成；launcher 尾部取 pod 日志失败; DeepSpeed 析构 IndexError 出现在保存/完成之后</td>
+<td><code>guisd_data/logs/training/q4b-sftmrpd-sibling-sw-e1-20260527-173518-sibling.rjob.log</code></td>
+</tr>
+</table></div>
+<h3>failed route 损失权重消融 <span class="muted">(4 条)</span></h3>
+<div class="table-wrap"><table><tr><th>实验/用途</th><th>run_name</th><th>关键训练参数</th><th>初始化与数据</th><th>OPSD/MRPD 设置</th><th>资源</th><th>checkpoint / 终态</th><th>来源</th></tr>
+<tr>
+<td>q4b-sft-mrpd-fgrpo025-gauss-e1-20260528-100243</td>
+<td><code>gui-sd-qwen3-4b-rrsisd_sft_mrpd_failed_grpo025_gaussian_e1-20260528-100243</code></td>
+<td>epoch=1; num_gen=8; bs/dev=4; grad_acc=2; lr=1e-6; grpo_beta=0.04; lambda=0.25; distill_scope=failed; max_len=20000; max_new=64; token_weight=uniform-entropy; non_digit=0.05; max_digit=3; rollout_temp=0.7; top_p=0.95; vLLM_mem=0.82; vLLM_len=20000</td>
+<td>init=/mnt/jfs/.../checkpoint/rs/rs-sft/gui-sd-qwen3-4b-rrsisd_sft_e1-20260526-220915/v0-20260526-220853/checkpoint-96; train=data/rs_full/rs_train.jsonl; test=data/rs_full/rs_test.jsonl</td>
+<td>mask=gaussian; hint=hint; ema=0.0; refresh=metric; step=-1; warmup=80 window=50 check_interval=10 min_iou_improve=0.01 max_failed=0.55 min_sdpo_loss=0.02 max_kl=0.30 max_refreshes=1 cooldown_steps=0; EWMA: short_window=20 long_window=80 ewma_alpha=0.10 consecutive_checks=2 min_short_long_iou_gain=0.006 min_ewma_iou_gain=0.008 max_iou05_drop=0.010</td>
+<td>P=2; gpu/node=8; cpu/node=80; mem=800000; group=gui_agent</td>
+<td>已提交/状态不明</td>
+<td><code>guisd_data/logs/training/q4b-sft-mrpd-fgrpo025-gauss-e1-20260528-100243.rjob.log</code></td>
+</tr>
+<tr>
+<td>q4b-sft-mrpd-fgrpo025-gauss-e1-20260528-100844</td>
+<td><code>gui-sd-qwen3-4b-rrsisd_sft_mrpd_failed_grpo025_gaussian_e1-20260528-100844</code></td>
+<td>epoch=1; num_gen=8; bs/dev=4; grad_acc=2; lr=1e-6; grpo_beta=0.04; lambda=0.25; distill_scope=failed; max_len=20000; max_new=64; token_weight=uniform-entropy; non_digit=0.05; max_digit=3; rollout_temp=0.7; top_p=0.95; vLLM_mem=0.82; vLLM_len=20000</td>
+<td>init=/mnt/jfs/.../checkpoint/rs/rs-sft/gui-sd-qwen3-4b-rrsisd_sft_e1-20260526-220915/v0-20260526-220853/checkpoint-96; train=data/rs_full/rs_train.jsonl; test=data/rs_full/rs_test.jsonl</td>
+<td>mask=gaussian; hint=hint; ema=0.0; refresh=metric; step=-1; warmup=80 window=50 check_interval=10 min_iou_improve=0.01 max_failed=0.55 min_sdpo_loss=0.02 max_kl=0.30 max_refreshes=1 cooldown_steps=0; EWMA: short_window=20 long_window=80 ewma_alpha=0.10 consecutive_checks=2 min_short_long_iou_gain=0.006 min_ewma_iou_gain=0.008 max_iou05_drop=0.010</td>
+<td>P=2; gpu/node=8; cpu/node=80; mem=800000; group=gui_agent</td>
+<td>/mnt/jfs/.../checkpoint/rs/rs-sd/gui-sd-qwen3-4b-rrsisd_sft_mrpd_failed_grpo025_gaussian_e1-20260528-100844/v0-20260528-101317/checkpoint-870; 完成；退出清理期 DeepSpeed 析构告警; DeepSpeed 析构 IndexError 出现在保存/完成之后</td>
+<td><code>guisd_data/logs/training/q4b-sft-mrpd-fgrpo025-gauss-e1-20260528-100844.rjob.log</code></td>
+</tr>
+<tr>
+<td>q4b-sft-mrpd-fopsdonly-gauss-e1-20260528-100243</td>
+<td><code>gui-sd-qwen3-4b-rrsisd_sft_mrpd_failed_opsd_only_gaussian_e1-20260528-100243</code></td>
+<td>epoch=1; num_gen=8; bs/dev=4; grad_acc=2; lr=1e-6; grpo_beta=0.04; lambda=0.25; distill_scope=failed; max_len=20000; max_new=64; token_weight=uniform-entropy; non_digit=0.05; max_digit=3; rollout_temp=0.7; top_p=0.95; vLLM_mem=0.82; vLLM_len=20000</td>
+<td>init=/mnt/jfs/.../checkpoint/rs/rs-sft/gui-sd-qwen3-4b-rrsisd_sft_e1-20260526-220915/v0-20260526-220853/checkpoint-96; train=data/rs_full/rs_train.jsonl; test=data/rs_full/rs_test.jsonl</td>
+<td>mask=gaussian; hint=hint; ema=0.0; refresh=metric; step=-1; warmup=80 window=50 check_interval=10 min_iou_improve=0.01 max_failed=0.55 min_sdpo_loss=0.02 max_kl=0.30 max_refreshes=1 cooldown_steps=0; EWMA: short_window=20 long_window=80 ewma_alpha=0.10 consecutive_checks=2 min_short_long_iou_gain=0.006 min_ewma_iou_gain=0.008 max_iou05_drop=0.010</td>
+<td>P=2; gpu/node=8; cpu/node=80; mem=800000; group=gui_agent</td>
+<td>已提交/状态不明</td>
+<td><code>guisd_data/logs/training/q4b-sft-mrpd-fopsdonly-gauss-e1-20260528-100243.rjob.log</code></td>
+</tr>
+<tr>
+<td>q4b-sft-mrpd-fopsdonly-gauss-e1-20260528-100844</td>
+<td><code>gui-sd-qwen3-4b-rrsisd_sft_mrpd_failed_opsd_only_gaussian_e1-20260528-100844</code></td>
+<td>epoch=1; num_gen=8; bs/dev=4; grad_acc=2; lr=1e-6; grpo_beta=0.04; lambda=0.25; distill_scope=failed; max_len=20000; max_new=64; token_weight=uniform-entropy; non_digit=0.05; max_digit=3; rollout_temp=0.7; top_p=0.95; vLLM_mem=0.82; vLLM_len=20000</td>
+<td>init=/mnt/jfs/.../checkpoint/rs/rs-sft/gui-sd-qwen3-4b-rrsisd_sft_e1-20260526-220915/v0-20260526-220853/checkpoint-96; train=data/rs_full/rs_train.jsonl; test=data/rs_full/rs_test.jsonl</td>
+<td>mask=gaussian; hint=hint; ema=0.0; refresh=metric; step=-1; warmup=80 window=50 check_interval=10 min_iou_improve=0.01 max_failed=0.55 min_sdpo_loss=0.02 max_kl=0.30 max_refreshes=1 cooldown_steps=0; EWMA: short_window=20 long_window=80 ewma_alpha=0.10 consecutive_checks=2 min_short_long_iou_gain=0.006 min_ewma_iou_gain=0.008 max_iou05_drop=0.010</td>
+<td>P=2; gpu/node=8; cpu/node=80; mem=800000; group=gui_agent</td>
+<td>/mnt/jfs/.../checkpoint/rs/rs-sd/gui-sd-qwen3-4b-rrsisd_sft_mrpd_failed_opsd_only_gaussian_e1-20260528-100844/v0-20260528-101255/checkpoint-870; 完成；退出清理期 DeepSpeed 析构告警; DeepSpeed 析构 IndexError 出现在保存/完成之后</td>
+<td><code>guisd_data/logs/training/q4b-sft-mrpd-fopsdonly-gauss-e1-20260528-100844.rjob.log</code></td>
+</tr>
+</table></div>
+<h3>选择性蒸馏范围消融 <span class="muted">(6 条)</span></h3>
+<div class="table-wrap"><table><tr><th>实验/用途</th><th>run_name</th><th>关键训练参数</th><th>初始化与数据</th><th>OPSD/MRPD 设置</th><th>资源</th><th>checkpoint / 终态</th><th>来源</th></tr>
+<tr>
+<td>scope=all</td>
+<td><code>gui-sd-qwen3-4b-rrsisd_sft_mrpd_scope_all_gaussian_e1-0528aall</code></td>
+<td>epoch=1; num_gen=8; bs/dev=4; grad_acc=2; lr=1e-6; grpo_beta=0.04; lambda=0.25; distill_scope=all; max_len=20000; max_new=64; token_weight=uniform-entropy; non_digit=0.05; max_digit=3; rollout_temp=0.7; top_p=0.95; vLLM_mem=0.82; vLLM_len=20000</td>
+<td>init=/mnt/jfs/.../checkpoint/rs/rs-sft/gui-sd-qwen3-4b-rrsisd_sft_e1-20260526-220915/v0-20260526-220853/checkpoint-96; train=data/rs_full/rs_train.jsonl; test=data/rs_full/rs_test.jsonl</td>
+<td>mask=gaussian; hint=hint; ema=0.0; refresh=metric; step=-1; warmup=80 window=50 check_interval=10 min_iou_improve=0.01 max_failed=0.55 min_sdpo_loss=0.02 max_kl=0.30 max_refreshes=1 cooldown_steps=0; EWMA: short_window=20 long_window=80 ewma_alpha=0.10 consecutive_checks=2 min_short_long_iou_gain=0.006 min_ewma_iou_gain=0.008 max_iou05_drop=0.010</td>
+<td>P=2; gpu/node=8; cpu/node=64; mem=760000; group=gui_agent</td>
+<td>/mnt/jfs/.../checkpoint/rs/rs-sd/gui-sd-qwen3-4b-rrsisd_sft_mrpd_scope_all_gaussian_e1-0528aall/v0-20260527-215822/checkpoint-870; 训练已完成；launcher 尾部取 pod 日志失败; DeepSpeed 析构 IndexError 出现在保存/完成之后</td>
+<td><code>guisd_data/logs/training/m28-all-0528aall.rjob.log</code></td>
+</tr>
+<tr>
+<td>scope=all</td>
+<td><code>gui-sd-qwen3-4b-rrsisd_sft_mrpd_scope_all_gaussian_e1-20260528-mainline-all</code></td>
+<td>epoch=1; num_gen=8; bs/dev=4; grad_acc=2; lr=1e-6; grpo_beta=0.04; lambda=0.25; distill_scope=all; max_len=20000; max_new=64; token_weight=uniform-entropy; non_digit=0.05; max_digit=3; rollout_temp=0.7; top_p=0.95; vLLM_mem=0.82; vLLM_len=20000</td>
+<td>init=/mnt/jfs/.../checkpoint/rs/rs-sft/gui-sd-qwen3-4b-rrsisd_sft_e1-20260526-220915/v0-20260526-220853/checkpoint-96; train=data/rs_full/rs_train.jsonl; test=data/rs_full/rs_test.jsonl</td>
+<td>mask=gaussian; hint=hint; ema=0.0; refresh=metric; step=-1; warmup=80 window=50 check_interval=10 min_iou_improve=0.01 max_failed=0.55 min_sdpo_loss=0.02 max_kl=0.30 max_refreshes=1 cooldown_steps=0; EWMA: short_window=20 long_window=80 ewma_alpha=0.10 consecutive_checks=2 min_short_long_iou_gain=0.006 min_ewma_iou_gain=0.008 max_iou05_drop=0.010</td>
+<td>P=2; gpu/node=8; cpu/node=64; mem=760000; group=gui_agent</td>
+<td>已提交/状态不明</td>
+<td><code>guisd_data/logs/training/q4b-mrpd-scope-all-2n-20260528-mainline-all.rjob.log</code></td>
+</tr>
+<tr>
+<td>scope=failed+ambiguous</td>
+<td><code>gui-sd-qwen3-4b-rrsisd_sft_mrpd_scope_failamb_gaussian_e1-20260528-mainline-failamb</code></td>
+<td>epoch=1; num_gen=8; bs/dev=4; grad_acc=2; lr=1e-6; grpo_beta=0.04; lambda=0.25; distill_scope=failed_ambiguous; max_len=20000; max_new=64; token_weight=uniform-entropy; non_digit=0.05; max_digit=3; rollout_temp=0.7; top_p=0.95; vLLM_mem=0.82; vLLM_len=20000</td>
+<td>init=/mnt/jfs/.../checkpoint/rs/rs-sft/gui-sd-qwen3-4b-rrsisd_sft_e1-20260526-220915/v0-20260526-220853/checkpoint-96; train=data/rs_full/rs_train.jsonl; test=data/rs_full/rs_test.jsonl</td>
+<td>mask=gaussian; hint=hint; ema=0.0; refresh=metric; step=-1; warmup=80 window=50 check_interval=10 min_iou_improve=0.01 max_failed=0.55 min_sdpo_loss=0.02 max_kl=0.30 max_refreshes=1 cooldown_steps=0; EWMA: short_window=20 long_window=80 ewma_alpha=0.10 consecutive_checks=2 min_short_long_iou_gain=0.006 min_ewma_iou_gain=0.008 max_iou05_drop=0.010</td>
+<td>P=2; gpu/node=8; cpu/node=64; mem=760000; group=gui_agent</td>
+<td>已提交/状态不明</td>
+<td><code>guisd_data/logs/training/q4b-mrpd-scope-failamb-2n-20260528-mainline-failamb.rjob.log</code></td>
+</tr>
+<tr>
+<td>scope=failed</td>
+<td><code>gui-sd-qwen3-4b-rrsisd_sft_mrpd_scope_failed_gaussian_e1-0528afailed</code></td>
+<td>epoch=1; num_gen=8; bs/dev=4; grad_acc=2; lr=1e-6; grpo_beta=0.04; lambda=0.25; distill_scope=failed; max_len=20000; max_new=64; token_weight=uniform-entropy; non_digit=0.05; max_digit=3; rollout_temp=0.7; top_p=0.95; vLLM_mem=0.82; vLLM_len=20000</td>
+<td>init=/mnt/jfs/.../checkpoint/rs/rs-sft/gui-sd-qwen3-4b-rrsisd_sft_e1-20260526-220915/v0-20260526-220853/checkpoint-96; train=data/rs_full/rs_train.jsonl; test=data/rs_full/rs_test.jsonl</td>
+<td>mask=gaussian; hint=hint; ema=0.0; refresh=metric; step=-1; warmup=80 window=50 check_interval=10 min_iou_improve=0.01 max_failed=0.55 min_sdpo_loss=0.02 max_kl=0.30 max_refreshes=1 cooldown_steps=0; EWMA: short_window=20 long_window=80 ewma_alpha=0.10 consecutive_checks=2 min_short_long_iou_gain=0.006 min_ewma_iou_gain=0.008 max_iou05_drop=0.010</td>
+<td>P=2; gpu/node=8; cpu/node=64; mem=760000; group=gui_agent</td>
+<td>/mnt/jfs/.../checkpoint/rs/rs-sd/gui-sd-qwen3-4b-rrsisd_sft_mrpd_scope_failed_gaussian_e1-0528afailed/v0-20260527-215845/checkpoint-870; 训练已完成；launcher 尾部取 pod 日志失败; DeepSpeed 析构 IndexError 出现在保存/完成之后</td>
+<td><code>guisd_data/logs/training/m28-failed-0528afailed.rjob.log</code></td>
+</tr>
+<tr>
+<td>scope=failed</td>
+<td><code>gui-sd-qwen3-4b-rrsisd_sft_mrpd_scope_failed_gaussian_e1-20260528-mainline-failed</code></td>
+<td>epoch=1; num_gen=8; bs/dev=4; grad_acc=2; lr=1e-6; grpo_beta=0.04; lambda=0.25; distill_scope=failed; max_len=20000; max_new=64; token_weight=uniform-entropy; non_digit=0.05; max_digit=3; rollout_temp=0.7; top_p=0.95; vLLM_mem=0.82; vLLM_len=20000</td>
+<td>init=/mnt/jfs/.../checkpoint/rs/rs-sft/gui-sd-qwen3-4b-rrsisd_sft_e1-20260526-220915/v0-20260526-220853/checkpoint-96; train=data/rs_full/rs_train.jsonl; test=data/rs_full/rs_test.jsonl</td>
+<td>mask=gaussian; hint=hint; ema=0.0; refresh=metric; step=-1; warmup=80 window=50 check_interval=10 min_iou_improve=0.01 max_failed=0.55 min_sdpo_loss=0.02 max_kl=0.30 max_refreshes=1 cooldown_steps=0; EWMA: short_window=20 long_window=80 ewma_alpha=0.10 consecutive_checks=2 min_short_long_iou_gain=0.006 min_ewma_iou_gain=0.008 max_iou05_drop=0.010</td>
+<td>P=2; gpu/node=8; cpu/node=64; mem=760000; group=gui_agent</td>
+<td>已提交/状态不明</td>
+<td><code>guisd_data/logs/training/q4b-mrpd-scope-failed-2n-20260528-mainline-failed.rjob.log</code></td>
+</tr>
+<tr>
+<td>scope=failed+ambiguous</td>
+<td><code>gui-sd-qwen3-4b-rrsisd_sft_mrpd_scope_famb_gaussian_e1-0528afamb</code></td>
+<td>epoch=1; num_gen=8; bs/dev=4; grad_acc=2; lr=1e-6; grpo_beta=0.04; lambda=0.25; distill_scope=failed_ambiguous; max_len=20000; max_new=64; token_weight=uniform-entropy; non_digit=0.05; max_digit=3; rollout_temp=0.7; top_p=0.95; vLLM_mem=0.82; vLLM_len=20000</td>
+<td>init=/mnt/jfs/.../checkpoint/rs/rs-sft/gui-sd-qwen3-4b-rrsisd_sft_e1-20260526-220915/v0-20260526-220853/checkpoint-96; train=data/rs_full/rs_train.jsonl; test=data/rs_full/rs_test.jsonl</td>
+<td>mask=gaussian; hint=hint; ema=0.0; refresh=metric; step=-1; warmup=80 window=50 check_interval=10 min_iou_improve=0.01 max_failed=0.55 min_sdpo_loss=0.02 max_kl=0.30 max_refreshes=1 cooldown_steps=0; EWMA: short_window=20 long_window=80 ewma_alpha=0.10 consecutive_checks=2 min_short_long_iou_gain=0.006 min_ewma_iou_gain=0.008 max_iou05_drop=0.010</td>
+<td>P=2; gpu/node=8; cpu/node=64; mem=760000; group=gui_agent</td>
+<td>已提交/状态不明</td>
+<td><code>guisd_data/logs/training/m28-famb-0528afamb.rjob.log</code></td>
+</tr>
+</table></div>
+<h3>训练 rollout 数量消融 <span class="muted">(6 条)</span></h3>
+<div class="table-wrap"><table><tr><th>实验/用途</th><th>run_name</th><th>关键训练参数</th><th>初始化与数据</th><th>OPSD/MRPD 设置</th><th>资源</th><th>checkpoint / 终态</th><th>来源</th></tr>
+<tr>
+<td>SFT -&gt; MRPD metric gaussian</td>
+<td><code>gui-sd-qwen3-4b-rrsisd_sft_grpo_opsd_metric_gaussian_ngen16_e1-20260602-205139</code></td>
+<td>num_gen=16; bs/dev=4; grad_acc=2; lr=1e-6; lambda=0.25; distill_scope=failed; token_weight=uniform-entropy</td>
+<td>init=/mnt/jfs/.../checkpoint/rs/rs-sft/gui-sd-qwen3-4b-rrsisd_sft_e1-20260526-220915/v0-20260526-220853/checkpoint-96; train=data/rs_full/rs_train.jsonl</td>
+<td>mask=gaussian; refresh=metric</td>
+<td>P=2; gpu/node=8; cpu/node=64; mem=800000; group=aos</td>
+<td>env 记录；训练日志/summary 另见来源</td>
+<td><code>guisd_data/logs/rollout_n_ablation/q4b-rrsisd-ngen16-20260602-205139.env</code></td>
+</tr>
+<tr>
+<td>SFT -&gt; MRPD metric gaussian</td>
+<td><code>gui-sd-qwen3-4b-rrsisd_sft_grpo_opsd_metric_gaussian_ngen16_e1-20260602-210010</code></td>
+<td>num_gen=16; bs/dev=4; grad_acc=2; lr=1e-6; lambda=0.25; distill_scope=failed; token_weight=uniform-entropy</td>
+<td>init=/mnt/jfs/.../checkpoint/rs/rs-sft/gui-sd-qwen3-4b-rrsisd_sft_e1-20260526-220915/v0-20260526-220853/checkpoint-96; train=data/rs_full/rs_train.jsonl</td>
+<td>mask=gaussian; refresh=metric</td>
+<td>P=2; gpu/node=8; cpu/node=30; mem=800000; group=aos</td>
+<td>env 记录；训练日志/summary 另见来源</td>
+<td><code>guisd_data/logs/rollout_n_ablation/q4b-rrsisd-ngen16-20260602-210010.env</code></td>
+</tr>
+<tr>
+<td>SFT -&gt; MRPD metric gaussian</td>
+<td><code>gui-sd-qwen3-4b-rrsisd_sft_grpo_opsd_metric_gaussian_ngen16_e1-20260602-211103</code></td>
+<td>num_gen=16; bs/dev=4; grad_acc=2; lr=1e-6; lambda=0.25; distill_scope=failed; token_weight=uniform-entropy</td>
+<td>init=/mnt/jfs/.../checkpoint/rs/rs-sft/gui-sd-qwen3-4b-rrsisd_sft_e1-20260526-220915/v0-20260526-220853/checkpoint-96; train=data/rs_full/rs_train.jsonl</td>
+<td>mask=gaussian; refresh=metric</td>
+<td>P=2; gpu/node=8; cpu/node=30; mem=600000; group=aos</td>
+<td>env 记录；训练日志/summary 另见来源</td>
+<td><code>guisd_data/logs/rollout_n_ablation/q4b-rrsisd-ngen16-20260602-211103.env</code></td>
+</tr>
+<tr>
+<td>SFT -&gt; MRPD metric gaussian</td>
+<td><code>gui-sd-qwen3-4b-rrsisd_sft_grpo_opsd_metric_gaussian_ngen16_e1-20260602-220958</code></td>
+<td>num_gen=16; bs/dev=4; grad_acc=2; lr=1e-6; lambda=0.25; distill_scope=failed; token_weight=uniform-entropy</td>
+<td>init=/mnt/jfs/.../checkpoint/rs/rs-sft/gui-sd-qwen3-4b-rrsisd_sft_e1-20260526-220915/v0-20260526-220853/checkpoint-96; train=data/rs_full/rs_train.jsonl</td>
+<td>mask=gaussian; refresh=metric</td>
+<td>P=2; gpu/node=8; cpu/node=30; mem=600000; group=aos</td>
+<td>env 记录；训练日志/summary 另见来源</td>
+<td><code>guisd_data/logs/rollout_n_ablation/q4b-rrsisd-ngen16-20260602-220958.env</code></td>
+</tr>
+<tr>
+<td>SFT -&gt; MRPD metric gaussian</td>
+<td><code>gui-sd-qwen3-4b-rrsisd_sft_grpo_opsd_metric_gaussian_ngen2_e1-20260602-205139</code></td>
+<td>num_gen=2; bs/dev=4; grad_acc=2; lr=1e-6; lambda=0.25; distill_scope=failed; token_weight=uniform-entropy</td>
+<td>init=/mnt/jfs/.../checkpoint/rs/rs-sft/gui-sd-qwen3-4b-rrsisd_sft_e1-20260526-220915/v0-20260526-220853/checkpoint-96; train=data/rs_full/rs_train.jsonl</td>
+<td>mask=gaussian; refresh=metric</td>
+<td>P=2; gpu/node=8; cpu/node=64; mem=800000; group=aos</td>
+<td>env 记录；训练日志/summary 另见来源</td>
+<td><code>guisd_data/logs/rollout_n_ablation/q4b-rrsisd-ngen2-20260602-205139.env</code></td>
+</tr>
+<tr>
+<td>SFT -&gt; MRPD metric gaussian</td>
+<td><code>gui-sd-qwen3-4b-rrsisd_sft_grpo_opsd_metric_gaussian_ngen4_e1-20260602-205139</code></td>
+<td>num_gen=4; bs/dev=4; grad_acc=2; lr=1e-6; lambda=0.25; distill_scope=failed; token_weight=uniform-entropy</td>
+<td>init=/mnt/jfs/.../checkpoint/rs/rs-sft/gui-sd-qwen3-4b-rrsisd_sft_e1-20260526-220915/v0-20260526-220853/checkpoint-96; train=data/rs_full/rs_train.jsonl</td>
+<td>mask=gaussian; refresh=metric</td>
+<td>P=2; gpu/node=8; cpu/node=64; mem=800000; group=aos</td>
+<td>env 记录；训练日志/summary 另见来源</td>
+<td><code>guisd_data/logs/rollout_n_ablation/q4b-rrsisd-ngen4-20260602-205139.env</code></td>
+</tr>
+</table></div>
+<h3>跨数据集 RSVG-DIOR <span class="muted">(3 条)</span></h3>
+<div class="table-wrap"><table><tr><th>实验/用途</th><th>run_name</th><th>关键训练参数</th><th>初始化与数据</th><th>OPSD/MRPD 设置</th><th>资源</th><th>checkpoint / 终态</th><th>来源</th></tr>
+<tr>
+<td>q4b-rsvg-trmetric-gauss-2n-20260526-150937</td>
+<td><code>gui-sd-qwen3-4b-rsvg_dior_grpo_opsd_teacher_refresh_metric_gaussian_e1-20260526-150937</code></td>
+<td>epoch=1; num_gen=8; bs/dev=4; grad_acc=2; lr=2e-6; grpo_beta=0.04; lambda=0.25; max_len=20000; max_new=64; token_weight=uniform-entropy; non_digit=0.05; max_digit=3; rollout_temp=0.7; top_p=0.95; vLLM_mem=0.82; vLLM_len=20000</td>
+<td>init=/mnt/jfs/.../checkpoint/opensource/Qwen3-VL-4B-Instruct; train=data/rsvg_dior_full/rsvg_train.jsonl; test=data/rsvg_dior_full/rsvg_test.jsonl</td>
+<td>mask=gaussian; hint=hint; ema=0.0; refresh=metric; step=-1; warmup=80 window=50 check_interval=10 min_iou_improve=0.01 max_failed=0.55 min_sdpo_loss=0.02 max_kl=0.30; EWMA: short_window=20 long_window=80 ewma_alpha=0.10 consecutive_checks=2 min_short_long_iou_gain=0.006 min_ewma_iou_gain=0.008 max_iou05_drop=0.010</td>
+<td>P=2; gpu/node=8; cpu/node=28; mem=600000; group=aos</td>
+<td>/mnt/jfs/.../checkpoint/rs/rsvg-dior/gui-sd-qwen3-4b-rsvg_dior_grpo_opsd_teacher_refresh_metric_gaussian_e1-20260526-150937/v0-20260526-151619/checkpoint-1927; 完成</td>
+<td><code>guisd_data/logs/training/q4b-rsvg-trmetric-gauss-2n-20260526-150937.rjob.log</code></td>
+</tr>
+<tr>
+<td>q4b-rsvg-sft-2n-20260527-123311-rsvgsftmrpd</td>
+<td><code>gui-sd-qwen3-4b-rsvg_dior_sft_e1-20260527-123311-rsvgsftmrpd</code></td>
+<td>epoch=1; num_gen=8; bs/dev=2; grad_acc=4; lr=1e-5; grpo_beta=0.04; lambda=0.25; max_len=20000; max_new=64; token_weight=uniform-entropy; non_digit=0.05; max_digit=3; rollout_temp=0.7; top_p=0.95; vLLM_mem=0.82; vLLM_len=20000</td>
+<td>init=/mnt/jfs/.../checkpoint/opensource/Qwen3-VL-4B-Instruct; train=data/rsvg_dior_full/rsvg_train.jsonl; test=data/rs_full/rs_test.jsonl</td>
+<td>mask=zoom_in; hint=hint; ema=0.0; refresh=fixed; step=-1; warmup=80 window=50 check_interval=10 min_iou_improve=0.01 max_failed=0.55 min_sdpo_loss=0.02 max_kl=0.30; EWMA: short_window=20 long_window=80 ewma_alpha=0.10 consecutive_checks=2 min_short_long_iou_gain=0.006 min_ewma_iou_gain=0.008 max_iou05_drop=0.010</td>
+<td>P=2; gpu/node=8; cpu/node=28; mem=600000; group=aos</td>
+<td>/mnt/jfs/.../checkpoint/rs/rsvg-sft/gui-sd-qwen3-4b-rsvg_dior_sft_e1-20260527-123311-rsvgsftmrpd/v0-20260527-123556/checkpoint-211; 完成</td>
+<td><code>guisd_data/logs/training/q4b-rsvg-sft-2n-20260527-123311-rsvgsftmrpd.rjob.log</code><br><code>guisd_data/logs/training/q4b-rsvg-sft-then-mrpd-20260527-123311-rsvgsftmrpd.pipeline.log</code></td>
+</tr>
+<tr>
+<td>q4b-rsvg-sftmrpd-2n-20260527-123311-rsvgsftmrpd</td>
+<td><code>gui-sd-qwen3-4b-rsvg_dior_sft_mrpd_metric_gaussian_e1-20260527-123311-rsvgsftmrpd</code></td>
+<td>epoch=1; num_gen=8; bs/dev=4; grad_acc=2; lr=1e-6; grpo_beta=0.04; lambda=0.25; max_len=20000; max_new=64; token_weight=uniform-entropy; non_digit=0.05; max_digit=3; rollout_temp=0.7; top_p=0.95; vLLM_mem=0.82; vLLM_len=20000</td>
+<td>init=/mnt/jfs/.../checkpoint/rs/rsvg-sft/gui-sd-qwen3-4b-rsvg_dior_sft_e1-20260527-123311-rsvgsftmrpd/v0-20260527-123556/checkpoint-211; train=data/rsvg_dior_full/rsvg_train.jsonl; test=data/rsvg_dior_full/rsvg_test.jsonl</td>
+<td>mask=gaussian; hint=hint; ema=0.0; refresh=metric; step=-1; warmup=80 window=50 check_interval=10 min_iou_improve=0.01 max_failed=0.55 min_sdpo_loss=0.02 max_kl=0.30; EWMA: short_window=20 long_window=80 ewma_alpha=0.10 consecutive_checks=2 min_short_long_iou_gain=0.006 min_ewma_iou_gain=0.008 max_iou05_drop=0.010</td>
+<td>P=2; gpu/node=8; cpu/node=28; mem=600000; group=aos</td>
+<td>/mnt/jfs/.../checkpoint/rs/rsvg-mrpd/gui-sd-qwen3-4b-rsvg_dior_sft_mrpd_metric_gaussian_e1-20260527-123311-rsvgsftmrpd/v0-20260527-125553/checkpoint-1927; 已保存 checkpoint；终态需看尾部日志; DeepSpeed 析构 IndexError 出现在保存/完成之后</td>
+<td><code>guisd_data/logs/training/q4b-rsvg-sftmrpd-2n-20260527-123311-rsvgsftmrpd.rjob.log</code></td>
+</tr>
+</table></div>
+<h3>跨数据集 AVVG-refGeo <span class="muted">(5 条)</span></h3>
+<div class="table-wrap"><table><tr><th>实验/用途</th><th>run_name</th><th>关键训练参数</th><th>初始化与数据</th><th>OPSD/MRPD 设置</th><th>资源</th><th>checkpoint / 终态</th><th>来源</th></tr>
+<tr>
+<td>q4b-avvg-sft-2n-20260527-155126-avvgsftmrpd</td>
+<td><code>gui-sd-qwen3-4b-avvg_refgeo_sft_e1-20260527-155126-avvgsftmrpd</code></td>
+<td>epoch=1; num_gen=8; bs/dev=2; grad_acc=4; lr=1e-5; grpo_beta=0.04; lambda=0.25; max_len=20000; max_new=64; token_weight=uniform-entropy; non_digit=0.05; max_digit=3; rollout_temp=0.7; top_p=0.95; vLLM_mem=0.82; vLLM_len=20000</td>
+<td>init=/mnt/jfs/.../checkpoint/opensource/Qwen3-VL-4B-Instruct; train=data/avvg_refgeo_full/avvg_train.jsonl; test=data/rs_full/rs_test.jsonl</td>
+<td>mask=zoom_in; hint=hint; ema=0.0; refresh=fixed; step=-1; warmup=80 window=50 check_interval=10 min_iou_improve=0.01 max_failed=0.55 min_sdpo_loss=0.02 max_kl=0.30 max_refreshes=1 cooldown_steps=0; EWMA: short_window=20 long_window=80 ewma_alpha=0.10 consecutive_checks=2 min_short_long_iou_gain=0.006 min_ewma_iou_gain=0.008 max_iou05_drop=0.010</td>
+<td>P=2; gpu/node=8; cpu/node=64; mem=800000; group=gui_agent</td>
+<td>/mnt/jfs/.../checkpoint/rs/avvg-sft/gui-sd-qwen3-4b-avvg_refgeo_sft_e1-20260527-155126-avvgsftmrpd/v0-20260527-155554/checkpoint-207; 完成</td>
+<td><code>guisd_data/logs/training/q4b-avvg-sft-2n-20260527-155126-avvgsftmrpd.rjob.log</code><br><code>guisd_data/logs/training/q4b-avvg-sft-then-mrpd-20260527-155126-avvgsftmrpd.pipeline.log</code></td>
+</tr>
+<tr>
+<td>q4b-avvg-sftmrpd-2n-20260527-2043-avvgmrpd</td>
+<td><code>gui-sd-qwen3-4b-avvg_refgeo_sft_mrpd_metric_gaussian_e1-20260527-2043-avvgmrpd</code></td>
+<td>epoch=1; num_gen=8; bs/dev=4; grad_acc=2; lr=1e-6; grpo_beta=0.04; lambda=0.25; max_len=20000; max_new=64; token_weight=uniform-entropy; non_digit=0.05; max_digit=3; rollout_temp=0.7; top_p=0.95; vLLM_mem=0.82; vLLM_len=20000</td>
+<td>init=/mnt/jfs/.../checkpoint/rs/avvg-sft/gui-sd-qwen3-4b-avvg_refgeo_sft_e1-20260527-155126-avvgsftmrpd/v0-20260527-155554/checkpoint-207; train=data/avvg_refgeo_full/avvg_train.jsonl; test=data/avvg_refgeo_full/avvg_test.jsonl</td>
+<td>mask=gaussian; hint=hint; ema=0.0; refresh=metric; step=-1; warmup=80 window=50 check_interval=10 min_iou_improve=0.01 max_failed=0.55 min_sdpo_loss=0.02 max_kl=0.30 max_refreshes=1 cooldown_steps=0; EWMA: short_window=20 long_window=80 ewma_alpha=0.10 consecutive_checks=2 min_short_long_iou_gain=0.006 min_ewma_iou_gain=0.008 max_iou05_drop=0.010</td>
+<td>P=2; gpu/node=8; cpu/node=64; mem=800000; group=gui_agent</td>
+<td>/mnt/jfs/.../checkpoint/rs/avvg-mrpd/gui-sd-qwen3-4b-avvg_refgeo_sft_mrpd_metric_gaussian_e1-20260527-2043-avvgmrpd/v0-20260527-204813/checkpoint-750; 训练已完成；launcher 尾部取 pod 日志失败</td>
+<td><code>guisd_data/logs/training/q4b-avvg-sftmrpd-2n-20260527-2043-avvgmrpd.rjob.log</code></td>
+</tr>
+<tr>
+<td>q4b-avvg-mrpd-resume750-aos-20260528-140624</td>
+<td><code>gui-sd-qwen3-4b-avvg_refgeo_sft_mrpd_metric_gaussian_e1_resume750_aos-20260528-140624</code></td>
+<td>epoch=1; num_gen=8; bs/dev=4; grad_acc=2; lr=1e-6; grpo_beta=0.04; lambda=0.25; distill_scope=failed; max_len=20000; max_new=64; token_weight=uniform-entropy; non_digit=0.05; max_digit=3; rollout_temp=0.7; top_p=0.95; vLLM_mem=0.82; vLLM_len=20000</td>
+<td>init=/mnt/jfs/.../checkpoint/rs/avvg-mrpd/gui-sd-qwen3-4b-avvg_refgeo_sft_mrpd_metric_gaussian_e1-20260527-2043-avvgmrpd/v0-20260527-204813/checkpoint-750; train=data/avvg_refgeo_full/avvg_train.jsonl; test=data/avvg_refgeo_full/avvg_test.jsonl</td>
+<td>mask=gaussian; hint=hint; ema=0.0; refresh=metric; step=-1; warmup=80 window=50 check_interval=10 min_iou_improve=0.01 max_failed=0.55 min_sdpo_loss=0.02 max_kl=0.30 max_refreshes=1 cooldown_steps=0; EWMA: short_window=20 long_window=80 ewma_alpha=0.10 consecutive_checks=2 min_short_long_iou_gain=0.006 min_ewma_iou_gain=0.008 max_iou05_drop=0.010</td>
+<td>P=2; gpu/node=8; cpu/node=64; mem=800000; group=aos</td>
+<td>已提交/状态不明</td>
+<td><code>guisd_data/logs/training/q4b-avvg-mrpd-resume750-aos-20260528-140624.rjob.log</code></td>
+</tr>
+<tr>
+<td>q4b-avvg-mrpd-resume750-aos-20260528-143412</td>
+<td><code>gui-sd-qwen3-4b-avvg_refgeo_sft_mrpd_metric_gaussian_e1_resume750_aos-20260528-143412</code></td>
+<td>epoch=1; num_gen=8; bs/dev=4; grad_acc=2; lr=1e-6; grpo_beta=0.04; lambda=0.25; distill_scope=failed; max_len=20000; max_new=64; token_weight=uniform-entropy; non_digit=0.05; max_digit=3; rollout_temp=0.7; top_p=0.95; vLLM_mem=0.82; vLLM_len=20000</td>
+<td>init=/mnt/jfs/.../checkpoint/rs/avvg-mrpd/gui-sd-qwen3-4b-avvg_refgeo_sft_mrpd_metric_gaussian_e1-20260527-2043-avvgmrpd/v0-20260527-204813/checkpoint-750; train=data/avvg_refgeo_full/avvg_train.jsonl; test=data/avvg_refgeo_full/avvg_test.jsonl</td>
+<td>mask=gaussian; hint=hint; ema=0.0; refresh=metric; step=-1; warmup=80 window=50 check_interval=10 min_iou_improve=0.01 max_failed=0.55 min_sdpo_loss=0.02 max_kl=0.30 max_refreshes=1 cooldown_steps=0; EWMA: short_window=20 long_window=80 ewma_alpha=0.10 consecutive_checks=2 min_short_long_iou_gain=0.006 min_ewma_iou_gain=0.008 max_iou05_drop=0.010</td>
+<td>P=1; gpu/node=8; cpu/node=30; mem=780000; group=aos</td>
+<td>/mnt/jfs/.../checkpoint/rs/avvg-mrpd/gui-sd-qwen3-4b-avvg_refgeo_sft_mrpd_metric_gaussian_e1_resume750_aos-20260528-143412/v0-20260528-143800/checkpoint-810; 已保存 checkpoint；终态需看尾部日志</td>
+<td><code>guisd_data/logs/training/q4b-avvg-mrpd-resume750-aos-20260528-143412.rjob.log</code></td>
+</tr>
+<tr>
+<td>q4b-avvg-mrpd-resume810-aos-20260530-105306</td>
+<td><code>gui-sd-qwen3-4b-avvg_refgeo_sft_mrpd_metric_gaussian_e1_resume810_aos-20260530-105306</code></td>
+<td>epoch=1; num_gen=8; bs/dev=4; grad_acc=2; lr=1e-6; grpo_beta=0.04; lambda=0.25; distill_scope=failed; max_len=20000; max_new=64; token_weight=uniform-entropy; non_digit=0.05; max_digit=3; rollout_temp=0.7; top_p=0.95; vLLM_mem=0.82; vLLM_len=20000</td>
+<td>init=/mnt/jfs/.../checkpoint/rs/avvg-mrpd/gui-sd-qwen3-4b-avvg_refgeo_sft_mrpd_metric_gaussian_e1_resume750_aos-20260528-143412/v0-20260528-143800/checkpoint-810; train=data/avvg_refgeo_full/avvg_train.jsonl; test=data/avvg_refgeo_full/avvg_test.jsonl</td>
+<td>mask=gaussian; hint=hint; ema=0.0; refresh=metric; step=-1; warmup=80 window=50 check_interval=10 min_iou_improve=0.01 max_failed=0.55 min_sdpo_loss=0.02 max_kl=0.30 max_refreshes=1 cooldown_steps=0; EWMA: short_window=20 long_window=80 ewma_alpha=0.10 consecutive_checks=2 min_short_long_iou_gain=0.006 min_ewma_iou_gain=0.008 max_iou05_drop=0.010</td>
+<td>P=2; gpu/node=8; cpu/node=64; mem=800000; group=aos</td>
+<td>/mnt/jfs/.../checkpoint/rs/avvg-mrpd/gui-sd-qwen3-4b-avvg_refgeo_sft_mrpd_metric_gaussian_e1_resume810_aos-20260530-105306/v0-20260530-105850/checkpoint-1141; 完成；退出清理期 DeepSpeed 析构告警; DeepSpeed 析构 IndexError 出现在保存/完成之后</td>
+<td><code>guisd_data/logs/training/launcher-resume810.log</code><br><code>guisd_data/logs/training/q4b-avvg-mrpd-resume810-aos-20260530-105306.rjob.log</code></td>
+</tr>
+</table></div>
+<h3>8B scale-up 主实验设置 <span class="muted">(6 条)</span></h3>
+<div class="table-wrap"><table><tr><th>实验/用途</th><th>run_name</th><th>关键训练参数</th><th>初始化与数据</th><th>OPSD/MRPD 设置</th><th>资源</th><th>checkpoint / 终态</th><th>来源</th></tr>
+<tr>
+<td>scope=failed+ambiguous</td>
+<td><code>gui-sd-qwen3-4b-rrsisd_sft_mrpd_scope_famb_gaussian_e1-0528bfamb</code></td>
+<td>epoch=1; num_gen=8; bs/dev=4; grad_acc=2; lr=1e-6; grpo_beta=0.04; lambda=0.25; distill_scope=failed_ambiguous; max_len=20000; max_new=64; token_weight=uniform-entropy; non_digit=0.05; max_digit=3; rollout_temp=0.7; top_p=0.95; vLLM_mem=0.82; vLLM_len=20000</td>
+<td>init=/mnt/jfs/.../checkpoint/rs/rs-sft/gui-sd-qwen3-4b-rrsisd_sft_e1-20260526-220915/v0-20260526-220853/checkpoint-96; train=data/rs_full/rs_train.jsonl; test=data/rs_full/rs_test.jsonl</td>
+<td>mask=gaussian; hint=hint; ema=0.0; refresh=metric; step=-1; warmup=80 window=50 check_interval=10 min_iou_improve=0.01 max_failed=0.55 min_sdpo_loss=0.02 max_kl=0.30 max_refreshes=1 cooldown_steps=0; EWMA: short_window=20 long_window=80 ewma_alpha=0.10 consecutive_checks=2 min_short_long_iou_gain=0.006 min_ewma_iou_gain=0.008 max_iou05_drop=0.010</td>
+<td>P=2; gpu/node=8; cpu/node=64; mem=760000; group=gui_agent</td>
+<td>/mnt/jfs/.../checkpoint/rs/rs-sd/gui-sd-qwen3-4b-rrsisd_sft_mrpd_scope_famb_gaussian_e1-0528bfamb/v0-20260527-224715/checkpoint-870; 训练已完成；launcher 尾部取 pod 日志失败; DeepSpeed 析构 IndexError 出现在保存/完成之后</td>
+<td><code>guisd_data/logs/training/m28-famb-0528bfamb.rjob.log</code></td>
+</tr>
+<tr>
+<td>q8b-sft96-grpo-opsd-gauss-e1-20260529-105009</td>
+<td><code>gui-sd-qwen3-8b-rrsisd_sft96_grpo_opsd_metric_gaussian_e1-20260529-105009</code></td>
+<td>epoch=1; num_gen=8; bs/dev=2; grad_acc=4; lr=8e-7; grpo_beta=0.04; lambda=0.25; distill_scope=failed; max_len=20000; max_new=64; token_weight=uniform-entropy; non_digit=0.05; max_digit=3; rollout_temp=0.7; top_p=0.95; vLLM_mem=0.78; vLLM_len=20000</td>
+<td>init=/mnt/jfs/.../checkpoint/rs/rs-sft/gui-sd-qwen3-8b-rrsisd_sft_e1_retry-20260529-094035/v0-20260529-094457/checkpoint-96; train=data/rs_full/rs_train.jsonl; test=data/rs_full/rs_test.jsonl</td>
+<td>mask=gaussian; hint=hint; ema=0.0; refresh=metric; step=-1; warmup=80 window=50 check_interval=10 min_iou_improve=0.01 max_failed=0.55 min_sdpo_loss=0.02 max_kl=0.30 max_refreshes=1 cooldown_steps=0; EWMA: short_window=20 long_window=80 ewma_alpha=0.10 consecutive_checks=2 min_short_long_iou_gain=0.006 min_ewma_iou_gain=0.008 max_iou05_drop=0.010</td>
+<td>P=2; gpu/node=8; cpu/node=64; mem=800000; group=gui_agent</td>
+<td>/mnt/jfs/.../checkpoint/rs/rs-sd/gui-sd-qwen3-8b-rrsisd_sft96_grpo_opsd_metric_gaussian_e1-20260529-105009/v0-20260529-105419/checkpoint-870; 完成；退出清理期 DeepSpeed 析构告警; DeepSpeed 析构 IndexError 出现在保存/完成之后</td>
+<td><code>guisd_data/logs/training/q8b-sft96-grpo-opsd-gauss-e1-20260529-105009.rjob.log</code><br><code>guisd_data/logs/training/q8b_sft96_grpo_opsd_20260529_105009.tmux.log</code></td>
+</tr>
+<tr>
+<td>SFT-only</td>
+<td><code>gui-sd-qwen3-8b-rrsisd_sft_e1-20260528-132933</code></td>
+<td>SFT-only active setting：1 epoch full fine-tune；batch/grad/lr 见日志。通用 launcher 中保留的 GRPO/OPSD env 不参与 SFT worker 的 active loss。</td>
+<td>init=/mnt/jfs/copilot/yhl/checkpoint/opensource/Qwen3-VL-8B-Instruct; train=data/rs_full/rs_train.jsonl; test=data/rs_full/rs_test.jsonl</td>
+<td>SFT-only：无 teacher、无 OPSD/MRPD loss、无 teacher refresh；mask/refresh 字段若出现在原日志中是通用 launcher 默认值。</td>
+<td>P=2; gpu/node=8; cpu/node=80; mem=900000; group=gui_agent</td>
+<td>已提交/状态不明</td>
+<td><code>guisd_data/logs/training/q8b-rrsisd-sft-2n-20260528-132933.rjob.log</code></td>
+</tr>
+<tr>
+<td>SFT-only</td>
+<td><code>gui-sd-qwen3-8b-rrsisd_sft_e1-20260528-133411</code></td>
+<td>SFT-only active setting：1 epoch full fine-tune；batch/grad/lr 见日志。通用 launcher 中保留的 GRPO/OPSD env 不参与 SFT worker 的 active loss。</td>
+<td>init=/mnt/jfs/.../checkpoint/opensource/Qwen3-VL-8B-Instruct; train=data/rs_full/rs_train.jsonl; test=data/rs_full/rs_test.jsonl</td>
+<td>SFT-only：无 teacher、无 OPSD/MRPD loss、无 teacher refresh；mask/refresh 字段若出现在原日志中是通用 launcher 默认值。</td>
+<td>P=2; gpu/node=8; cpu/node=80; mem=900000; group=gui_agent</td>
+<td>/mnt/jfs/.../checkpoint/rs/rs-sft/gui-sd-qwen3-8b-rrsisd_sft_e1-20260528-133411/v0-20260528-133627/checkpoint-96; 完成</td>
+<td><code>guisd_data/logs/training/q8b-rrsisd-sft-2n-20260528-133411.rjob.log</code></td>
+</tr>
+<tr>
+<td>SFT-only</td>
+<td><code>gui-sd-qwen3-8b-rrsisd_sft_e1-20260529-093611</code></td>
+<td>SFT-only active setting：1 epoch full fine-tune；batch/grad/lr 见日志。通用 launcher 中保留的 GRPO/OPSD env 不参与 SFT worker 的 active loss。</td>
+<td>init=/mnt/jfs/.../checkpoint/opensource/Qwen3-VL-8B-Instruct; train=data/rs_full/rs_train.jsonl; test=data/rs_full/rs_test.jsonl</td>
+<td>SFT-only：无 teacher、无 OPSD/MRPD loss、无 teacher refresh；mask/refresh 字段若出现在原日志中是通用 launcher 默认值。</td>
+<td>P=2; gpu/node=8; cpu/node=64; mem=800000; group=gui_agent</td>
+<td>已提交/状态不明</td>
+<td><code>guisd_data/logs/training/q8b-rrsisd-sft-2n-20260529-093611.rjob.log</code></td>
+</tr>
+<tr>
+<td>SFT-only</td>
+<td><code>gui-sd-qwen3-8b-rrsisd_sft_e1_retry-20260529-094035</code></td>
+<td>SFT-only active setting：1 epoch full fine-tune；batch/grad/lr 见日志。通用 launcher 中保留的 GRPO/OPSD env 不参与 SFT worker 的 active loss。</td>
+<td>init=/mnt/jfs/.../checkpoint/opensource/Qwen3-VL-8B-Instruct; train=data/rs_full/rs_train.jsonl; test=data/rs_full/rs_test.jsonl</td>
+<td>SFT-only：无 teacher、无 OPSD/MRPD loss、无 teacher refresh；mask/refresh 字段若出现在原日志中是通用 launcher 默认值。</td>
+<td>P=2; gpu/node=8; cpu/node=64; mem=800000; group=gui_agent</td>
+<td>/mnt/jfs/.../checkpoint/rs/rs-sft/gui-sd-qwen3-8b-rrsisd_sft_e1_retry-20260529-094035/v0-20260529-094457/checkpoint-96; 完成</td>
+<td><code>guisd_data/logs/training/q8b-rrsisd-sft-2n-retry-20260529-094035.rjob.log</code></td>
+</tr>
+</table></div>
+<h3>前期同结构 4B 探索 <span class="muted">(38 条)</span></h3>
+<div class="table-wrap"><table><tr><th>实验/用途</th><th>run_name</th><th>关键训练参数</th><th>初始化与数据</th><th>OPSD/MRPD 设置</th><th>资源</th><th>checkpoint / 终态</th><th>来源</th></tr>
+<tr>
+<td>q4b-grpoonly-05221155</td>
+<td><code>gui-sd-qwen3-4b-base_rsfull_grpo_only_2node_bsz4_gacc2_lr2e6_e1-05221155</code></td>
+<td>-</td>
+<td>-</td>
+<td>-</td>
+<td>-</td>
+<td>/mnt/jfs/.../checkpoint/rs/rs-sd/gui-sd-qwen3-4b-base_rsfull_grpo_only_2node_bsz4_gacc2_lr2e6_e1-05221155/v0-20260522-120155/checkpoint-870; 已保存 checkpoint；终态需看尾部日志</td>
+<td><code>guisd_data/logs/training/q4b-grpoonly-05221155.rjob.log</code></td>
+</tr>
+<tr>
+<td>qwen3-4b-rsfull-2stage-2n-20260521-231115</td>
+<td><code>gui-sd-qwen3-4b-base_rsfull_grpo_sdpo_2stage_s80_e1-20260521-231115</code></td>
+<td>num_gen=8; bs/dev=4; grad_acc=2; lr=2e-6; max_len=20000; max_new=64; vLLM_mem=0.88; vLLM_len=20000</td>
+<td>init=/mnt/jfs/.../checkpoint/opensource/Qwen3-VL-4B-Instruct; train=data/rs_full/rs_train.jsonl; test=data/rs_full/rs_test.jsonl</td>
+<td>-</td>
+<td>P=2; gpu/node=8; cpu/node=64; mem=800000; group=aos</td>
+<td>/mnt/jfs/.../checkpoint/rs/rs-sd/gui-sd-qwen3-4b-base_rsfull_grpo_sdpo_2stage_s80_e1-20260521-231115_stage2_from_s80_e1/v0-20260521-233318/checkpoint-870; 完成</td>
+<td><code>guisd_data/logs/training/qwen3-4b-rsfull-2stage-2n-20260521-231115.rjob.log</code></td>
+</tr>
+<tr>
+<td>q4b-sg-safe-05221215</td>
+<td><code>gui-sd-qwen3-4b-base_rsfull_grpo_sdpo_single_stage_e1-safe-05221215</code></td>
+<td>-</td>
+<td>-</td>
+<td>-</td>
+<td>-</td>
+<td>/mnt/jfs/.../checkpoint/rs/rs-sd/gui-sd-qwen3-4b-base_rsfull_grpo_sdpo_single_stage_e1-safe-05221215/v0-20260522-122121/checkpoint-450; 已保存 checkpoint；终态需看尾部日志</td>
+<td><code>guisd_data/logs/training/q4b-sg-safe-05221215.rjob.log</code></td>
+</tr>
+<tr>
+<td>q4b-opdonly-2n-0522</td>
+<td><code>gui-sd-qwen3-4b-base_rsfull_opd_only_2node_bsz4_gacc2_lr2e6_e1-0522</code></td>
+<td>-</td>
+<td>-</td>
+<td>-</td>
+<td>-</td>
+<td>/mnt/jfs/.../checkpoint/rs/rs-sd/gui-sd-qwen3-4b-base_rsfull_opd_only_2node_bsz4_gacc2_lr2e6_e1-0522/v0-20260522-154413/checkpoint-109; 完成</td>
+<td><code>guisd_data/logs/training/q4b-opdonly-2n-0522.rjob.log</code></td>
+</tr>
+<tr>
+<td>qwen3-4b-trainval-midrefresh-s80-2n-20260522-222948</td>
+<td><code>gui-sd-qwen3-4b-base_rstrainval_grpo_sdpo_midrefresh_s80_e1-20260522-222948</code></td>
+<td>num_gen=8; bs/dev=4; grad_acc=2; lr=2e-6; max_len=20000; max_new=64; vLLM_mem=0.88; vLLM_len=20000</td>
+<td>init=/mnt/jfs/.../checkpoint/opensource/Qwen3-VL-4B-Instruct; train=data/rs_full/rs_train_val.jsonl; test=data/rs_full/rs_test.jsonl</td>
+<td>-</td>
+<td>P=2; gpu/node=8; cpu/node=24; mem=560000; group=aos</td>
+<td>已提交/状态不明</td>
+<td><code>guisd_data/logs/training/qwen3-4b-trainval-midrefresh-s80-2n-20260522-222948.rjob.log</code></td>
+</tr>
+<tr>
+<td>q4b-best1e-cont-e2-gauss-20260526-092528</td>
+<td><code>gui-sd-qwen3-4b-rsfull_grpo_opsd_best1e_continue_e2_metric_gaussian_20260526-092528</code></td>
+<td>epoch=1; num_gen=8; bs/dev=4; grad_acc=2; lr=1e-6; grpo_beta=0.04; lambda=0.25; max_len=20000; max_new=64; token_weight=uniform-entropy; non_digit=0.05; max_digit=3; rollout_temp=0.7; top_p=0.95; vLLM_mem=0.82; vLLM_len=20000</td>
+<td>init=/mnt/jfs/.../checkpoint/rs/rs-sd/gui-sd-qwen3-4b-rsfull_grpo_sdpo_teacher_refresh_metric_gaussian_e1-20260524-103053/v0-20260524-103512/checkpoint-870; train=data/rs_full/rs_train.jsonl; test=data/rs_full/rs_test.jsonl</td>
+<td>mask=gaussian; hint=hint; ema=0.0; refresh=metric; step=-1; warmup=80 window=50 check_interval=10 min_iou_improve=0.01 max_failed=0.55 min_sdpo_loss=0.02 max_kl=0.30; EWMA: short_window=20 long_window=80 ewma_alpha=0.10 consecutive_checks=2 min_short_long_iou_gain=0.006 min_ewma_iou_gain=0.008 max_iou05_drop=0.010</td>
+<td>P=2; gpu/node=8; cpu/node=64; mem=600000; group=aos</td>
+<td>/mnt/jfs/.../checkpoint/rs/rs-sd/gui-sd-qwen3-4b-rsfull_grpo_opsd_best1e_continue_e2_metric_gaussian_20260526-092528/v0-20260526-093208/checkpoint-870; 完成；退出清理期 DeepSpeed 析构告警; DeepSpeed 析构 IndexError 出现在保存/完成之后</td>
+<td><code>guisd_data/logs/training/q4b-best1e-cont-e2-gauss-20260526-092528.rjob.log</code></td>
+</tr>
+<tr>
+<td>zoom_in hint</td>
+<td><code>gui-sd-qwen3-4b-rsfull_grpo_sdpo_coarse2fine_gaussian80_zoom_e1-20260523-094021</code></td>
+<td>num_gen=8; bs/dev=4; grad_acc=2; lr=2e-6; grpo_beta=0.04; lambda=0.25; max_len=20000; max_new=64; token_weight=uniform-entropy; non_digit=0.05; max_digit=3; rollout_temp=0.7; top_p=0.95; vLLM_mem=0.82; vLLM_len=20000</td>
+<td>init=/mnt/jfs/.../checkpoint/opensource/Qwen3-VL-4B-Instruct; train=data/rs_full/rs_train.jsonl; test=data/rs_full/rs_test.jsonl</td>
+<td>mask=zoom_in; hint=hint</td>
+<td>P=2; gpu/node=8; cpu/node=64; mem=800000; group=gui_agent</td>
+<td>/mnt/jfs/.../checkpoint/rs/rs-sd/gui-sd-qwen3-4b-rsfull_grpo_sdpo_coarse2fine_gaussian80_zoom_e1-20260523-094021_stage1_gaussian_s80/v0-20260523-094522/checkpoint-10; 训练已完成；launcher 尾部取 pod 日志失败</td>
+<td><code>guisd_data/logs/training/q4b-coarse2fine-zoom-s80-2n-20260523-094021.rjob.log</code></td>
+</tr>
+<tr>
+<td>zoom_in hint</td>
+<td><code>gui-sd-qwen3-4b-rsfull_grpo_sdpo_coarse2fine_gaussian80_zoom_e1-20260523-095810</code></td>
+<td>num_gen=8; bs/dev=4; grad_acc=2; lr=2e-6; grpo_beta=0.04; lambda=0.25; max_len=20000; max_new=64; token_weight=uniform-entropy; non_digit=0.05; max_digit=3; rollout_temp=0.7; top_p=0.95; vLLM_mem=0.70; vLLM_len=20000</td>
+<td>init=/mnt/jfs/.../checkpoint/opensource/Qwen3-VL-4B-Instruct; train=data/rs_full/rs_train.jsonl; test=data/rs_full/rs_test.jsonl</td>
+<td>mask=zoom_in; hint=hint</td>
+<td>P=2; gpu/node=8; cpu/node=64; mem=64000; group=aos</td>
+<td>失败/中断</td>
+<td><code>guisd_data/logs/training/q4b-coarse2fine-zoom-s80-2n-20260523-095810.rjob.log</code></td>
+</tr>
+<tr>
+<td>zoom_in hint</td>
+<td><code>gui-sd-qwen3-4b-rsfull_grpo_sdpo_coarse2fine_gaussian80_zoom_seq_e1-20260523-101005_stage1_gaussian_s80</code></td>
+<td>epoch=1; num_gen=8; bs/dev=4; grad_acc=2; lr=2e-6; grpo_beta=0.04; lambda=0.25; max_len=20000; max_new=64; token_weight=uniform-entropy; non_digit=0.05; max_digit=3; rollout_temp=0.7; top_p=0.95; vLLM_mem=0.70; vLLM_len=20000</td>
+<td>init=/mnt/jfs/.../checkpoint/opensource/Qwen3-VL-4B-Instruct; train=data/rs_full/rs_train.jsonl; test=data/rs_full/rs_test.jsonl</td>
+<td>mask=gaussian; hint=hint</td>
+<td>P=2; gpu/node=8; cpu/node=64; mem=480000; group=aos</td>
+<td>已提交/状态不明</td>
+<td><code>guisd_data/logs/training/q4b-coarse2fine-zoom-s80-seq-2n-20260523-101005-stage1.rjob.log</code></td>
+</tr>
+<tr>
+<td>zoom_in hint</td>
+<td><code>gui-sd-qwen3-4b-rsfull_grpo_sdpo_coarse2fine_gaussian80_zoom_seq_e1-20260523-101047_stage1_gaussian_s80</code></td>
+<td>epoch=1; num_gen=8; bs/dev=4; grad_acc=2; lr=2e-6; grpo_beta=0.04; lambda=0.25; max_len=20000; max_new=64; token_weight=uniform-entropy; non_digit=0.05; max_digit=3; rollout_temp=0.7; top_p=0.95; vLLM_mem=0.70; vLLM_len=20000</td>
+<td>init=/mnt/jfs/.../checkpoint/opensource/Qwen3-VL-4B-Instruct; train=data/rs_full/rs_train.jsonl; test=data/rs_full/rs_test.jsonl</td>
+<td>mask=gaussian; hint=hint</td>
+<td>P=2; gpu/node=8; cpu/node=64; mem=480000; group=aos</td>
+<td>/mnt/jfs/.../checkpoint/rs/rs-sd/gui-sd-qwen3-4b-rsfull_grpo_sdpo_coarse2fine_gaussian80_zoom_seq_e1-20260523-101047_stage1_gaussian_s80/v0-20260523-101451/checkpoint-80; 训练已完成；launcher 尾部取 pod 日志失败; DeepSpeed 析构 IndexError 出现在保存/完成之后</td>
+<td><code>guisd_data/logs/training/q4b-c2f-zs80-20260523-101047-stage1.rjob.log</code></td>
+</tr>
+<tr>
+<td>zoom_in hint</td>
+<td><code>gui-sd-qwen3-4b-rsfull_grpo_sdpo_coarse2fine_gaussian80_zoom_seq_e1-20260523-101047_stage2_zoom_from_s80_e1</code></td>
+<td>epoch=1; num_gen=8; bs/dev=4; grad_acc=2; lr=2e-6; grpo_beta=0.04; lambda=0.25; max_len=20000; max_new=64; token_weight=uniform-entropy; non_digit=0.05; max_digit=3; rollout_temp=0.7; top_p=0.95; vLLM_mem=0.70; vLLM_len=20000</td>
+<td>init=/mnt/jfs/.../checkpoint/rs/rs-sd/gui-sd-qwen3-4b-rsfull_grpo_sdpo_coarse2fine_gaussian80_zoom_seq_e1-20260523-101047_stage1_gaussian_s80/v0-20260523-101451/checkpoint-80; train=data/rs_full/rs_train.jsonl; test=data/rs_full/rs_test.jsonl</td>
+<td>mask=zoom_in; hint=hint</td>
+<td>P=2; gpu/node=8; cpu/node=64; mem=480000; group=aos</td>
+<td>已提交/状态不明</td>
+<td><code>guisd_data/logs/training/q4b-c2f-zs80-20260523-101047-stage2.rjob.log</code></td>
+</tr>
+<tr>
+<td>zoom_in hint</td>
+<td><code>gui-sd-qwen3-4b-rsfull_grpo_sdpo_coarse2fine_gaussian80_zoom_seq_e1-20260523-102543_stage1_gaussian_s80</code></td>
+<td>epoch=1; num_gen=8; bs/dev=4; grad_acc=2; lr=2e-6; grpo_beta=0.04; lambda=0.25; max_len=20000; max_new=64; token_weight=uniform-entropy; non_digit=0.05; max_digit=3; rollout_temp=0.7; top_p=0.95; vLLM_mem=0.70; vLLM_len=20000</td>
+<td>init=/mnt/jfs/.../checkpoint/opensource/Qwen3-VL-4B-Instruct; train=data/rs_full/rs_train.jsonl; test=data/rs_full/rs_test.jsonl</td>
+<td>mask=gaussian; hint=hint</td>
+<td>P=2; gpu/node=8; cpu/node=64; mem=480000; group=gui_agent</td>
+<td>/mnt/jfs/.../checkpoint/rs/rs-sd/gui-sd-qwen3-4b-rsfull_grpo_sdpo_coarse2fine_gaussian80_zoom_seq_e1-20260523-102543_stage1_gaussian_s80/v0-20260523-103031/checkpoint-80; 训练已完成；launcher 尾部取 pod 日志失败; DeepSpeed 析构 IndexError 出现在保存/完成之后</td>
+<td><code>guisd_data/logs/training/q4b-c2f-zs80-20260523-102543-stage1.rjob.log</code></td>
+</tr>
+<tr>
+<td>zoom_in hint</td>
+<td><code>gui-sd-qwen3-4b-rsfull_grpo_sdpo_coarse2fine_gaussian80_zoom_seq_e1-20260523-102543_stage2_zoom_from_s80_e1</code></td>
+<td>epoch=1; num_gen=8; bs/dev=4; grad_acc=2; lr=2e-6; grpo_beta=0.04; lambda=0.25; max_len=20000; max_new=64; token_weight=uniform-entropy; non_digit=0.05; max_digit=3; rollout_temp=0.7; top_p=0.95; vLLM_mem=0.70; vLLM_len=20000</td>
+<td>init=/mnt/jfs/.../checkpoint/rs/rs-sd/gui-sd-qwen3-4b-rsfull_grpo_sdpo_coarse2fine_gaussian80_zoom_seq_e1-20260523-102543_stage1_gaussian_s80/v0-20260523-103031/checkpoint-80; train=data/rs_full/rs_train.jsonl; test=data/rs_full/rs_test.jsonl</td>
+<td>mask=zoom_in; hint=hint</td>
+<td>P=2; gpu/node=8; cpu/node=64; mem=480000; group=gui_agent</td>
+<td>已提交/状态不明</td>
+<td><code>guisd_data/logs/training/q4b-c2f-zs80-20260523-102543-stage2.rjob.log</code></td>
+</tr>
+<tr>
+<td>q4b-sdpo-gaussian-2n-20260524-120936</td>
+<td><code>gui-sd-qwen3-4b-rsfull_grpo_sdpo_hint_gaussian_e1-20260524-120936</code></td>
+<td>epoch=1; num_gen=8; bs/dev=4; grad_acc=2; lr=2e-6; grpo_beta=0.04; lambda=0.25; max_len=20000; max_new=64; token_weight=uniform-entropy; non_digit=0.05; max_digit=3; rollout_temp=0.7; top_p=0.95; vLLM_mem=0.82; vLLM_len=20000</td>
+<td>init=/mnt/jfs/.../checkpoint/opensource/Qwen3-VL-4B-Instruct; train=data/rs_full/rs_train.jsonl; test=data/rs_full/rs_test.jsonl</td>
+<td>mask=gaussian; hint=hint</td>
+<td>P=2; gpu/node=8; cpu/node=64; mem=800000; group=gui_agent</td>
+<td>/mnt/jfs/.../checkpoint/rs/rs-sd/gui-sd-qwen3-4b-rsfull_grpo_sdpo_hint_gaussian_e1-20260524-120936/v0-20260524-121403/checkpoint-650; 已保存 checkpoint；终态需看尾部日志</td>
+<td><code>guisd_data/logs/training/tr_gauss_baseline_console.log</code></td>
+</tr>
+<tr>
+<td>q4b-sdpo-gaussian-resume650-2n-20260524-141840</td>
+<td><code>gui-sd-qwen3-4b-rsfull_grpo_sdpo_hint_gaussian_resume650_e1-20260524-141840</code></td>
+<td>epoch=1; num_gen=8; bs/dev=4; grad_acc=2; lr=2e-6; grpo_beta=0.04; lambda=0.25; max_len=20000; max_new=64; token_weight=uniform-entropy; non_digit=0.05; max_digit=3; rollout_temp=0.7; top_p=0.95; vLLM_mem=0.70; vLLM_len=20000</td>
+<td>init=/mnt/jfs/.../checkpoint/opensource/Qwen3-VL-4B-Instruct; train=data/rs_full/rs_train.jsonl; test=data/rs_full/rs_test.jsonl</td>
+<td>mask=gaussian; hint=hint; refresh=fixed; step=-1; warmup=80 window=50 check_interval=10 min_iou_improve=0.01 max_failed=0.55 min_sdpo_loss=0.02 max_kl=0.30</td>
+<td>P=2; gpu/node=8; cpu/node=64; mem=800000; group=gui_agent</td>
+<td>失败/中断</td>
+<td><code>guisd_data/logs/training/q4b-sdpo-gaussian-resume650-2n-20260524-141840.rjob.log</code><br><code>guisd_data/logs/training/tr_gauss_baseline_resume650_console.log</code></td>
+</tr>
+<tr>
+<td>q4b-sdpo-gaussian-resume650-2n-20260524-142613</td>
+<td><code>gui-sd-qwen3-4b-rsfull_grpo_sdpo_hint_gaussian_resume650_e1-20260524-142613</code></td>
+<td>epoch=1; num_gen=8; bs/dev=4; grad_acc=2; lr=2e-6; grpo_beta=0.04; lambda=0.25; max_len=20000; max_new=64; token_weight=uniform-entropy; non_digit=0.05; max_digit=3; rollout_temp=0.7; top_p=0.95; vLLM_mem=0.70; vLLM_len=20000</td>
+<td>init=/mnt/jfs/.../checkpoint/opensource/Qwen3-VL-4B-Instruct; train=data/rs_full/rs_train.jsonl; test=data/rs_full/rs_test.jsonl</td>
+<td>mask=gaussian; hint=hint; refresh=fixed; step=-1; warmup=80 window=50 check_interval=10 min_iou_improve=0.01 max_failed=0.55 min_sdpo_loss=0.02 max_kl=0.30</td>
+<td>P=2; gpu/node=8; cpu/node=64; mem=800000; group=gui_agent</td>
+<td>/mnt/jfs/.../checkpoint/rs/rs-sd/gui-sd-qwen3-4b-rsfull_grpo_sdpo_hint_gaussian_resume650_e1-20260524-142613/v0-20260524-143052/checkpoint-870; 完成；退出清理期 DeepSpeed 析构告警; DeepSpeed 析构 IndexError 出现在保存/完成之后</td>
+<td><code>guisd_data/logs/training/q4b-sdpo-gaussian-resume650-2n-20260524-142613.rjob.log</code><br><code>guisd_data/logs/training/tr_gauss_baseline_resume650_fix_console.log</code></td>
+</tr>
+<tr>
+<td>jitter_box hint</td>
+<td><code>gui-sd-qwen3-4b-rsfull_grpo_sdpo_hint_jitter_box_e1-r3-05222116</code></td>
+<td>-</td>
+<td>-</td>
+<td>-</td>
+<td>-</td>
+<td>/mnt/jfs/.../checkpoint/rs/rs-sd/gui-sd-qwen3-4b-rsfull_grpo_sdpo_hint_jitter_box_e1-r3-05222116/v0-20260522-212941/checkpoint-870; 完成；退出清理期 DeepSpeed 析构告警; DeepSpeed 析构 IndexError 出现在保存/完成之后</td>
+<td><code>guisd_data/logs/training/q4b-sdpo-jitter-box-2n-05222116-r3.rjob.log</code></td>
+</tr>
+<tr>
+<td>q4b-sdpo-no-hint-2n-05222159-aos</td>
+<td><code>gui-sd-qwen3-4b-rsfull_grpo_sdpo_hint_no-hint_e1-05222159-aos</code></td>
+<td>-</td>
+<td>-</td>
+<td>-</td>
+<td>-</td>
+<td>/mnt/jfs/.../checkpoint/rs/rs-sd/gui-sd-qwen3-4b-rsfull_grpo_sdpo_hint_no-hint_e1-05222159-aos/v0-20260522-220317/checkpoint-870; 完成</td>
+<td><code>guisd_data/logs/training/q4b-sdpo-no-hint-2n-05222159-aos.rjob.log</code></td>
+</tr>
+<tr>
+<td>soft_window hint</td>
+<td><code>gui-sd-qwen3-4b-rsfull_grpo_sdpo_hint_soft_window_e1-05222050</code></td>
+<td>-</td>
+<td>-</td>
+<td>-</td>
+<td>-</td>
+<td>/mnt/jfs/.../checkpoint/rs/rs-sd/gui-sd-qwen3-4b-rsfull_grpo_sdpo_hint_soft_window_e1-05222050/v0-20260522-210546/checkpoint-690; 完成</td>
+<td><code>guisd_data/logs/training/q4b-sdpo-soft-window-2n-05222050.rjob.log</code></td>
+</tr>
+<tr>
+<td>zoom_in hint</td>
+<td><code>gui-sd-qwen3-4b-rsfull_grpo_sdpo_hint_zoom_in_e1-r3-05222116</code></td>
+<td>-</td>
+<td>-</td>
+<td>-</td>
+<td>-</td>
+<td>/mnt/jfs/.../checkpoint/rs/rs-sd/gui-sd-qwen3-4b-rsfull_grpo_sdpo_hint_zoom_in_e1-r3-05222116/v0-20260522-212947/checkpoint-870; 完成；退出清理期 DeepSpeed 析构告警; DeepSpeed 析构 IndexError 出现在保存/完成之后</td>
+<td><code>guisd_data/logs/training/q4b-sdpo-zoom-in-2n-05222116-r3.rjob.log</code></td>
+</tr>
+<tr>
+<td>zoom_in hint</td>
+<td><code>gui-sd-qwen3-4b-rsfull_grpo_sdpo_teacher_refresh_ewma_zoom_in_e1-20260524-1605</code></td>
+<td>epoch=1; num_gen=8; bs/dev=4; grad_acc=2; lr=2e-6; grpo_beta=0.04; lambda=0.25; max_len=20000; max_new=64; token_weight=uniform-entropy; non_digit=0.05; max_digit=3; rollout_temp=0.7; top_p=0.95; vLLM_mem=0.82; vLLM_len=20000</td>
+<td>init=/mnt/jfs/.../checkpoint/opensource/Qwen3-VL-4B-Instruct; train=data/rs_full/rs_train.jsonl; test=data/rs_full/rs_test.jsonl</td>
+<td>mask=zoom_in; hint=hint; refresh=metric_ewma; step=-1; warmup=0 window=50 check_interval=10 min_iou_improve=0.01 max_failed=0.55 min_sdpo_loss=0.02 max_kl=0.30; EWMA: short_window=20 long_window=80 ewma_alpha=0.10 consecutive_checks=2 min_short_long_iou_gain=0.006 min_ewma_iou_gain=0.008 max_iou05_drop=0.010</td>
+<td>P=2; gpu/node=8; cpu/node=64; mem=800000; group=gui_agent</td>
+<td>/mnt/jfs/.../checkpoint/rs/rs-sd/gui-sd-qwen3-4b-rsfull_grpo_sdpo_teacher_refresh_ewma_zoom_in_e1-20260524-1605/v0-20260524-161144/checkpoint-870; 完成；退出清理期 DeepSpeed 析构告警; DeepSpeed 析构 IndexError 出现在保存/完成之后</td>
+<td><code>guisd_data/logs/training/q4b-trewma-zoom-2n-20260524-1605.rjob.log</code></td>
+</tr>
+<tr>
+<td>q4b-trmetric-gauss-2n-20260523-141153</td>
+<td><code>gui-sd-qwen3-4b-rsfull_grpo_sdpo_teacher_refresh_metric_gaussian_e1-20260523-141153</code></td>
+<td>epoch=1; num_gen=8; bs/dev=4; grad_acc=2; lr=2e-6; grpo_beta=0.04; lambda=0.25; max_len=20000; max_new=64; token_weight=uniform-entropy; non_digit=0.05; max_digit=3; rollout_temp=0.7; top_p=0.95; vLLM_mem=0.82; vLLM_len=20000</td>
+<td>init=/mnt/jfs/.../checkpoint/opensource/Qwen3-VL-4B-Instruct; train=data/rs_full/rs_train.jsonl; test=data/rs_full/rs_test.jsonl</td>
+<td>mask=gaussian; hint=hint; refresh=metric; step=-1; warmup=80 window=50 check_interval=10 min_iou_improve=0.01 max_failed=0.55 min_sdpo_loss=0.02 max_kl=0.30</td>
+<td>P=2; gpu/node=8; cpu/node=64; mem=800000; group=gui_agent</td>
+<td>已提交/状态不明</td>
+<td><code>guisd_data/logs/training/q4b-trmetric-gauss-2n-20260523-141153.rjob.log</code></td>
+</tr>
+<tr>
+<td>q4b-trmetric-gauss-2n-20260523-141744</td>
+<td><code>gui-sd-qwen3-4b-rsfull_grpo_sdpo_teacher_refresh_metric_gaussian_e1-20260523-141744</code></td>
+<td>epoch=1; num_gen=8; bs/dev=4; grad_acc=2; lr=2e-6; grpo_beta=0.04; lambda=0.25; max_len=20000; max_new=64; token_weight=uniform-entropy; non_digit=0.05; max_digit=3; rollout_temp=0.7; top_p=0.95; vLLM_mem=0.82; vLLM_len=20000</td>
+<td>init=/mnt/jfs/.../checkpoint/opensource/Qwen3-VL-4B-Instruct; train=data/rs_full/rs_train.jsonl; test=data/rs_full/rs_test.jsonl</td>
+<td>mask=gaussian; hint=hint; refresh=metric; step=-1; warmup=80 window=50 check_interval=10 min_iou_improve=0.01 max_failed=0.55 min_sdpo_loss=0.02 max_kl=0.30</td>
+<td>P=2; gpu/node=8; cpu/node=64; mem=800000; group=aos</td>
+<td>/mnt/jfs/.../checkpoint/rs/rs-sd/gui-sd-qwen3-4b-rsfull_grpo_sdpo_teacher_refresh_metric_gaussian_e1-20260523-141744/v0-20260523-142213/checkpoint-80; 训练已完成；launcher 尾部取 pod 日志失败</td>
+<td><code>guisd_data/logs/training/q4b-trmetric-gauss-2n-20260523-141744.rjob.log</code></td>
+</tr>
+<tr>
+<td>q4b-trmetric-gauss-fix-2n-20260523-183729</td>
+<td><code>gui-sd-qwen3-4b-rsfull_grpo_sdpo_teacher_refresh_metric_gaussian_e1-20260523-183729-fix</code></td>
+<td>epoch=1; num_gen=8; bs/dev=4; grad_acc=2; lr=2e-6; grpo_beta=0.04; lambda=0.25; max_len=20000; max_new=64; token_weight=uniform-entropy; non_digit=0.05; max_digit=3; rollout_temp=0.7; top_p=0.95; vLLM_mem=0.82; vLLM_len=20000</td>
+<td>init=/mnt/jfs/.../checkpoint/opensource/Qwen3-VL-4B-Instruct; train=data/rs_full/rs_train.jsonl; test=data/rs_full/rs_test.jsonl</td>
+<td>mask=gaussian; hint=hint; refresh=metric; step=-1; warmup=80 window=50 check_interval=10 min_iou_improve=0.01 max_failed=0.55 min_sdpo_loss=0.02 max_kl=0.30</td>
+<td>P=2; gpu/node=8; cpu/node=64; mem=800000; group=gui_agent</td>
+<td>已提交/状态不明</td>
+<td><code>guisd_data/logs/training/q4b-trmetric-gauss-fix-2n-20260523-183729.rjob.log</code></td>
+</tr>
+<tr>
+<td>q4b-trmetric-gauss-fix-2n-20260523-184614</td>
+<td><code>gui-sd-qwen3-4b-rsfull_grpo_sdpo_teacher_refresh_metric_gaussian_e1-20260523-184614-fix</code></td>
+<td>epoch=1; num_gen=8; bs/dev=4; grad_acc=2; lr=2e-6; grpo_beta=0.04; lambda=0.25; max_len=20000; max_new=64; token_weight=uniform-entropy; non_digit=0.05; max_digit=3; rollout_temp=0.7; top_p=0.95; vLLM_mem=0.82; vLLM_len=20000</td>
+<td>init=/mnt/jfs/.../checkpoint/opensource/Qwen3-VL-4B-Instruct; train=data/rs_full/rs_train.jsonl; test=data/rs_full/rs_test.jsonl</td>
+<td>mask=gaussian; hint=hint; refresh=metric; step=-1; warmup=80 window=50 check_interval=10 min_iou_improve=0.01 max_failed=0.55 min_sdpo_loss=0.02 max_kl=0.30</td>
+<td>P=2; gpu/node=8; cpu/node=64; mem=800000; group=gui_agent</td>
+<td>/mnt/jfs/.../checkpoint/rs/rs-sd/gui-sd-qwen3-4b-rsfull_grpo_sdpo_teacher_refresh_metric_gaussian_e1-20260523-184614-fix/v0-20260523-185055/checkpoint-750; 训练已完成；launcher 尾部取 pod 日志失败</td>
+<td><code>guisd_data/logs/training/q4b-trmetric-gauss-fix-2n-20260523-184614.rjob.log</code></td>
+</tr>
+<tr>
+<td>q4b-trmetric-gauss-2n-20260524-103053</td>
+<td><code>gui-sd-qwen3-4b-rsfull_grpo_sdpo_teacher_refresh_metric_gaussian_e1-20260524-103053</code></td>
+<td>epoch=1; num_gen=8; bs/dev=4; grad_acc=2; lr=2e-6; grpo_beta=0.04; lambda=0.25; max_len=20000; max_new=64; token_weight=uniform-entropy; non_digit=0.05; max_digit=3; rollout_temp=0.7; top_p=0.95; vLLM_mem=0.82; vLLM_len=20000</td>
+<td>init=/mnt/jfs/.../checkpoint/opensource/Qwen3-VL-4B-Instruct; train=data/rs_full/rs_train.jsonl; test=data/rs_full/rs_test.jsonl</td>
+<td>mask=gaussian; hint=hint; refresh=metric; step=-1; warmup=80 window=50 check_interval=10 min_iou_improve=0.01 max_failed=0.55 min_sdpo_loss=0.02 max_kl=0.30</td>
+<td>P=2; gpu/node=8; cpu/node=64; mem=800000; group=gui_agent</td>
+<td>/mnt/jfs/.../checkpoint/rs/rs-sd/gui-sd-qwen3-4b-rsfull_grpo_sdpo_teacher_refresh_metric_gaussian_e1-20260524-103053/v0-20260524-103512/checkpoint-870; 完成；退出清理期 DeepSpeed 析构告警; DeepSpeed 析构 IndexError 出现在保存/完成之后</td>
+<td><code>guisd_data/logs/training/q4b-trmetric-gauss-2n-20260524-103053.rjob.log</code><br><code>guisd_data/logs/training/tr_metric_gauss_console.log</code></td>
+</tr>
+<tr>
+<td>zoom_in hint</td>
+<td><code>gui-sd-qwen3-4b-rsfull_grpo_sdpo_teacher_refresh_metric_zoom_in_e1-20260523-141153</code></td>
+<td>epoch=1; num_gen=8; bs/dev=4; grad_acc=2; lr=2e-6; grpo_beta=0.04; lambda=0.25; max_len=20000; max_new=64; token_weight=uniform-entropy; non_digit=0.05; max_digit=3; rollout_temp=0.7; top_p=0.95; vLLM_mem=0.82; vLLM_len=20000</td>
+<td>init=/mnt/jfs/.../checkpoint/opensource/Qwen3-VL-4B-Instruct; train=data/rs_full/rs_train.jsonl; test=data/rs_full/rs_test.jsonl</td>
+<td>mask=zoom_in; hint=hint; refresh=metric; step=-1; warmup=80 window=50 check_interval=10 min_iou_improve=0.01 max_failed=0.55 min_sdpo_loss=0.02 max_kl=0.30</td>
+<td>P=2; gpu/node=8; cpu/node=64; mem=800000; group=gui_agent</td>
+<td>失败/中断</td>
+<td><code>guisd_data/logs/training/q4b-trmetric-zoom-2n-20260523-141153.rjob.log</code></td>
+</tr>
+<tr>
+<td>zoom_in hint</td>
+<td><code>gui-sd-qwen3-4b-rsfull_grpo_sdpo_teacher_refresh_metric_zoom_in_e1-20260523-142445</code></td>
+<td>epoch=1; num_gen=8; bs/dev=4; grad_acc=2; lr=2e-6; grpo_beta=0.04; lambda=0.25; max_len=20000; max_new=64; token_weight=uniform-entropy; non_digit=0.05; max_digit=3; rollout_temp=0.7; top_p=0.95; vLLM_mem=0.82; vLLM_len=20000</td>
+<td>init=/mnt/jfs/.../checkpoint/opensource/Qwen3-VL-4B-Instruct; train=data/rs_full/rs_train.jsonl; test=data/rs_full/rs_test.jsonl</td>
+<td>mask=zoom_in; hint=hint; refresh=metric; step=-1; warmup=80 window=50 check_interval=10 min_iou_improve=0.01 max_failed=0.55 min_sdpo_loss=0.02 max_kl=0.30</td>
+<td>P=2; gpu/node=8; cpu/node=64; mem=800000; group=aos</td>
+<td>/mnt/jfs/.../checkpoint/rs/rs-sd/gui-sd-qwen3-4b-rsfull_grpo_sdpo_teacher_refresh_metric_zoom_in_e1-20260523-142445/v0-20260523-142900/checkpoint-80; 训练已完成；launcher 尾部取 pod 日志失败</td>
+<td><code>guisd_data/logs/training/q4b-trmetric-zoom-2n-20260523-142445.rjob.log</code></td>
+</tr>
+<tr>
+<td>zoom_in hint</td>
+<td><code>gui-sd-qwen3-4b-rsfull_grpo_sdpo_teacher_refresh_metric_zoom_in_e1-20260523-183729-fix</code></td>
+<td>epoch=1; num_gen=8; bs/dev=4; grad_acc=2; lr=2e-6; grpo_beta=0.04; lambda=0.25; max_len=20000; max_new=64; token_weight=uniform-entropy; non_digit=0.05; max_digit=3; rollout_temp=0.7; top_p=0.95; vLLM_mem=0.82; vLLM_len=20000</td>
+<td>init=/mnt/jfs/.../checkpoint/opensource/Qwen3-VL-4B-Instruct; train=data/rs_full/rs_train.jsonl; test=data/rs_full/rs_test.jsonl</td>
+<td>mask=zoom_in; hint=hint; refresh=metric; step=-1; warmup=80 window=50 check_interval=10 min_iou_improve=0.01 max_failed=0.55 min_sdpo_loss=0.02 max_kl=0.30</td>
+<td>P=2; gpu/node=8; cpu/node=64; mem=800000; group=gui_agent</td>
+<td>/mnt/jfs/.../checkpoint/rs/rs-sd/gui-sd-qwen3-4b-rsfull_grpo_sdpo_teacher_refresh_metric_zoom_in_e1-20260523-183729-fix/v0-20260523-184349/checkpoint-810; 训练已完成；launcher 尾部取 pod 日志失败</td>
+<td><code>guisd_data/logs/training/q4b-trmetric-zoom-fix-2n-20260523-183729.rjob.log</code></td>
+</tr>
+<tr>
+<td>zoom_in hint</td>
+<td><code>gui-sd-qwen3-4b-rsfull_grpo_sdpo_teacher_refresh_metric_zoom_in_e1-20260524-103040</code></td>
+<td>epoch=1; num_gen=8; bs/dev=4; grad_acc=2; lr=2e-6; grpo_beta=0.04; lambda=0.25; max_len=20000; max_new=64; token_weight=uniform-entropy; non_digit=0.05; max_digit=3; rollout_temp=0.7; top_p=0.95; vLLM_mem=0.82; vLLM_len=20000</td>
+<td>init=/mnt/jfs/.../checkpoint/opensource/Qwen3-VL-4B-Instruct; train=data/rs_full/rs_train.jsonl; test=data/rs_full/rs_test.jsonl</td>
+<td>mask=zoom_in; hint=hint; refresh=metric; step=-1; warmup=80 window=50 check_interval=10 min_iou_improve=0.01 max_failed=0.55 min_sdpo_loss=0.02 max_kl=0.30</td>
+<td>P=2; gpu/node=8; cpu/node=64; mem=800000; group=gui_agent</td>
+<td>/mnt/jfs/.../checkpoint/rs/rs-sd/gui-sd-qwen3-4b-rsfull_grpo_sdpo_teacher_refresh_metric_zoom_in_e1-20260524-103040/v0-20260524-103513/checkpoint-870; 完成；退出清理期 DeepSpeed 析构告警; DeepSpeed 析构 IndexError 出现在保存/完成之后</td>
+<td><code>guisd_data/logs/training/q4b-trmetric-zoom-2n-20260524-103040.rjob.log</code><br><code>guisd_data/logs/training/tr_metric_zoom_console.log</code></td>
+</tr>
+<tr>
+<td>q4b-trs80-gauss-2n-20260523-133039</td>
+<td><code>gui-sd-qwen3-4b-rsfull_grpo_sdpo_teacher_refresh_s80_gaussian_e1-20260523-133039</code></td>
+<td>epoch=1; num_gen=8; bs/dev=4; grad_acc=2; lr=2e-6; grpo_beta=0.04; lambda=0.25; max_len=20000; max_new=64; token_weight=uniform-entropy; non_digit=0.05; max_digit=3; rollout_temp=0.7; top_p=0.95; vLLM_mem=0.82; vLLM_len=20000</td>
+<td>init=/mnt/jfs/.../checkpoint/opensource/Qwen3-VL-4B-Instruct; train=data/rs_full/rs_train.jsonl; test=data/rs_full/rs_test.jsonl</td>
+<td>mask=gaussian; hint=hint; step=80</td>
+<td>P=2; gpu/node=8; cpu/node=64; mem=800000; group=gui_agent</td>
+<td>/mnt/jfs/.../checkpoint/rs/rs-sd/gui-sd-qwen3-4b-rsfull_grpo_sdpo_teacher_refresh_s80_gaussian_e1-20260523-133039/v0-20260523-133630/checkpoint-870; 训练已完成；launcher 尾部取 pod 日志失败; DeepSpeed 析构 IndexError 出现在保存/完成之后</td>
+<td><code>guisd_data/logs/training/q4b-trs80-gauss-2n-20260523-133039.rjob.log</code></td>
+</tr>
+<tr>
+<td>zoom_in hint</td>
+<td><code>gui-sd-qwen3-4b-rsfull_grpo_sdpo_teacher_refresh_s80_zoom_in_e1-20260523-133039</code></td>
+<td>epoch=1; num_gen=8; bs/dev=4; grad_acc=2; lr=2e-6; grpo_beta=0.04; lambda=0.25; max_len=20000; max_new=64; token_weight=uniform-entropy; non_digit=0.05; max_digit=3; rollout_temp=0.7; top_p=0.95; vLLM_mem=0.82; vLLM_len=20000</td>
+<td>init=/mnt/jfs/.../checkpoint/opensource/Qwen3-VL-4B-Instruct; train=data/rs_full/rs_train.jsonl; test=data/rs_full/rs_test.jsonl</td>
+<td>mask=zoom_in; hint=hint; step=80</td>
+<td>P=2; gpu/node=8; cpu/node=64; mem=800000; group=gui_agent</td>
+<td>/mnt/jfs/.../checkpoint/rs/rs-sd/gui-sd-qwen3-4b-rsfull_grpo_sdpo_teacher_refresh_s80_zoom_in_e1-20260523-133039/v0-20260523-133631/checkpoint-870; 已保存 checkpoint；终态需看尾部日志; DeepSpeed 析构 IndexError 出现在保存/完成之后</td>
+<td><code>guisd_data/logs/training/q4b-trs80-zoom-2n-20260523-133039.rjob.log</code></td>
+</tr>
+<tr>
+<td>zoom_in hint</td>
+<td><code>gui-sd-qwen3-4b-rsfull_grpo_sdpo_zoom_2stage_s80_e1-20260523-094021</code></td>
+<td>num_gen=8; bs/dev=4; grad_acc=2; lr=2e-6; grpo_beta=0.04; lambda=0.25; max_len=20000; max_new=64; token_weight=uniform-entropy; non_digit=0.05; max_digit=3; rollout_temp=0.7; top_p=0.95; vLLM_mem=0.82; vLLM_len=20000</td>
+<td>init=/mnt/jfs/.../checkpoint/opensource/Qwen3-VL-4B-Instruct; train=data/rs_full/rs_train.jsonl; test=data/rs_full/rs_test.jsonl</td>
+<td>mask=zoom_in; hint=hint</td>
+<td>P=2; gpu/node=8; cpu/node=64; mem=800000; group=gui_agent</td>
+<td>已提交/状态不明</td>
+<td><code>guisd_data/logs/training/q4b-zoom-2stage-s80-2n-20260523-094021.rjob.log</code></td>
+</tr>
+<tr>
+<td>zoom_in hint</td>
+<td><code>gui-sd-qwen3-4b-rsfull_grpo_sdpo_zoom_2stage_s80_e1-20260523-095550</code></td>
+<td>num_gen=8; bs/dev=4; grad_acc=2; lr=2e-6; grpo_beta=0.04; lambda=0.25; max_len=20000; max_new=64; token_weight=uniform-entropy; non_digit=0.05; max_digit=3; rollout_temp=0.7; top_p=0.95; vLLM_mem=0.70; vLLM_len=20000</td>
+<td>init=/mnt/jfs/.../checkpoint/opensource/Qwen3-VL-4B-Instruct; train=data/rs_full/rs_train.jsonl; test=data/rs_full/rs_test.jsonl</td>
+<td>mask=zoom_in; hint=hint</td>
+<td>P=2; gpu/node=8; cpu/node=64; mem=64000; group=aos</td>
+<td>失败/中断</td>
+<td><code>guisd_data/logs/training/q4b-zoom-2stage-s80-2n-20260523-095550.rjob.log</code></td>
+</tr>
+<tr>
+<td>zoom_in hint</td>
+<td><code>gui-sd-qwen3-4b-rsfull_grpo_sdpo_zoom_2stage_seq_s80_e1-20260523-102543_stage1_zoom_s80</code></td>
+<td>epoch=1; num_gen=8; bs/dev=4; grad_acc=2; lr=2e-6; grpo_beta=0.04; lambda=0.25; max_len=20000; max_new=64; token_weight=uniform-entropy; non_digit=0.05; max_digit=3; rollout_temp=0.7; top_p=0.95; vLLM_mem=0.70; vLLM_len=20000</td>
+<td>init=/mnt/jfs/.../checkpoint/opensource/Qwen3-VL-4B-Instruct; train=data/rs_full/rs_train.jsonl; test=data/rs_full/rs_test.jsonl</td>
+<td>mask=zoom_in; hint=hint</td>
+<td>P=2; gpu/node=8; cpu/node=64; mem=480000; group=gui_agent</td>
+<td>/mnt/jfs/.../checkpoint/rs/rs-sd/gui-sd-qwen3-4b-rsfull_grpo_sdpo_zoom_2stage_seq_s80_e1-20260523-102543_stage1_zoom_s80/v0-20260523-103032/checkpoint-80; 训练已完成；launcher 尾部取 pod 日志失败; DeepSpeed 析构 IndexError 出现在保存/完成之后</td>
+<td><code>guisd_data/logs/training/q4b-z2s80-20260523-102543-stage1.rjob.log</code></td>
+</tr>
+<tr>
+<td>zoom_in hint</td>
+<td><code>gui-sd-qwen3-4b-rsfull_grpo_sdpo_zoom_2stage_seq_s80_e1-20260523-102543_stage2_zoom_from_s80_e1</code></td>
+<td>epoch=1; num_gen=8; bs/dev=4; grad_acc=2; lr=2e-6; grpo_beta=0.04; lambda=0.25; max_len=20000; max_new=64; token_weight=uniform-entropy; non_digit=0.05; max_digit=3; rollout_temp=0.7; top_p=0.95; vLLM_mem=0.70; vLLM_len=20000</td>
+<td>init=/mnt/jfs/.../checkpoint/rs/rs-sd/gui-sd-qwen3-4b-rsfull_grpo_sdpo_zoom_2stage_seq_s80_e1-20260523-102543_stage1_zoom_s80/v0-20260523-103032/checkpoint-80; train=data/rs_full/rs_train.jsonl; test=data/rs_full/rs_test.jsonl</td>
+<td>mask=zoom_in; hint=hint</td>
+<td>P=2; gpu/node=8; cpu/node=64; mem=480000; group=gui_agent</td>
+<td>已提交/状态不明</td>
+<td><code>guisd_data/logs/training/q4b-z2s80-20260523-102543-stage2.rjob.log</code></td>
+</tr>
+<tr>
+<td>zoom_in hint</td>
+<td><code>gui-sd-qwen3-4b-rsfull_grpo_sdpo_zoom_2stage_seq_s80_e1-20260523-102543_stage2_zoom_from_s80_e1_fix3_20260523-123932</code></td>
+<td>epoch=1; num_gen=8; bs/dev=4; grad_acc=2; lr=2e-6; grpo_beta=0.04; lambda=0.25; max_len=20000; max_new=64; token_weight=uniform-entropy; non_digit=0.05; max_digit=3; rollout_temp=0.7; top_p=0.95; vLLM_mem=0.82; vLLM_len=20000</td>
+<td>init=/mnt/jfs/.../checkpoint/opensource/Qwen3-VL-4B-Instruct; train=data/rs_full/rs_train.jsonl; test=data/rs_full/rs_test.jsonl</td>
+<td>mask=zoom_in; hint=hint</td>
+<td>P=2; gpu/node=8; cpu/node=64; mem=480000; group=gui_agent</td>
+<td>已提交/状态不明</td>
+<td><code>guisd_data/logs/training/q4b-z2s80-20260523-123932-fix3.rjob.log</code></td>
+</tr>
+<tr>
+<td>zoom_in hint</td>
+<td><code>gui-sd-qwen3-4b-rsfull_grpo_sdpo_zoom_midrefresh_s80_e1-20260523-094021</code></td>
+<td>num_gen=8; bs/dev=4; grad_acc=2; lr=2e-6; grpo_beta=0.04; lambda=0.25; max_len=20000; max_new=64; token_weight=uniform-entropy; non_digit=0.05; max_digit=3; rollout_temp=0.7; top_p=0.95; vLLM_mem=0.82; vLLM_len=20000</td>
+<td>init=/mnt/jfs/.../checkpoint/opensource/Qwen3-VL-4B-Instruct; train=data/rs_full/rs_train.jsonl; test=data/rs_full/rs_test.jsonl</td>
+<td>mask=zoom_in; hint=hint</td>
+<td>P=2; gpu/node=8; cpu/node=64; mem=800000; group=gui_agent</td>
+<td>/mnt/jfs/.../checkpoint/rs/rs-sd/gui-sd-qwen3-4b-rsfull_grpo_sdpo_zoom_midrefresh_s80_e1-20260523-094021/v0-20260523-094517/checkpoint-80; 训练已完成；launcher 尾部取 pod 日志失败; DeepSpeed 析构 IndexError 出现在保存/完成之后</td>
+<td><code>guisd_data/logs/training/q4b-zoom-midrefresh-s80-2n-20260523-094021.rjob.log</code></td>
+</tr>
+</table></div>
+</section>
+<section class="card"><h2>评测运行设置索引</h2>
+<p>这里补充 eval 日志里的复现参数：评测集、模型 checkpoint、TP、GPU memory、max model length 等。分数已在总表或新增 metrics 表中记录时，本节不重复列完整分数。</p>
+<div class="table-wrap"><table><tr><th>评测目录</th><th>n</th><th>rollouts</th><th>temp</th><th>TP</th><th>gpu_mem</th><th>max_len</th><th>评测集</th><th>模型</th><th>更新时间/来源</th></tr>
+<tr>
+<td><code>guisd_data/logs/eval/gui-sd-qwen3-4b-rrsisd_sft_grpo_opsd_ema098_gaussian_e1-20260527-113500-ema098_test</code></td>
+<td class="num">3481</td>
+<td class="num">1</td>
+<td class="num">0.0000</td>
+<td class="num">8</td>
+<td class="num">0.82</td>
+<td class="num">12000</td>
+<td><code>data/rs_full/rs_test.jsonl</code></td>
+<td><code>/mnt/jfs/.../checkpoint/rs/rs-sd/gui-sd-qwen3-4b-rrsisd_sft_grpo_opsd_ema098_gaussian_e1-20260527-113500-ema098/v0-20260527-113657/checkpoint-870</code></td>
+<td>2026-05-27 14:17:12<br><code>guisd_data/logs/eval/gui-sd-qwen3-4b-rrsisd_sft_grpo_opsd_ema098_gaussian_e1-20260527-113500-ema098_test/status.json</code><br><code>guisd_data/logs/eval/gui-sd-qwen3-4b-rrsisd_sft_grpo_opsd_ema098_gaussian_e1-20260527-113500-ema098_test/summary.json</code></td>
+</tr>
+<tr>
+<td><code>guisd_data/logs/eval/gui-sd-qwen3-4b-rrsisd_sft_grpo_opsd_fixed_s80_gaussian_e1-20260527-113500-s80_test</code></td>
+<td class="num">3481</td>
+<td class="num">1</td>
+<td class="num">0.0000</td>
+<td class="num">8</td>
+<td class="num">0.82</td>
+<td class="num">12000</td>
+<td><code>data/rs_full/rs_test.jsonl</code></td>
+<td><code>/mnt/jfs/.../checkpoint/rs/rs-sd/gui-sd-qwen3-4b-rrsisd_sft_grpo_opsd_fixed_s80_gaussian_e1-20260527-113500-s80/v0-20260527-113651/checkpoint-870</code></td>
+<td>2026-05-27 13:35:07<br><code>guisd_data/logs/eval/gui-sd-qwen3-4b-rrsisd_sft_grpo_opsd_fixed_s80_gaussian_e1-20260527-113500-s80_test/status.json</code><br><code>guisd_data/logs/eval/gui-sd-qwen3-4b-rrsisd_sft_grpo_opsd_fixed_s80_gaussian_e1-20260527-113500-s80_test/summary.json</code></td>
+</tr>
+<tr>
+<td><code>guisd_data/logs/eval/gui-sd-qwen3-4b-rrsisd_sft_grpo_opsd_metric_gaussian_e1-20260526-225857_test</code></td>
+<td class="num">3481</td>
+<td class="num">1</td>
+<td class="num">0.0000</td>
+<td class="num">8</td>
+<td class="num">0.82</td>
+<td class="num">12000</td>
+<td><code>data/rs_full/rs_test.jsonl</code></td>
+<td><code>/mnt/jfs/.../checkpoint/rs/rs-sd/gui-sd-qwen3-4b-rrsisd_sft_grpo_opsd_metric_gaussian_e1-20260526-225857/v0-20260526-230454/checkpoint-870</code></td>
+<td>2026-05-27 01:07:46<br><code>guisd_data/logs/eval/gui-sd-qwen3-4b-rrsisd_sft_grpo_opsd_metric_gaussian_e1-20260526-225857_test/status.json</code><br><code>guisd_data/logs/eval/gui-sd-qwen3-4b-rrsisd_sft_grpo_opsd_metric_gaussian_e1-20260526-225857_test/summary.json</code></td>
+</tr>
+<tr>
+<td><code>guisd_data/logs/eval/gui-sd-qwen3-4b-rrsisd_sft_grpo_opsd_metric_gaussian_e1-20260526-225857_val</code></td>
+<td class="num">1740</td>
+<td class="num">1</td>
+<td class="num">0.0000</td>
+<td class="num">8</td>
+<td class="num">0.88</td>
+<td class="num">12000</td>
+<td><code>data/rs_full/rs_val.jsonl</code></td>
+<td><code>/mnt/jfs/.../checkpoint/rs/rs-sd/gui-sd-qwen3-4b-rrsisd_sft_grpo_opsd_metric_gaussian_e1-20260526-225857/v0-20260526-230454/checkpoint-870</code></td>
+<td>2026-06-07 20:17:09<br><code>guisd_data/logs/eval/gui-sd-qwen3-4b-rrsisd_sft_grpo_opsd_metric_gaussian_e1-20260526-225857_val/status.json</code><br><code>guisd_data/logs/eval/gui-sd-qwen3-4b-rrsisd_sft_grpo_opsd_metric_gaussian_e1-20260526-225857_val/summary.json</code></td>
+</tr>
+<tr>
+<td><code>guisd_data/logs/eval/gui-sd-qwen3-4b-rrsisd_sft_grpo_opsd_no_refresh_gaussian_e1-20260527-114200-norefresh_test</code></td>
+<td class="num">3481</td>
+<td class="num">1</td>
+<td class="num">0.0000</td>
+<td class="num">8</td>
+<td class="num">0.82</td>
+<td class="num">12000</td>
+<td><code>data/rs_full/rs_test.jsonl</code></td>
+<td><code>/mnt/jfs/.../checkpoint/rs/rs-sd/gui-sd-qwen3-4b-rrsisd_sft_grpo_opsd_no_refresh_gaussian_e1-20260527-114200-norefresh/v0-20260527-114435/checkpoint-870</code></td>
+<td>2026-05-27 13:45:01<br><code>guisd_data/logs/eval/gui-sd-qwen3-4b-rrsisd_sft_grpo_opsd_no_refresh_gaussian_e1-20260527-114200-norefresh_test/status.json</code><br><code>guisd_data/logs/eval/gui-sd-qwen3-4b-rrsisd_sft_grpo_opsd_no_refresh_gaussian_e1-20260527-114200-norefresh_test/summary.json</code></td>
+</tr>
+<tr>
+<td><code>guisd_data/logs/eval/gui-sd-qwen3-4b-rrsisd_sft_mrpd_failed_grpo025_gaussian_e1-20260528-100844_test</code></td>
+<td class="num">3481</td>
+<td class="num">1</td>
+<td class="num">0.0000</td>
+<td class="num">8</td>
+<td class="num">0.88</td>
+<td class="num">12000</td>
+<td><code>data/rs_full/rs_test.jsonl</code></td>
+<td><code>/mnt/jfs/.../checkpoint/rs/rs-sd/gui-sd-qwen3-4b-rrsisd_sft_mrpd_failed_grpo025_gaussian_e1-20260528-100844/v0-20260528-101317/checkpoint-870</code></td>
+<td>2026-05-28 12:21:33<br><code>guisd_data/logs/eval/gui-sd-qwen3-4b-rrsisd_sft_mrpd_failed_grpo025_gaussian_e1-20260528-100844_test/status.json</code><br><code>guisd_data/logs/eval/gui-sd-qwen3-4b-rrsisd_sft_mrpd_failed_grpo025_gaussian_e1-20260528-100844_test/summary.json</code></td>
+</tr>
+<tr>
+<td><code>guisd_data/logs/eval/gui-sd-qwen3-4b-rrsisd_sft_mrpd_failed_opsd_only_gaussian_e1-20260528-100844_test</code></td>
+<td class="num">3481</td>
+<td class="num">1</td>
+<td class="num">0.0000</td>
+<td class="num">8</td>
+<td class="num">0.88</td>
+<td class="num">12000</td>
+<td><code>data/rs_full/rs_test.jsonl</code></td>
+<td><code>/mnt/jfs/.../checkpoint/rs/rs-sd/gui-sd-qwen3-4b-rrsisd_sft_mrpd_failed_opsd_only_gaussian_e1-20260528-100844/v0-20260528-101255/checkpoint-870</code></td>
+<td>2026-05-28 12:19:40<br><code>guisd_data/logs/eval/gui-sd-qwen3-4b-rrsisd_sft_mrpd_failed_opsd_only_gaussian_e1-20260528-100844_test/status.json</code><br><code>guisd_data/logs/eval/gui-sd-qwen3-4b-rrsisd_sft_mrpd_failed_opsd_only_gaussian_e1-20260528-100844_test/summary.json</code></td>
+</tr>
+<tr>
+<td><code>guisd_data/logs/eval/gui-sd-qwen3-4b-rrsisd_sft_mrpd_gt_hint_softwindow_e1-20260527-173518-gt_test</code></td>
+<td class="num">3481</td>
+<td class="num">1</td>
+<td class="num">0.0000</td>
+<td class="num">8</td>
+<td class="num">0.82</td>
+<td class="num">12000</td>
+<td><code>data/rs_full/rs_test.jsonl</code></td>
+<td><code>/mnt/jfs/.../checkpoint/rs/rs-sd/gui-sd-qwen3-4b-rrsisd_sft_mrpd_gt_hint_softwindow_e1-20260527-173518-gt/v0-20260527-173948/checkpoint-870</code></td>
+<td>2026-05-27 19:58:31<br><code>guisd_data/logs/eval/gui-sd-qwen3-4b-rrsisd_sft_mrpd_gt_hint_softwindow_e1-20260527-173518-gt_test/status.json</code><br><code>guisd_data/logs/eval/gui-sd-qwen3-4b-rrsisd_sft_mrpd_gt_hint_softwindow_e1-20260527-173518-gt_test/summary.json</code></td>
+</tr>
+<tr>
+<td><code>guisd_data/logs/eval/gui-sd-qwen3-4b-rrsisd_sft_mrpd_sibling_gtfallback_softwindow_e1-20260527-173518-sibling_test</code></td>
+<td class="num">3481</td>
+<td class="num">1</td>
+<td class="num">0.0000</td>
+<td class="num">8</td>
+<td class="num">0.82</td>
+<td class="num">12000</td>
+<td><code>data/rs_full/rs_test.jsonl</code></td>
+<td><code>/mnt/jfs/.../checkpoint/rs/rs-sd/gui-sd-qwen3-4b-rrsisd_sft_mrpd_sibling_gtfallback_softwindow_e1-20260527-173518-sibling/v0-20260527-173947/checkpoint-870</code></td>
+<td>2026-05-27 19:50:58<br><code>guisd_data/logs/eval/gui-sd-qwen3-4b-rrsisd_sft_mrpd_sibling_gtfallback_softwindow_e1-20260527-173518-sibling_test/status.json</code><br><code>guisd_data/logs/eval/gui-sd-qwen3-4b-rrsisd_sft_mrpd_sibling_gtfallback_softwindow_e1-20260527-173518-sibling_test/summary.json</code></td>
+</tr>
+<tr>
+<td><code>guisd_data/logs/eval/q4b-avvg-sft-20260527-155126-avvgsftmrpd-test</code></td>
+<td class="num">6139</td>
+<td class="num">1</td>
+<td class="num">0.0000</td>
+<td class="num">8</td>
+<td class="num">0.82</td>
+<td class="num">12000</td>
+<td><code>data/avvg_refgeo_full/avvg_test.jsonl</code></td>
+<td><code>/mnt/jfs/.../checkpoint/rs/avvg-sft/gui-sd-qwen3-4b-avvg_refgeo_sft_e1-20260527-155126-avvgsftmrpd/v0-20260527-155554/checkpoint-207</code></td>
+<td>2026-05-27 20:55:46<br><code>guisd_data/logs/eval/q4b-avvg-sft-20260527-155126-avvgsftmrpd-test/status.json</code><br><code>guisd_data/logs/eval/q4b-avvg-sft-20260527-155126-avvgsftmrpd-test/summary.json</code></td>
+</tr>
+<tr>
+<td><code>guisd_data/logs/eval/q4b-rsvg-sft-20260527-123311-rsvgsftmrpd-test</code></td>
+<td class="num">7500</td>
+<td class="num">1</td>
+<td class="num">0.0000</td>
+<td class="num">8</td>
+<td class="num">0.82</td>
+<td class="num">12000</td>
+<td><code>data/rsvg_dior_full/rsvg_test.jsonl</code></td>
+<td><code>/mnt/jfs/.../checkpoint/rs/rsvg-sft/gui-sd-qwen3-4b-rsvg_dior_sft_e1-20260527-123311-rsvgsftmrpd/v0-20260527-123556/checkpoint-211</code></td>
+<td>2026-05-27 14:03:05<br><code>guisd_data/logs/eval/q4b-rsvg-sft-20260527-123311-rsvgsftmrpd-test/status.json</code><br><code>guisd_data/logs/eval/q4b-rsvg-sft-20260527-123311-rsvgsftmrpd-test/summary.json</code></td>
+</tr>
+<tr>
+<td><code>guisd_data/logs/eval/q4b-rsvg-sft-mrpd-20260527-123311-rsvgsftmrpd-test</code></td>
+<td class="num">7500</td>
+<td class="num">1</td>
+<td class="num">0.0000</td>
+<td class="num">8</td>
+<td class="num">0.82</td>
+<td class="num">12000</td>
+<td><code>data/rsvg_dior_full/rsvg_test.jsonl</code></td>
+<td><code>/mnt/jfs/.../checkpoint/rs/rsvg-mrpd/gui-sd-qwen3-4b-rsvg_dior_sft_mrpd_metric_gaussian_e1-20260527-123311-rsvgsftmrpd/v0-20260527-125553/checkpoint-1927</code></td>
+<td>2026-05-27 20:52:06<br><code>guisd_data/logs/eval/q4b-rsvg-sft-mrpd-20260527-123311-rsvgsftmrpd-test/status.json</code><br><code>guisd_data/logs/eval/q4b-rsvg-sft-mrpd-20260527-123311-rsvgsftmrpd-test/summary.json</code></td>
+</tr>
+<tr>
+<td><code>guisd_data/logs/eval/q4b-sft-grpo-only-20260527-082554-test</code></td>
+<td class="num">3481</td>
+<td class="num">1</td>
+<td class="num">0.0000</td>
+<td class="num">8</td>
+<td class="num">0.88</td>
+<td class="num">12000</td>
+<td><code>data/rs_full/rs_test.jsonl</code></td>
+<td><code>/mnt/jfs/.../checkpoint/rs/rs-sd/gui-sd-qwen3-4b-rrsisd_sft_grpo_only_e1-20260527-082554/v0-20260527-083221/checkpoint-870</code></td>
+<td>2026-05-27 11:23:51<br><code>guisd_data/logs/eval/q4b-sft-grpo-only-20260527-082554-test/status.json</code><br><code>guisd_data/logs/eval/q4b-sft-grpo-only-20260527-082554-test/summary.json</code></td>
+</tr>
+<tr>
+<td><code>guisd_data/logs/eval/q4b-sft-grpo-opsd-jitter-box-20260527-082554-test</code></td>
+<td class="num">3481</td>
+<td class="num">1</td>
+<td class="num">0.0000</td>
+<td class="num">8</td>
+<td class="num">0.88</td>
+<td class="num">12000</td>
+<td><code>data/rs_full/rs_test.jsonl</code></td>
+<td><code>/mnt/jfs/.../checkpoint/rs/rs-sd/gui-sd-qwen3-4b-rrsisd_sft_grpo_opsd_metric_jitter_box_e1-20260527-082554/v0-20260527-083220/checkpoint-870</code></td>
+<td>2026-05-27 11:23:52<br><code>guisd_data/logs/eval/q4b-sft-grpo-opsd-jitter-box-20260527-082554-test/status.json</code><br><code>guisd_data/logs/eval/q4b-sft-grpo-opsd-jitter-box-20260527-082554-test/summary.json</code></td>
+</tr>
+<tr>
+<td><code>guisd_data/logs/eval/q4b-sft-grpo-opsd-no-hint-20260527-093400-aos2n-test</code></td>
+<td class="num">3481</td>
+<td class="num">1</td>
+<td class="num">0.0000</td>
+<td class="num">8</td>
+<td class="num">0.82</td>
+<td class="num">12000</td>
+<td><code>data/rs_full/rs_test.jsonl</code></td>
+<td><code>/mnt/jfs/.../checkpoint/rs/rs-sd/gui-sd-qwen3-4b-rrsisd_sft_grpo_opsd_metric_no_hint_e1-20260527-093400-aos2n/v0-20260527-093842/checkpoint-870</code></td>
+<td>2026-05-27 12:20:19<br><code>guisd_data/logs/eval/q4b-sft-grpo-opsd-no-hint-20260527-093400-aos2n-test/status.json</code><br><code>guisd_data/logs/eval/q4b-sft-grpo-opsd-no-hint-20260527-093400-aos2n-test/summary.json</code></td>
+</tr>
+<tr>
+<td><code>guisd_data/logs/eval/q4b-sft-grpo-opsd-soft-window-20260527-100136-test</code></td>
+<td class="num">3481</td>
+<td class="num">1</td>
+<td class="num">0.0000</td>
+<td class="num">8</td>
+<td class="num">0.82</td>
+<td class="num">12000</td>
+<td><code>data/rs_full/rs_test.jsonl</code></td>
+<td><code>/mnt/jfs/.../checkpoint/rs/rs-sd/gui-sd-qwen3-4b-rrsisd_sft_grpo_opsd_metric_soft_window_e1-20260527-100136/v0-20260527-100616/checkpoint-870</code></td>
+<td>2026-05-27 12:08:18<br><code>guisd_data/logs/eval/q4b-sft-grpo-opsd-soft-window-20260527-100136-test/status.json</code><br><code>guisd_data/logs/eval/q4b-sft-grpo-opsd-soft-window-20260527-100136-test/summary.json</code></td>
+</tr>
+<tr>
+<td><code>guisd_data/logs/eval/q4b-sft-grpo-opsd-zoom-in-20260527-082554-test</code></td>
+<td class="num">3481</td>
+<td class="num">1</td>
+<td class="num">0.0000</td>
+<td class="num">8</td>
+<td class="num">0.88</td>
+<td class="num">12000</td>
+<td><code>data/rs_full/rs_test.jsonl</code></td>
+<td><code>/mnt/jfs/.../checkpoint/rs/rs-sd/gui-sd-qwen3-4b-rrsisd_sft_grpo_opsd_metric_zoom_in_e1-20260527-082554/v0-20260527-083226/checkpoint-870</code></td>
+<td>2026-05-27 11:23:57<br><code>guisd_data/logs/eval/q4b-sft-grpo-opsd-zoom-in-20260527-082554-test/status.json</code><br><code>guisd_data/logs/eval/q4b-sft-grpo-opsd-zoom-in-20260527-082554-test/summary.json</code></td>
+</tr>
+<tr>
+<td><code>guisd_data/logs/eval/q4b-sft-opsd-only-gaussian-20260527-085701-test</code></td>
+<td class="num">3481</td>
+<td class="num">1</td>
+<td class="num">0.0000</td>
+<td class="num">8</td>
+<td class="num">0.88</td>
+<td class="num">12000</td>
+<td><code>data/rs_full/rs_test.jsonl</code></td>
+<td><code>/mnt/jfs/.../checkpoint/rs/rs-sd/gui-sd-qwen3-4b-rrsisd_sft_opsd_only_gaussian_e1-20260527-082554/v0-20260527-083221/checkpoint-109</code></td>
+<td>2026-05-27 09:35:22<br><code>guisd_data/logs/eval/q4b-sft-opsd-only-gaussian-20260527-085701-test/status.json</code><br><code>guisd_data/logs/eval/q4b-sft-opsd-only-gaussian-20260527-085701-test/summary.json</code></td>
+</tr>
+<tr>
+<td><code>guisd_data/logs/eval/q4b-sftopsd-ewma-gauss-refresh2-20260527-145452-r2-test</code></td>
+<td class="num">3481</td>
+<td class="num">1</td>
+<td class="num">0.0000</td>
+<td class="num">8</td>
+<td class="num">0.82</td>
+<td class="num">12000</td>
+<td><code>data/rs_full/rs_test.jsonl</code></td>
+<td><code>/mnt/jfs/.../checkpoint/rs/rs-sd/gui-sd-qwen3-4b-rrsisd_sft_grpo_opsd_metric_ewma_gaussian_refresh2_e1-20260527-145452-r2/v0-20260527-150120/checkpoint-870</code></td>
+<td>2026-05-27 17:25:52<br><code>guisd_data/logs/eval/q4b-sftopsd-ewma-gauss-refresh2-20260527-145452-r2-test/status.json</code><br><code>guisd_data/logs/eval/q4b-sftopsd-ewma-gauss-refresh2-20260527-145452-r2-test/summary.json</code></td>
+</tr>
+<tr>
+<td><code>guisd_data/logs/eval/q4b-sftopsd-ewma-gauss-refresh3-20260527-145452-r3-test</code></td>
+<td class="num">3481</td>
+<td class="num">1</td>
+<td class="num">0.0000</td>
+<td class="num">8</td>
+<td class="num">0.82</td>
+<td class="num">12000</td>
+<td><code>data/rs_full/rs_test.jsonl</code></td>
+<td><code>/mnt/jfs/.../checkpoint/rs/rs-sd/gui-sd-qwen3-4b-rrsisd_sft_grpo_opsd_metric_ewma_gaussian_refresh3_e1-20260527-145452-r3/v0-20260527-150108/checkpoint-870</code></td>
+<td>2026-05-27 17:33:16<br><code>guisd_data/logs/eval/q4b-sftopsd-ewma-gauss-refresh3-20260527-145452-r3-test/status.json</code><br><code>guisd_data/logs/eval/q4b-sftopsd-ewma-gauss-refresh3-20260527-145452-r3-test/summary.json</code></td>
+</tr>
+<tr>
+<td><code>guisd_data/logs/eval/q8b-rrsisd-grpo-opsd-20260529-105009-checkpoint-870-test-greedy</code></td>
+<td class="num">3481</td>
+<td class="num">-</td>
+<td class="num">-</td>
+<td class="num">8</td>
+<td class="num">0.88</td>
+<td class="num">12000</td>
+<td><code>data/rs_full/rs_test.jsonl</code></td>
+<td><code>/mnt/jfs/.../checkpoint/rs/rs-sd/gui-sd-qwen3-8b-rrsisd_sft96_grpo_opsd_metric_gaussian_e1-20260529-105009/v0-20260529-105419/checkpoint-870</code></td>
+<td>2026-05-29 14:30:07<br><code>guisd_data/logs/eval/q8b-rrsisd-grpo-opsd-20260529-105009-checkpoint-870-test-greedy/status.json</code></td>
+</tr>
+<tr>
+<td><code>guisd_data/logs/eval/q8b-rrsisd-grpo-opsd-20260529-105009-checkpoint-870-test-greedy-b32</code></td>
+<td class="num">3481</td>
+<td class="num">1</td>
+<td class="num">0.0000</td>
+<td class="num">8</td>
+<td class="num">0.8</td>
+<td class="num">12000</td>
+<td><code>data/rs_full/rs_test.jsonl</code></td>
+<td><code>/mnt/jfs/.../checkpoint/rs/rs-sd/gui-sd-qwen3-8b-rrsisd_sft96_grpo_opsd_metric_gaussian_e1-20260529-105009/v0-20260529-105419/checkpoint-870</code></td>
+<td>2026-05-29 14:41:18<br><code>guisd_data/logs/eval/q8b-rrsisd-grpo-opsd-20260529-105009-checkpoint-870-test-greedy-b32/status.json</code><br><code>guisd_data/logs/eval/q8b-rrsisd-grpo-opsd-20260529-105009-checkpoint-870-test-greedy-b32/summary.json</code></td>
+</tr>
+<tr>
+<td><code>guisd_data/logs/eval/q8b-rrsisd-sft-20260529-094035-checkpoint-96-test-greedy</code></td>
+<td class="num">3481</td>
+<td class="num">1</td>
+<td class="num">0.0000</td>
+<td class="num">8</td>
+<td class="num">0.88</td>
+<td class="num">12000</td>
+<td><code>data/rs_full/rs_test.jsonl</code></td>
+<td><code>/mnt/jfs/.../checkpoint/rs/rs-sft/gui-sd-qwen3-8b-rrsisd_sft_e1_retry-20260529-094035/v0-20260529-094457/checkpoint-96</code></td>
+<td>2026-05-29 10:28:37<br><code>guisd_data/logs/eval/q8b-rrsisd-sft-20260529-094035-checkpoint-96-test-greedy/status.json</code><br><code>guisd_data/logs/eval/q8b-rrsisd-sft-20260529-094035-checkpoint-96-test-greedy/summary.json</code></td>
+</tr>
+<tr>
+<td><code>guisd_data/logs/eval/qwen3-4b-best1e-e2-metric-gaussian-test-ck870</code></td>
+<td class="num">3481</td>
+<td class="num">1</td>
+<td class="num">0.0000</td>
+<td class="num">8</td>
+<td class="num">0.88</td>
+<td class="num">12000</td>
+<td><code>data/rs_full/rs_test.jsonl</code></td>
+<td><code>/mnt/jfs/.../checkpoint/rs/rs-sd/gui-sd-qwen3-4b-rsfull_grpo_opsd_best1e_continue_e2_metric_gaussian_20260526-092528/v0-20260526-093208/checkpoint-870</code></td>
+<td>2026-05-26 14:28:39<br><code>guisd_data/logs/eval/qwen3-4b-best1e-e2-metric-gaussian-test-ck870/status.json</code><br><code>guisd_data/logs/eval/qwen3-4b-best1e-e2-metric-gaussian-test-ck870/summary.json</code></td>
+</tr>
+<tr>
+<td><code>guisd_data/logs/eval/qwen3-4b-best1e-e2-metric-gaussian-train-ck870</code></td>
+<td class="num">12181</td>
+<td class="num">1</td>
+<td class="num">0.0000</td>
+<td class="num">8</td>
+<td class="num">0.88</td>
+<td class="num">12000</td>
+<td><code>data/rs_full/rs_train.jsonl</code></td>
+<td><code>/mnt/jfs/.../checkpoint/rs/rs-sd/gui-sd-qwen3-4b-rsfull_grpo_opsd_best1e_continue_e2_metric_gaussian_20260526-092528/v0-20260526-093208/checkpoint-870</code></td>
+<td>2026-05-26 13:49:21<br><code>guisd_data/logs/eval/qwen3-4b-best1e-e2-metric-gaussian-train-ck870/status.json</code><br><code>guisd_data/logs/eval/qwen3-4b-best1e-e2-metric-gaussian-train-ck870/summary.json</code></td>
+</tr>
+<tr>
+<td><code>guisd_data/logs/eval/qwen3-4b-best1e-e2-metric-gaussian-val-ck870</code></td>
+<td class="num">1740</td>
+<td class="num">1</td>
+<td class="num">0.0000</td>
+<td class="num">8</td>
+<td class="num">0.88</td>
+<td class="num">12000</td>
+<td><code>data/rs_full/rs_val.jsonl</code></td>
+<td><code>/mnt/jfs/.../checkpoint/rs/rs-sd/gui-sd-qwen3-4b-rsfull_grpo_opsd_best1e_continue_e2_metric_gaussian_20260526-092528/v0-20260526-093208/checkpoint-870</code></td>
+<td>2026-05-26 14:20:16<br><code>guisd_data/logs/eval/qwen3-4b-best1e-e2-metric-gaussian-val-ck870/status.json</code><br><code>guisd_data/logs/eval/qwen3-4b-best1e-e2-metric-gaussian-val-ck870/summary.json</code></td>
+</tr>
+<tr>
+<td><code>guisd_data/logs/eval/qwen3-4b-rrsisd-sft-20260526-220915-checkpoint-96-test-greedy</code></td>
+<td class="num">3481</td>
+<td class="num">1</td>
+<td class="num">0.0000</td>
+<td class="num">8</td>
+<td class="num">0.88</td>
+<td class="num">12000</td>
+<td><code>data/rs_full/rs_test.jsonl</code></td>
+<td><code>/mnt/jfs/.../checkpoint/rs/rs-sft/gui-sd-qwen3-4b-rrsisd_sft_e1-20260526-220915/v0-20260526-220853/checkpoint-96</code></td>
+<td>2026-05-26 22:30:14<br><code>guisd_data/logs/eval/qwen3-4b-rrsisd-sft-20260526-220915-checkpoint-96-test-greedy/status.json</code><br><code>guisd_data/logs/eval/qwen3-4b-rrsisd-sft-20260526-220915-checkpoint-96-test-greedy/summary.json</code></td>
+</tr>
+<tr>
+<td><code>guisd_data/logs/eval/qwen3-4b-rrsisd-sft-20260526-220915-checkpoint-96-test-hint-gaussian-pass8-b32</code></td>
+<td class="num">3481</td>
+<td class="num">8</td>
+<td class="num">0.7000</td>
+<td class="num">8</td>
+<td class="num">0.82</td>
+<td class="num">12000</td>
+<td><code>data/rs_full/rs_test.jsonl</code></td>
+<td><code>/mnt/jfs/.../checkpoint/rs/rs-sft/gui-sd-qwen3-4b-rrsisd_sft_e1-20260526-220915/v0-20260526-220853/checkpoint-96</code></td>
+<td>2026-05-26 23:02:42<br><code>guisd_data/logs/eval/qwen3-4b-rrsisd-sft-20260526-220915-checkpoint-96-test-hint-gaussian-pass8-b32/status.json</code><br><code>guisd_data/logs/eval/qwen3-4b-rrsisd-sft-20260526-220915-checkpoint-96-test-hint-gaussian-pass8-b32/summary.json</code></td>
+</tr>
+<tr>
+<td><code>guisd_data/logs/eval/qwen3-4b-rrsisd-sft-20260526-220915-checkpoint-96-test-hint-zoom_in-pass8-b32</code></td>
+<td class="num">3481</td>
+<td class="num">8</td>
+<td class="num">0.7000</td>
+<td class="num">8</td>
+<td class="num">0.82</td>
+<td class="num">12000</td>
+<td><code>data/rs_full/rs_test.jsonl</code></td>
+<td><code>/mnt/jfs/.../checkpoint/rs/rs-sft/gui-sd-qwen3-4b-rrsisd_sft_e1-20260526-220915/v0-20260526-220853/checkpoint-96</code></td>
+<td>2026-05-26 23:13:43<br><code>guisd_data/logs/eval/qwen3-4b-rrsisd-sft-20260526-220915-checkpoint-96-test-hint-zoom_in-pass8-b32/status.json</code><br><code>guisd_data/logs/eval/qwen3-4b-rrsisd-sft-20260526-220915-checkpoint-96-test-hint-zoom_in-pass8-b32/summary.json</code></td>
+</tr>
+<tr>
+<td><code>guisd_data/logs/eval/qwen3-4b-rrsisd-sft-20260526-220915-checkpoint-96-test-nohint-pass8</code></td>
+<td class="num">3481</td>
+<td class="num">-</td>
+<td class="num">-</td>
+<td class="num">8</td>
+<td class="num">0.88</td>
+<td class="num">12000</td>
+<td><code>data/rs_full/rs_test.jsonl</code></td>
+<td><code>/mnt/jfs/.../checkpoint/rs/rs-sft/gui-sd-qwen3-4b-rrsisd_sft_e1-20260526-220915/v0-20260526-220853/checkpoint-96</code></td>
+<td>2026-05-26 22:34:17<br><code>guisd_data/logs/eval/qwen3-4b-rrsisd-sft-20260526-220915-checkpoint-96-test-nohint-pass8/status.json</code></td>
+</tr>
+<tr>
+<td><code>guisd_data/logs/eval/qwen3-4b-rrsisd-sft-20260526-220915-checkpoint-96-test-nohint-pass8-b32</code></td>
+<td class="num">3481</td>
+<td class="num">8</td>
+<td class="num">0.7000</td>
+<td class="num">8</td>
+<td class="num">0.82</td>
+<td class="num">12000</td>
+<td><code>data/rs_full/rs_test.jsonl</code></td>
+<td><code>/mnt/jfs/.../checkpoint/rs/rs-sft/gui-sd-qwen3-4b-rrsisd_sft_e1-20260526-220915/v0-20260526-220853/checkpoint-96</code></td>
+<td>2026-05-26 22:47:37<br><code>guisd_data/logs/eval/qwen3-4b-rrsisd-sft-20260526-220915-checkpoint-96-test-nohint-pass8-b32/status.json</code><br><code>guisd_data/logs/eval/qwen3-4b-rrsisd-sft-20260526-220915-checkpoint-96-test-nohint-pass8-b32/summary.json</code></td>
+</tr>
+<tr>
+<td><code>guisd_data/logs/eval/qwen3-4b-rrsisd-sft-20260526-220915-checkpoint-96-val-greedy</code></td>
+<td class="num">1740</td>
+<td class="num">1</td>
+<td class="num">0.0000</td>
+<td class="num">8</td>
+<td class="num">0.88</td>
+<td class="num">12000</td>
+<td><code>data/rs_full/rs_val.jsonl</code></td>
+<td><code>/mnt/jfs/.../checkpoint/rs/rs-sft/gui-sd-qwen3-4b-rrsisd_sft_e1-20260526-220915/v0-20260526-220853/checkpoint-96</code></td>
+<td>2026-05-26 22:22:02<br><code>guisd_data/logs/eval/qwen3-4b-rrsisd-sft-20260526-220915-checkpoint-96-val-greedy/status.json</code><br><code>guisd_data/logs/eval/qwen3-4b-rrsisd-sft-20260526-220915-checkpoint-96-val-greedy/summary.json</code></td>
+</tr>
+</table></div>
+<h3>无 status.json 但 worker 日志可还原的 eval 设置</h3>
+<div class="table-wrap"><table><tr><th>worker log</th><th>TP</th><th>gpu_mem</th><th>max_len</th><th>eval_jsonl</th><th>model/out_dir</th></tr>
+<tr>
+<td><code>guisd_data/logs/eval/ev-avvg-ck1141-20260601-103811.worker.log</code></td><td class="num">8</td><td class="num">0.88</td><td class="num">12000</td>
+<td><code>data/avvg_refgeo_full/avvg_test.jsonl</code></td><td><code>/mnt/jfs/.../checkpoint/rs/avvg-mrpd/gui-sd-qwen3-4b-avvg_refgeo_sft_mrpd_metric_gaussian_e1_resume810_aos-20260530-105306/v0-20260530-105850/checkpoint-1141</code><br><code>output/ev-avvg-ck1141-20260601-103811</code></td></tr>
+<tr>
+<td><code>guisd_data/logs/eval/ev-q4b-mg-val-ck870-20260607-201002.worker.log</code></td><td class="num">8</td><td class="num">0.88</td><td class="num">12000</td>
+<td><code>data/rs_full/rs_val.jsonl</code></td><td><code>/mnt/jfs/.../checkpoint/rs/rs-sd/gui-sd-qwen3-4b-rrsisd_sft_grpo_opsd_metric_gaussian_e1-20260526-225857/v0-20260526-230454/checkpoint-870</code><br><code>data/logs/eval/gui-sd-qwen3-4b-rrsisd_sft_grpo_opsd_metric_gaussian_e1-20260526-225857_val</code></td></tr>
+<tr>
+<td><code>guisd_data/logs/eval/eval-avvg-sft-05272041.worker.log</code></td><td class="num">8</td><td class="num">0.82</td><td class="num">12000</td>
+<td><code>data/avvg_refgeo_full/avvg_test.jsonl</code></td><td><code>/mnt/jfs/.../checkpoint/rs/avvg-sft/gui-sd-qwen3-4b-avvg_refgeo_sft_e1-20260527-155126-avvgsftmrpd/v0-20260527-155554/checkpoint-207</code><br><code>data/logs/eval/q4b-avvg-sft-20260527-155126-avvgsftmrpd-test</code></td></tr>
+<tr>
+<td><code>guisd_data/logs/eval/eval-ema098-0527.worker.log</code></td><td class="num">8</td><td class="num">0.82</td><td class="num">12000</td>
+<td><code>data/rs_full/rs_test.jsonl</code></td><td><code>/mnt/jfs/.../checkpoint/rs/rs-sd/gui-sd-qwen3-4b-rrsisd_sft_grpo_opsd_ema098_gaussian_e1-20260527-113500-ema098/v0-20260527-113657/checkpoint-870</code><br><code>data/logs/eval/gui-sd-qwen3-4b-rrsisd_sft_grpo_opsd_ema098_gaussian_e1-20260527-113500-ema098_test</code></td></tr>
+<tr>
+<td><code>guisd_data/logs/eval/eval-ema098-aos8-05271409.worker.log</code></td><td class="num">8</td><td class="num">0.82</td><td class="num">12000</td>
+<td><code>data/rs_full/rs_test.jsonl</code></td><td><code>/mnt/jfs/.../checkpoint/rs/rs-sd/gui-sd-qwen3-4b-rrsisd_sft_grpo_opsd_ema098_gaussian_e1-20260527-113500-ema098/v0-20260527-113657/checkpoint-870</code><br><code>data/logs/eval/gui-sd-qwen3-4b-rrsisd_sft_grpo_opsd_ema098_gaussian_e1-20260527-113500-ema098_test</code></td></tr>
+<tr>
+<td><code>guisd_data/logs/eval/eval-ema098-tp1-05271406.worker.log</code></td><td class="num">1</td><td class="num">0.82</td><td class="num">12000</td>
+<td><code>data/rs_full/rs_test.jsonl</code></td><td><code>/mnt/jfs/.../checkpoint/rs/rs-sd/gui-sd-qwen3-4b-rrsisd_sft_grpo_opsd_ema098_gaussian_e1-20260527-113500-ema098/v0-20260527-113657/checkpoint-870</code><br><code>data/logs/eval/gui-sd-qwen3-4b-rrsisd_sft_grpo_opsd_ema098_gaussian_e1-20260527-113500-ema098_test</code></td></tr>
+<tr>
+<td><code>guisd_data/logs/eval/eval-fgrpo025-gauss-20260528-20260528-120808.worker.log</code></td><td class="num">8</td><td class="num">0.88</td><td class="num">12000</td>
+<td><code>data/rs_full/rs_test.jsonl</code></td><td><code>/mnt/jfs/.../checkpoint/rs/rs-sd/gui-sd-qwen3-4b-rrsisd_sft_mrpd_failed_grpo025_gaussian_e1-20260528-100844/v0-20260528-101317/checkpoint-870</code><br><code>data/logs/eval/gui-sd-qwen3-4b-rrsisd_sft_mrpd_failed_grpo025_gaussian_e1-20260528-100844_test</code></td></tr>
+<tr>
+<td><code>guisd_data/logs/eval/eval-fgrpo025-gauss-rerun-20260528-1213.worker.log</code></td><td class="num">8</td><td class="num">0.88</td><td class="num">12000</td>
+<td><code>data/rs_full/rs_test.jsonl</code></td><td><code>/mnt/jfs/.../checkpoint/rs/rs-sd/gui-sd-qwen3-4b-rrsisd_sft_mrpd_failed_grpo025_gaussian_e1-20260528-100844/v0-20260528-101317/checkpoint-870</code><br><code>data/logs/eval/gui-sd-qwen3-4b-rrsisd_sft_mrpd_failed_grpo025_gaussian_e1-20260528-100844_test</code></td></tr>
+<tr>
+<td><code>guisd_data/logs/eval/eval-fixed80-0527.worker.log</code></td><td class="num">8</td><td class="num">0.82</td><td class="num">12000</td>
+<td><code>data/rs_full/rs_test.jsonl</code></td><td><code>/mnt/jfs/.../checkpoint/rs/rs-sd/gui-sd-qwen3-4b-rrsisd_sft_grpo_opsd_fixed_s80_gaussian_e1-20260527-113500-s80/v0-20260527-113651/checkpoint-870</code><br><code>data/logs/eval/gui-sd-qwen3-4b-rrsisd_sft_grpo_opsd_fixed_s80_gaussian_e1-20260527-113500-s80_test</code></td></tr>
+<tr>
+<td><code>guisd_data/logs/eval/eval-fopsdonly-gauss-rerun-20260528-1213.worker.log</code></td><td class="num">8</td><td class="num">0.88</td><td class="num">12000</td>
+<td><code>data/rs_full/rs_test.jsonl</code></td><td><code>/mnt/jfs/.../checkpoint/rs/rs-sd/gui-sd-qwen3-4b-rrsisd_sft_mrpd_failed_opsd_only_gaussian_e1-20260528-100844/v0-20260528-101255/checkpoint-870</code><br><code>data/logs/eval/gui-sd-qwen3-4b-rrsisd_sft_mrpd_failed_opsd_only_gaussian_e1-20260528-100844_test</code></td></tr>
+<tr>
+<td><code>guisd_data/logs/eval/eval-mrpd-gt-sw-20260527-194305.worker.log</code></td><td class="num">8</td><td class="num">0.82</td><td class="num">12000</td>
+<td><code>data/rs_full/rs_test.jsonl</code></td><td><code>/mnt/jfs/.../checkpoint/rs/rs-sd/gui-sd-qwen3-4b-rrsisd_sft_mrpd_gt_hint_softwindow_e1-20260527-173518-gt/v0-20260527-173948/checkpoint-870</code><br><code>data/logs/eval/gui-sd-qwen3-4b-rrsisd_sft_mrpd_gt_hint_softwindow_e1-20260527-173518-gt_test</code></td></tr>
+<tr>
+<td><code>guisd_data/logs/eval/eval-mrpd-sibling-sw-20260527-194305.worker.log</code></td><td class="num">8</td><td class="num">0.82</td><td class="num">12000</td>
+<td><code>data/rs_full/rs_test.jsonl</code></td><td><code>/mnt/jfs/.../checkpoint/rs/rs-sd/gui-sd-qwen3-4b-rrsisd_sft_mrpd_sibling_gtfallback_softwindow_e1-20260527-173518-sibling/v0-20260527-173947/checkpoint-870</code><br><code>data/logs/eval/gui-sd-qwen3-4b-rrsisd_sft_mrpd_sibling_gtfallback_softwindow_e1-20260527-173518-sibling_test</code></td></tr>
+<tr>
+<td><code>guisd_data/logs/eval/eval-nohint-0527.worker.log</code></td><td class="num">8</td><td class="num">0.82</td><td class="num">12000</td>
+<td><code>data/rs_full/rs_test.jsonl</code></td><td><code>/mnt/jfs/.../checkpoint/rs/rs-sd/gui-sd-qwen3-4b-rrsisd_sft_grpo_opsd_metric_no_hint_e1-20260527-093400-aos2n/v0-20260527-093842/checkpoint-870</code><br><code>data/logs/eval/q4b-sft-grpo-opsd-no-hint-20260527-093400-aos2n-test</code></td></tr>
+<tr>
+<td><code>guisd_data/logs/eval/eval-noref-0527.worker.log</code></td><td class="num">8</td><td class="num">0.82</td><td class="num">12000</td>
+<td><code>data/rs_full/rs_test.jsonl</code></td><td><code>/mnt/jfs/.../checkpoint/rs/rs-sd/gui-sd-qwen3-4b-rrsisd_sft_grpo_opsd_no_refresh_gaussian_e1-20260527-114200-norefresh/v0-20260527-114435/checkpoint-870</code><br><code>data/logs/eval/gui-sd-qwen3-4b-rrsisd_sft_grpo_opsd_no_refresh_gaussian_e1-20260527-114200-norefresh_test</code></td></tr>
+<tr>
+<td><code>guisd_data/logs/eval/eval-refresh2-r2-05271659.worker.log</code></td><td class="num">8</td><td class="num">0.82</td><td class="num">12000</td>
+<td><code>data/rs_full/rs_test.jsonl</code></td><td><code>/mnt/jfs/.../checkpoint/rs/rs-sd/gui-sd-qwen3-4b-rrsisd_sft_grpo_opsd_metric_ewma_gaussian_refresh2_e1-20260527-145452-r2/v0-20260527-150120/checkpoint-870</code><br><code>data/logs/eval/q4b-sftopsd-ewma-gauss-refresh2-20260527-145452-r2-test</code></td></tr>
+<tr>
+<td><code>guisd_data/logs/eval/eval-refresh3-r3-05271659.worker.log</code></td><td class="num">8</td><td class="num">0.82</td><td class="num">12000</td>
+<td><code>data/rs_full/rs_test.jsonl</code></td><td><code>/mnt/jfs/.../checkpoint/rs/rs-sd/gui-sd-qwen3-4b-rrsisd_sft_grpo_opsd_metric_ewma_gaussian_refresh3_e1-20260527-145452-r3/v0-20260527-150108/checkpoint-870</code><br><code>data/logs/eval/q4b-sftopsd-ewma-gauss-refresh3-20260527-145452-r3-test</code></td></tr>
+<tr>
+<td><code>guisd_data/logs/eval/eval-rsvg-mrpd-05272028.worker.log</code></td><td class="num">8</td><td class="num">0.82</td><td class="num">12000</td>
+<td><code>data/rsvg_dior_full/rsvg_test.jsonl</code></td><td><code>/mnt/jfs/.../checkpoint/rs/rsvg-mrpd/gui-sd-qwen3-4b-rsvg_dior_sft_mrpd_metric_gaussian_e1-20260527-123311-rsvgsftmrpd/v0-20260527-125553/checkpoint-1927</code><br><code>data/logs/eval/q4b-rsvg-sft-mrpd-20260527-123311-rsvgsftmrpd-test</code></td></tr>
+<tr>
+<td><code>guisd_data/logs/eval/eval-rsvg-sft-05271349.worker.log</code></td><td class="num">8</td><td class="num">0.82</td><td class="num">12000</td>
+<td><code>data/rsvg_dior_full/rsvg_test.jsonl</code></td><td><code>/mnt/jfs/.../checkpoint/rs/rsvg-sft/gui-sd-qwen3-4b-rsvg_dior_sft_e1-20260527-123311-rsvgsftmrpd/v0-20260527-123556/checkpoint-211</code><br><code>data/logs/eval/q4b-rsvg-sft-20260527-123311-rsvgsftmrpd-test</code></td></tr>
+<tr>
+<td><code>guisd_data/logs/eval/eval-sft-grpo-only-test-20260527-1025.worker.log</code></td><td class="num">8</td><td class="num">0.88</td><td class="num">12000</td>
+<td><code>data/rs_full/rs_test.jsonl</code></td><td><code>/mnt/jfs/.../checkpoint/rs/rs-sd/gui-sd-qwen3-4b-rrsisd_sft_grpo_only_e1-20260527-082554/v0-20260527-083221/checkpoint-870</code><br><code>data/logs/eval/q4b-sft-grpo-only-20260527-082554-test</code></td></tr>
+<tr>
+<td><code>guisd_data/logs/eval/eval-sft-opsd-only-gauss-20260527-085701.worker.log</code></td><td class="num">8</td><td class="num">0.88</td><td class="num">12000</td>
+<td><code>data/rs_full/rs_test.jsonl</code></td><td><code>/mnt/jfs/.../checkpoint/rs/rs-sd/gui-sd-qwen3-4b-rrsisd_sft_opsd_only_gaussian_e1-20260527-082554/v0-20260527-083221/checkpoint-109</code><br><code>data/logs/eval/q4b-sft-opsd-only-gaussian-20260527-085701-test</code></td></tr>
+<tr>
+<td><code>guisd_data/logs/eval/eval-sftopsd-jitter-test-20260527-1025.worker.log</code></td><td class="num">8</td><td class="num">0.88</td><td class="num">12000</td>
+<td><code>data/rs_full/rs_test.jsonl</code></td><td><code>/mnt/jfs/.../checkpoint/rs/rs-sd/gui-sd-qwen3-4b-rrsisd_sft_grpo_opsd_metric_jitter_box_e1-20260527-082554/v0-20260527-083220/checkpoint-870</code><br><code>data/logs/eval/q4b-sft-grpo-opsd-jitter-box-20260527-082554-test</code></td></tr>
+<tr>
+<td><code>guisd_data/logs/eval/eval-sftopsd-zoom-test-20260527-1025.worker.log</code></td><td class="num">8</td><td class="num">0.88</td><td class="num">12000</td>
+<td><code>data/rs_full/rs_test.jsonl</code></td><td><code>/mnt/jfs/.../checkpoint/rs/rs-sd/gui-sd-qwen3-4b-rrsisd_sft_grpo_opsd_metric_zoom_in_e1-20260527-082554/v0-20260527-083226/checkpoint-870</code><br><code>data/logs/eval/q4b-sft-grpo-opsd-zoom-in-20260527-082554-test</code></td></tr>
+<tr>
+<td><code>guisd_data/logs/eval/eval-softwin-0527.worker.log</code></td><td class="num">8</td><td class="num">0.82</td><td class="num">12000</td>
+<td><code>data/rs_full/rs_test.jsonl</code></td><td><code>/mnt/jfs/.../checkpoint/rs/rs-sd/gui-sd-qwen3-4b-rrsisd_sft_grpo_opsd_metric_soft_window_e1-20260527-100136/v0-20260527-100616/checkpoint-870</code><br><code>data/logs/eval/q4b-sft-grpo-opsd-soft-window-20260527-100136-test</code></td></tr>
+<tr>
+<td><code>guisd_data/logs/eval/q4b-e2-val-test-eval-20260526-141054.worker.log</code></td><td class="num">8</td><td class="num">0.88</td><td class="num">12000</td>
+<td><code>data/rs_full/rs_val.jsonl</code></td><td><code>/mnt/jfs/.../checkpoint/rs/rs-sd/gui-sd-qwen3-4b-rsfull_grpo_opsd_best1e_continue_e2_metric_gaussian_20260526-092528/v0-20260526-093208/checkpoint-870</code><br><code>data/logs/eval/qwen3-4b-best1e-e2-metric-gaussian-val-ck870</code></td></tr>
+<tr>
+<td><code>guisd_data/logs/eval/q4b-sft-greedy-vt-20260526-214237.worker.log</code></td><td class="num">8</td><td class="num">0.88</td><td class="num">12000</td>
+<td><code>data/rs_full/rs_val.jsonl</code></td><td><code>/mnt/jfs/.../checkpoint/rs/rs-sft/gui-sd-qwen3-4b-rrsisd_sft_e1-20260526-214237/v0-20260526-214518/checkpoint-96</code><br><code>data/logs/eval/qwen3-4b-rrsisd-sft-20260526-214237-checkpoint-96-val-greedy</code></td></tr>
+<tr>
+<td><code>guisd_data/logs/eval/q4b-sft-greedy-vt-20260526-220915.worker.log</code></td><td class="num">8</td><td class="num">0.88</td><td class="num">12000</td>
+<td><code>data/rs_full/rs_val.jsonl</code></td><td><code>/mnt/jfs/.../checkpoint/rs/rs-sft/gui-sd-qwen3-4b-rrsisd_sft_e1-20260526-220915/v0-20260526-220853/checkpoint-96</code><br><code>data/logs/eval/qwen3-4b-rrsisd-sft-20260526-220915-checkpoint-96-val-greedy</code></td></tr>
+<tr>
+<td><code>guisd_data/logs/eval/q4b-sft-greedy-vt-gui-20260526-214237-guiagent.worker.log</code></td><td class="num">8</td><td class="num">0.88</td><td class="num">12000</td>
+<td><code>data/rs_full/rs_val.jsonl</code></td><td><code>/mnt/jfs/.../checkpoint/rs/rs-sft/gui-sd-qwen3-4b-rrsisd_sft_e1-20260526-214237/v0-20260526-214518/checkpoint-96</code><br><code>data/logs/eval/qwen3-4b-rrsisd-sft-20260526-214237-checkpoint-96-val-greedy-guiagent</code></td></tr>
+<tr>
+<td><code>guisd_data/logs/eval/q4b-sft-nohint-pass8-20260526-220915-retry-b32.worker.log</code></td><td class="num">8</td><td class="num">0.82</td><td class="num">12000</td>
+<td><code>data/rs_full/rs_test.jsonl</code></td><td><code>/mnt/jfs/.../checkpoint/rs/rs-sft/gui-sd-qwen3-4b-rrsisd_sft_e1-20260526-220915/v0-20260526-220853/checkpoint-96</code><br><code>data/logs/eval/qwen3-4b-rrsisd-sft-20260526-220915-checkpoint-96-test-nohint-pass8-b32</code></td></tr>
+<tr>
+<td><code>guisd_data/logs/eval/q4b-sft-nohint-pass8-20260526-220915.worker.log</code></td><td class="num">8</td><td class="num">0.88</td><td class="num">12000</td>
+<td><code>data/rs_full/rs_test.jsonl</code></td><td><code>/mnt/jfs/.../checkpoint/rs/rs-sft/gui-sd-qwen3-4b-rrsisd_sft_e1-20260526-220915/v0-20260526-220853/checkpoint-96</code><br><code>data/logs/eval/qwen3-4b-rrsisd-sft-20260526-220915-checkpoint-96-test-nohint-pass8</code></td></tr>
+<tr>
+<td><code>guisd_data/logs/eval/q4b-sftopsd-test-20260526-225857-manual.worker.log</code></td><td class="num">8</td><td class="num">0.82</td><td class="num">12000</td>
+<td><code>data/rs_full/rs_test.jsonl</code></td><td><code>/mnt/jfs/.../checkpoint/rs/rs-sd/gui-sd-qwen3-4b-rrsisd_sft_grpo_opsd_metric_gaussian_e1-20260526-225857/v0-20260526-230454/checkpoint-870</code><br><code>data/logs/eval/gui-sd-qwen3-4b-rrsisd_sft_grpo_opsd_metric_gaussian_e1-20260526-225857_test</code></td></tr>
+<tr>
+<td><code>guisd_data/logs/eval/q8b-grpo-opsd-test-eval-20260529-142554.worker.log</code></td><td class="num">8</td><td class="num">0.88</td><td class="num">12000</td>
+<td><code>data/rs_full/rs_test.jsonl</code></td><td><code>/mnt/jfs/.../checkpoint/rs/rs-sd/gui-sd-qwen3-8b-rrsisd_sft96_grpo_opsd_metric_gaussian_e1-20260529-105009/v0-20260529-105419/checkpoint-870</code><br><code>data/logs/eval/q8b-rrsisd-grpo-opsd-20260529-105009-checkpoint-870-test-greedy</code></td></tr>
+<tr>
+<td><code>guisd_data/logs/eval/q8b-grpo-opsd-test-eval-b32-20260529-143154.worker.log</code></td><td class="num">8</td><td class="num">0.8</td><td class="num">12000</td>
+<td><code>data/rs_full/rs_test.jsonl</code></td><td><code>/mnt/jfs/.../checkpoint/rs/rs-sd/gui-sd-qwen3-8b-rrsisd_sft96_grpo_opsd_metric_gaussian_e1-20260529-105009/v0-20260529-105419/checkpoint-870</code><br><code>data/logs/eval/q8b-rrsisd-grpo-opsd-20260529-105009-checkpoint-870-test-greedy-b32</code></td></tr>
+<tr>
+<td><code>guisd_data/logs/eval/q8b-sft-test-eval-20260529-101837.worker.log</code></td><td class="num">8</td><td class="num">0.88</td><td class="num">12000</td>
+<td><code>data/rs_full/rs_test.jsonl</code></td><td><code>/mnt/jfs/.../checkpoint/rs/rs-sft/gui-sd-qwen3-8b-rrsisd_sft_e1_retry-20260529-094035/v0-20260529-094457/checkpoint-96</code><br><code>data/logs/eval/q8b-rrsisd-sft-20260529-094035-checkpoint-96-test-greedy</code></td></tr>
+</table></div>
+</section>
+<section class="card"><h2>已扫描但不纳入主附录表的记录</h2>
+<ul>
+<li><code>closed_model_eval/</code>：闭源模型 smoke/full 评测不属于 4B 主实验结构。可作为单独闭源 baseline，但不混入 MRPD 4B 附录主表。</li>
+<li><code>tmp/</code>：brainctl 帮助、提交脚本、stop/monitor 临时文件主要是运维痕迹，不是有效实验结果或稳定设置。</li>
+<li>缺少 <code>run_name</code> 且没有 summary/metrics 的早期失败日志：只作为排障痕迹，不纳入附录表；同一实验若后续有成功 rerun，则以成功 rerun 记录为准。</li>
+<li>8B scale-up 的分数已经在现有总表中，本页只补充其训练/评测设置；它不是“前期 4B 探索”的一部分。</li>
+</ul>
+<h3>闭源模型记录索引（排除原因：非 4B 主实验）</h3>
+<div class="table-wrap"><table><tr><th>记录</th><th>n</th><th>mIoU</th><th>parse</th><th>来源</th></tr>
+<tr><td>gemini-3-flash-smoke4-20260528-225047</td><td class="num">4</td><td class="num">0.0000</td><td class="num">0.0000</td><td><code>guisd_data/logs/closed_model_eval/rrsisd_test/gemini-3-flash-smoke4-20260528-225047/summary.json</code></td></tr>
+<tr><td>gemini-3-flash-smoke4-20260528-2316-gm384</td><td class="num">4</td><td class="num">0.0000</td><td class="num">0.0000</td><td><code>guisd_data/logs/closed_model_eval/rrsisd_test/gemini-3-flash-smoke4-20260528-2316-gm384/summary.json</code></td></tr>
+<tr><td>gemini-3-flash-smoke4-20260528-ints-smoke4</td><td class="num">4</td><td class="num">0.0000</td><td class="num">0.0000</td><td><code>guisd_data/logs/closed_model_eval/rrsisd_test/gemini-3-flash-smoke4-20260528-ints-smoke4/summary.json</code></td></tr>
+<tr><td>gemini-3-flash-smoke5-20260528-173119</td><td class="num">5</td><td class="num">0.0000</td><td class="num">0.0000</td><td><code>guisd_data/logs/closed_model_eval/rrsisd_test/gemini-3-flash-smoke5-20260528-173119/summary.json</code></td></tr>
+<tr><td>gemini-3-flash-smoke5-20260528-173311</td><td class="num">5</td><td class="num">0.0227</td><td class="num">0.2000</td><td><code>guisd_data/logs/closed_model_eval/rrsisd_test/gemini-3-flash-smoke5-20260528-173311/summary.json</code></td></tr>
+<tr><td>gemini-3-flash-smoke8-20260528-173719</td><td class="num">8</td><td class="num">0.0364</td><td class="num">0.2500</td><td><code>guisd_data/logs/closed_model_eval/rrsisd_test/gemini-3-flash-smoke8-20260528-173719/summary.json</code></td></tr>
+<tr><td>gemini-3-flash-smoke8-20260528-224620</td><td class="num">8</td><td class="num">0.0000</td><td class="num">0.0000</td><td><code>guisd_data/logs/closed_model_eval/rrsisd_test/gemini-3-flash-smoke8-20260528-224620/summary.json</code></td></tr>
+<tr><td>gemini-3-flash-smoke8-20260528-224859</td><td class="num">8</td><td class="num">0.0000</td><td class="num">0.0000</td><td><code>guisd_data/logs/closed_model_eval/rrsisd_test/gemini-3-flash-smoke8-20260528-224859/summary.json</code></td></tr>
+<tr><td>gemini-3-flash-smoke8-20260528-2313-gm0</td><td class="num">8</td><td class="num">0.0000</td><td class="num">0.0000</td><td><code>guisd_data/logs/closed_model_eval/rrsisd_test/gemini-3-flash-smoke8-20260528-2313-gm0/summary.json</code></td></tr>
+<tr><td>gpt-5.5-full-20260528-225759</td><td class="num">3481</td><td class="num">0.3681</td><td class="num">0.9917</td><td><code>guisd_data/logs/closed_model_eval/rrsisd_test/gpt-5.5-full-20260528-225759/summary.json</code></td></tr>
+<tr><td>gpt-5.5-smoke4-20260528-225449</td><td class="num">4</td><td class="num">0.4031</td><td class="num">0.7500</td><td><code>guisd_data/logs/closed_model_eval/rrsisd_test/gpt-5.5-smoke4-20260528-225449/summary.json</code></td></tr>
+</table></div>
+</section>
+<section class="card"><h2>自查结论</h2><ul>
+<li>验收标准 1：已从日志中抽取结果 metrics、训练参数、教师刷新/提示设置、资源配置、checkpoint、评测 TP/gpu_mem/max_len 和异常终态说明。</li>
+<li>验收标准 2：现有 <code>0-SummaryOfExp.html</code> 已有分数不重复展开；本页只补新增 metrics 和设置级信息，并显式标注不替代总表复核值。</li>
+<li>验收标准 3：本页保存为 MRPD 目录下新的 HTML 文件：<code>MRPD/1-LogAppendixSupplement.html</code>。</li>
+</ul></section>
+</main></body></html>

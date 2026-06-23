@@ -29,6 +29,7 @@ ckpt_root="${CKPT_ROOT:-${CHECKPOINT_ROOT:-/mnt/jfs/copilot/lhb/checkpoint/rs/rs
 artifact_root="${ARTIFACT_ROOT:-/mnt/jfs/copilot/lhb/artifacts/rs/rs-sd}"
 base_model_path="${BASE_MODEL_PATH:-/mnt/jfs/copilot/lhb/checkpoint/opensource/Qwen3-VL-4B-Instruct}"
 model_path="${MODEL_PATH:-${base_model_path}}"
+ref_model_path="${REF_MODEL_PATH:-${model_path}}"
 teacher_path="${TEACHER_PATH:-${TEACHER_MODEL_PATH:-${base_model_path}}}"
 rollout_model_path="${ROLLOUT_MODEL_PATH:-${model_path}}"
 train_jsonl="${TRAIN_JSONL:-/data/codes/gui_grounding/data/rs_full/rs_train.jsonl}"
@@ -43,6 +44,7 @@ export CKPT_ROOT="$ckpt_root"
 export CHECKPOINT_ROOT="$ckpt_root"
 export ARTIFACT_ROOT="$artifact_root"
 export MODEL_PATH="$model_path"
+export REF_MODEL_PATH="$ref_model_path"
 export TEACHER_PATH="$teacher_path"
 export ROLLOUT_MODEL_PATH="$rollout_model_path"
 export TRAIN_JSONL="$train_jsonl"
@@ -691,7 +693,7 @@ setsid env \
     --opsd_jitter_ratio "$OPSD_JITTER_RATIO" \
     --model "$model_path" \
     --model_type qwen3_vl \
-    --ref_model "$model_path" \
+    --ref_model "$ref_model_path" \
     --ref_model_type qwen3_vl \
     --teacher_model "$teacher_path" \
     --teacher_model_type qwen3_vl \
